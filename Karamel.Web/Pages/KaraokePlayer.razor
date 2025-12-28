@@ -1,0 +1,236 @@
+@page "/player"
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Karaoke Player</PageTitle>
+
+<h1>Karaoke Player</h1>
+
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <button class="btn btn-primary w-100" @onclick="LoadMp3File">
+                <i class="bi bi-music-note-beamed"></i> Load MP3 File
+            </button>
+            @if (!string.IsNullOrEmpty(mp3FileName))
+            {
+                <p class="text-success mt-2">✓ @mp3FileName</p>
+            }
+        </div>
+        <div class="col-md-6">
+            <button class="btn btn-primary w-100" @onclick="LoadCdgFile">
+                <i class="bi bi-file-earmark-binary"></i> Load CDG File
+            </button>
+            @if (!string.IsNullOrEmpty(cdgFileName))
+            {
+                <p class="text-success mt-2">✓ @cdgFileName</p>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info" role="alert">
+            @statusMessage
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <canvas id="cdgCanvas" width="300" height="216" style="width: 100%; max-width: 600px; height: auto; border: 1px solid #ddd;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <audio id="audioPlayer" controls style="width: 100%;"></audio>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <button class="btn btn-success btn-lg w-100" @onclick="StartPlayback" disabled="@(!CanPlay)">
+                <i class="bi bi-play-circle"></i> Start Playback
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IJSObjectReference? fileAccessModule;
+    private IJSObjectReference? playerModule;
+    private string? mp3FileName;
+    private string? cdgFileName;
+    private bool hasMp3Data;
+    private bool hasCdgData;
+    private string? errorMessage;
+    private string? statusMessage;
+
+    private bool CanPlay => hasMp3Data && hasCdgData;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                fileAccessModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileAccess.js");
+                playerModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/player.js");
+                
+                // Check if File System Access API is supported
+                var isSupported = await JS.InvokeAsync<bool>("eval", "typeof window.showOpenFilePicker === 'function'");
+                if (!isSupported)
+                {
+                    errorMessage = "File System Access API is not supported in this browser. Please use Chrome or Edge.";
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Failed to initialize: {ex.Message}";
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task LoadMp3File()
+    {
+        try
+        {
+            errorMessage = null;
+            statusMessage = "Loading MP3 file...";
+            StateHasChanged();
+
+            if (fileAccessModule == null)
+            {
+                errorMessage = "File access module not initialized.";
+                statusMessage = null;
+                StateHasChanged();
+                return;
+            }
+
+            var result = await fileAccessModule.InvokeAsync<FileResult?>("pickMp3File");
+            if (result != null)
+            {
+                mp3FileName = result.Name;
+                hasMp3Data = true;
+                statusMessage = null;
+            }
+            else
+            {
+                statusMessage = "File selection cancelled.";
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading MP3: {ex.Message}";
+            statusMessage = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCdgFile()
+    {
+        try
+        {
+            errorMessage = null;
+            statusMessage = "Loading CDG file...";
+            StateHasChanged();
+
+            if (fileAccessModule == null)
+            {
+                errorMessage = "File access module not initialized.";
+                statusMessage = null;
+                StateHasChanged();
+                return;
+            }
+
+            var result = await fileAccessModule.InvokeAsync<FileResult?>("pickCdgFile");
+            if (result != null)
+            {
+                cdgFileName = result.Name;
+                hasCdgData = true;
+                statusMessage = null;
+            }
+            else
+            {
+                statusMessage = "File selection cancelled.";
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading CDG: {ex.Message}";
+            statusMessage = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StartPlayback()
+    {
+        try
+        {
+            if (playerModule == null || !hasMp3Data || !hasCdgData)
+            {
+                errorMessage = "Cannot start playback. Files not loaded.";
+                return;
+            }
+
+            errorMessage = null;
+            statusMessage = "Starting playback...";
+            StateHasChanged();
+
+            await playerModule.InvokeVoidAsync("initializePlayer");
+            
+            statusMessage = "Playback started!";
+            StateHasChanged();
+
+            // Clear status message after 2 seconds
+            await Task.Delay(2000);
+            statusMessage = null;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error starting playback: {ex.Message}";
+            statusMessage = null;
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (fileAccessModule != null)
+        {
+            await fileAccessModule.DisposeAsync();
+        }
+        if (playerModule != null)
+        {
+            await playerModule.DisposeAsync();
+        }
+    }
+
+    private class FileResult
+    {
+        public string Name { get; set; } = string.Empty;
+        public long Size { get; set; }
+    }
+}
