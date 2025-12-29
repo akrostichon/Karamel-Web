@@ -1,0 +1,156 @@
+@page "/playlist"
+@using Fluxor
+@using Karamel.Web.Models
+@using Karamel.Web.Store.Playlist
+@using Karamel.Web.Store.Session
+@inject IState<PlaylistState> PlaylistState
+@inject IState<SessionState> SessionState
+@inject IDispatcher Dispatcher
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Playlist - Karamel</PageTitle>
+
+<div class="playlist-container">
+    <h1 class="mb-4">Playlist</h1>
+
+    @if (!PlaylistState.Value.Queue.Any())
+    {
+        <div class="alert alert-info" role="alert">
+            <i class="bi bi-music-note-list"></i>
+            No songs in queue. Add songs from the Singer view!
+        </div>
+    }
+    else
+    {
+        <!-- Now Playing Section -->
+        <div class="now-playing card mb-4">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="bi bi-play-circle-fill text-primary me-2"></i>
+                    Now Playing
+                </h2>
+                @{
+                    var nowPlaying = PlaylistState.Value.Queue.Peek();
+                }
+                <div class="song-info">
+                    <div class="artist h4">@nowPlaying.Artist</div>
+                    <div class="title h3 fw-bold">@nowPlaying.Title</div>
+                    @if (!string.IsNullOrEmpty(nowPlaying.AddedBySinger))
+                    {
+                        <div class="singer text-muted">
+                            <i class="bi bi-person-fill"></i> @nowPlaying.AddedBySinger
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Up Next Section -->
+        @if (PlaylistState.Value.Queue.Count() > 1)
+        {
+            var upNextSongs = PlaylistState.Value.Queue.Skip(1).ToList();
+
+            <div class="up-next card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3 class="card-title mb-0">
+                            <i class="bi bi-list-ol me-2"></i>
+                            Up Next (@upNextSongs.Count)
+                        </h3>
+                        <button class="btn btn-danger btn-sm btn-clear-playlist" @onclick="ClearPlaylist">
+                            <i class="bi bi-trash-fill"></i> Clear All
+                        </button>
+                    </div>
+
+                    <div class="song-list">
+                        @for (int i = 0; i < upNextSongs.Count; i++)
+                        {
+                            var song = upNextSongs[i];
+                            var position = i + 2; // +2 because position 1 is "Now Playing"
+                            var isDraggable = SessionState.Value.CurrentSession?.AllowSingersToReorder ?? false;
+                            var index = i;
+
+                            <div class="song-item @(isDraggable ? "draggable" : "")" 
+                                 draggable="@isDraggable.ToString().ToLower()"
+                                 @ondragstart="@(() => HandleDragStart(index))"
+                                 @ondragover="@(e => HandleDragOver(e, index))"
+                                 @ondrop="@(() => HandleDrop(index))"
+                                 @ondragleave="HandleDragLeave">
+                                <div class="song-position">
+                                    #@position
+                                </div>
+                                <div class="song-details flex-grow-1">
+                                    <div class="song-artist-title">
+                                        <strong>@song.Artist</strong> - @song.Title
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(song.AddedBySinger))
+                                    {
+                                        <div class="song-singer text-muted small">
+                                            <i class="bi bi-person-fill"></i> @song.AddedBySinger
+                                        </div>
+                                    }
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger btn-remove" 
+                                        @onclick="@(() => RemoveSong(song.Id))">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private int? draggedIndex;
+    private string dragOverClass = "";
+
+    private void RemoveSong(Guid songId)
+    {
+        Dispatcher.Dispatch(new RemoveSongAction(songId));
+    }
+
+    private async Task ClearPlaylist()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            "Are you sure you want to clear the entire playlist?");
+        
+        if (confirmed)
+        {
+            Dispatcher.Dispatch(new ClearPlaylistAction());
+        }
+    }
+
+    private void HandleDragStart(int index)
+    {
+        draggedIndex = index;
+    }
+
+    private void HandleDragOver(DragEventArgs e, int index)
+    {
+        // Add visual feedback if dragging over a different item
+        if (draggedIndex.HasValue && draggedIndex.Value != index)
+        {
+            dragOverClass = $"drag-over-{index}";
+        }
+    }
+
+    private void HandleDrop(int targetIndex)
+    {
+        if (draggedIndex.HasValue && draggedIndex.Value != targetIndex)
+        {
+            // Dispatch reorder action with adjusted indices (skip "Now Playing")
+            Dispatcher.Dispatch(new ReorderPlaylistAction(draggedIndex.Value + 1, targetIndex + 1));
+        }
+        
+        draggedIndex = null;
+        dragOverClass = "";
+    }
+
+    private void HandleDragLeave()
+    {
+        dragOverClass = "";
+    }
+}
