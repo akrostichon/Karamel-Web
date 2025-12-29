@@ -62,9 +62,9 @@ public class SessionService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Broadcast library loaded event (main tab only)
+    /// Save library to sessionStorage (main tab only, called once during session initialization)
     /// </summary>
-    public async Task BroadcastLibraryLoadedAsync(IEnumerable<Song> songs)
+    public async Task SaveLibraryToSessionStorageAsync(IEnumerable<Song> songs)
     {
         if (!_isMainTab || _sessionBridgeModule == null)
             return;
@@ -81,7 +81,7 @@ public class SessionService : IAsyncDisposable
             }).ToArray()
         };
 
-        await _sessionBridgeModule.InvokeVoidAsync("broadcastStateUpdate", "library-loaded", data);
+        await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", data);
     }
 
     /// <summary>
@@ -188,6 +188,7 @@ public class SessionService : IAsyncDisposable
 
     /// <summary>
     /// Restore session state from sessionStorage (secondary tabs)
+    /// Library is read from sessionStorage - already saved by main tab during session init
     /// </summary>
     private async Task RestoreSessionStateAsync()
     {
@@ -206,7 +207,8 @@ public class SessionService : IAsyncDisposable
                 // This will be implemented when we have the necessary actions
             }
 
-            // Restore library
+            // Library is already in sessionStorage (saved by main tab during init)
+            // Secondary tabs just read it directly from state
             if (stateJson.TryGetProperty("library", out var libraryData) && 
                 libraryData.ValueKind != JsonValueKind.Null)
             {

@@ -91,9 +91,6 @@ function saveToSessionStorage(type, data) {
         const sessionState = getSessionState();
         
         switch (type) {
-            case 'library-loaded':
-                sessionState.library = data;
-                break;
             case 'playlist-updated':
                 sessionState.playlist = data;
                 break;
@@ -111,6 +108,21 @@ function saveToSessionStorage(type, data) {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionState));
     } catch (error) {
         console.error('Failed to save to sessionStorage:', error);
+    }
+}
+
+/**
+ * Save library to sessionStorage (main tab only, called once during session init)
+ * @param {object} libraryData - Library data to save
+ */
+export function saveLibraryToSessionStorage(libraryData) {
+    try {
+        const sessionState = getSessionState();
+        sessionState.library = libraryData;
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionState));
+        console.log('Library saved to sessionStorage:', libraryData.songs?.length || 0, 'songs');
+    } catch (error) {
+        console.error('Failed to save library to sessionStorage:', error);
     }
 }
 

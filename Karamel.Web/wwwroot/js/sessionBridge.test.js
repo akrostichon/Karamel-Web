@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     initializeSession,
     broadcastStateUpdate,
+    saveLibraryToSessionStorage,
     getSessionState,
     clearSessionState,
     generateSessionUrl,
@@ -73,6 +74,7 @@ class MockBroadcastChannel {
 // Mock sessionStorage
 const mockSessionStorage = {
     store: {},
+    _originalSetItem: null,
     getItem(key) {
         return this.store[key] || null;
     },
@@ -84,6 +86,14 @@ const mockSessionStorage = {
     },
     clear() {
         this.store = {};
+    },
+    reset() {
+        this.store = {};
+        // Restore original setItem if it was mocked
+        if (this._originalSetItem) {
+            this.setItem = this._originalSetItem;
+            this._originalSetItem = null;
+        }
     }
 };
 
@@ -104,7 +114,7 @@ describe('sessionBridge', () => {
     beforeEach(() => {
         // Reset mocks
         MockBroadcastChannel.reset();
-        mockSessionStorage.clear();
+        mockSessionStorage.reset();
         mockWindow.dispatchEvent = vi.fn();
         mockWindow.addEventListener.mockClear();
         mockLocation.search = '';
@@ -177,10 +187,8 @@ describe('sessionBridge', () => {
         });
     });
 
-    describe('broadcastStateUpdate', () => {
-        it('should broadcast library-loaded event from main tab', async () => {
-            initializeSession(true);
-            
+    describe('saveLibraryToSessionStorage', () => {
+        it('should save library to sessionStorage without broadcasting', () => {
             const libraryData = {
                 songs: [
                     { id: '123', artist: 'Artist 1', title: 'Song 1' },
@@ -188,13 +196,54 @@ describe('sessionBridge', () => {
                 ]
             };
 
-            broadcastStateUpdate('library-loaded', libraryData);
+            saveLibraryToSessionStorage(libraryData);
 
-            // Check sessionStorage was updated
             const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
             expect(stored.library).toEqual(libraryData);
         });
 
+        it('should preserve existing session state when saving library', () => {
+            // Set up existing state
+            const existingState = {
+                session: { sessionId: 'abc-123' },
+                library: null,
+                playlist: { queue: [{ id: '1' }] },
+                currentSong: null
+            };
+            mockSessionStorage.setItem('karamel-session-state', JSON.stringify(existingState));
+
+            const libraryData = {
+                songs: [{ id: '789', artist: 'New Artist', title: 'New Song' }]
+            };
+
+            saveLibraryToSessionStorage(libraryData);
+
+            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            expect(stored.library).toEqual(libraryData);
+            expect(stored.session).toEqual(existingState.session);
+            expect(stored.playlist).toEqual(existingState.playlist);
+        });
+
+        it('should handle storage errors gracefully', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            
+            const originalSetItem = mockSessionStorage.setItem;
+            mockSessionStorage._originalSetItem = originalSetItem;
+            mockSessionStorage.setItem = () => {
+                throw new Error('Storage quota exceeded');
+            };
+
+            const libraryData = { songs: [] };
+            expect(() => saveLibraryToSessionStorage(libraryData)).not.toThrow();
+
+            // Restore original function
+            mockSessionStorage.setItem = originalSetItem;
+            mockSessionStorage._originalSetItem = null;
+            consoleSpy.mockRestore();
+        });
+    });
+
+    describe('broadcastStateUpdate', () => {
         it('should broadcast playlist-updated event', async () => {
             initializeSession(true);
             
@@ -255,15 +304,15 @@ describe('sessionBridge', () => {
             initializeSession(false);
 
             const secondaryChannel = MockBroadcastChannel.instances[1];
-            const testData = { songs: [{ id: '1', artist: 'Test', title: 'Song' }] };
+            const testData = { queue: [{ id: '1', artist: 'Test', title: 'Song' }] };
 
             secondaryChannel.onmessage = (event) => {
-                expect(event.data.type).toBe('library-loaded');
+                expect(event.data.type).toBe('playlist-updated');
                 expect(event.data.data).toEqual(testData);
                 done();
             };
 
-            broadcastStateUpdate('library-loaded', testData);
+            broadcastStateUpdate('playlist-updated', testData);
         });
 
         it('should dispatch custom event when secondary tab receives message', async () => {
@@ -295,14 +344,14 @@ describe('sessionBridge', () => {
         it('should persist state to sessionStorage', () => {
             initializeSession(true);
             
-            const libraryData = { songs: [{ id: '1', artist: 'A', title: 'B' }] };
-            broadcastStateUpdate('library-loaded', libraryData);
+            const playlistData = { queue: [{ id: '1', artist: 'A', title: 'B' }] };
+            broadcastStateUpdate('playlist-updated', playlistData);
 
             const stored = mockSessionStorage.getItem('karamel-session-state');
             expect(stored).toBeDefined();
             
             const parsed = JSON.parse(stored);
-            expect(parsed.library).toEqual(libraryData);
+            expect(parsed.playlist).toEqual(playlistData);
         });
 
         it('should retrieve session state from sessionStorage', () => {
@@ -350,7 +399,7 @@ describe('sessionBridge', () => {
     describe('clearSessionState', () => {
         it('should clear sessionStorage', () => {
             initializeSession(true);
-            broadcastStateUpdate('library-loaded', { songs: [] });
+            broadcastStateUpdate('playlist-updated', { queue: [] });
 
             expect(mockSessionStorage.getItem('karamel-session-state')).not.toBeNull();
 
@@ -507,13 +556,18 @@ describe('sessionBridge', () => {
         it('should handle sessionStorage errors gracefully', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
             
+            const originalSetItem = mockSessionStorage.setItem;
+            mockSessionStorage._originalSetItem = originalSetItem;
             mockSessionStorage.setItem = () => {
                 throw new Error('Storage quota exceeded');
             };
 
             initializeSession(true);
-            expect(() => broadcastStateUpdate('library-loaded', { songs: [] })).not.toThrow();
+            expect(() => broadcastStateUpdate('playlist-updated', { queue: [] })).not.toThrow();
 
+            // Restore original function
+            mockSessionStorage.setItem = originalSetItem;
+            mockSessionStorage._originalSetItem = null;
             consoleSpy.mockRestore();
         });
     });
