@@ -23,16 +23,20 @@
 - **Browser support**: Chrome/Edge only (File System Access API requirement).
 
 ---
+## Implementation rules
+- if current branch is main, always create a feature branch and switch to it, before you start implementing.
+- implement unit tests for non-ui logic
+---
 
-## Phase 1: Prototype Cleanup
+## Phase 1: Prototype Cleanup ✅ COMPLETE
 
-### Step 1.1: Remove Template Files
+### Step 1.1: Remove Template Files ✅
 **Delete**:
-- `Pages/Counter.razor`
-- `Pages/Weather.razor`
+- ✅ `Pages/Counter.razor`
+- ✅ `Pages/Weather.razor`
 
 **Update**:
-- `Layout/NavMenu.razor` - Remove Counter/Weather links
+- ✅ `Layout/NavMenu.razor` - Remove Counter/Weather links
 ---
 
 ## Phase 2: Library Management & Multi-View Architecture
@@ -50,7 +54,7 @@
 **Files**: `wwwroot/js/fileAccess.js`, `wwwroot/js/metadata.js`
 
 - Import jsmediatags from CDN: `https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/+esm`
-- Extract ID3 tags: artist, title, album
+- Extract ID3 tags: artist, title
 - **Fallback**: If no ID3 tags, parse filename using configurable pattern (default: "%artist - %title")
 - Return song metadata array (no file handles - those stay in JS for playback)
 
@@ -58,11 +62,11 @@
 **Files**: `Models/Song.cs`, `Models/Session.cs`, `Store/LibraryState.cs`, `Store/PlaylistState.cs`
 
 - Install NuGet: `Fluxor.Blazor.Web`
-- Create `Song` model: Id (GUID), Artist, Title, Mp3FileName, CdgFileName
+- Create `Song` model: Id (GUID), Artist, Title, Mp3FileName, CdgFileName, AddedBySinger
 - Create `Session` model: SessionId (GUID), CreatedAt, LibraryPath, RequireSingerName, PauseBetweenSongs, FilenamePattern
 - Create `LibraryState`: List<Song>, loading status, search filter (sorted alphabetically by Artist, then Title)
-- Create `PlaylistState`: List<Song> (queue where index 0 is current song), current singer name
-- Define actions: LoadLibrary, FilterSongs, AddToPlaylist, RemoveSong, ReorderPlaylist, NextSong (removes index 0)
+- Create `PlaylistState`: Queue<Song> (queue first item is next song), current Song + SingerName, Dictionary<string, int> SingerSongCounts
+- Define actions: LoadLibrary, FilterSongs, AddToPlaylist (validates 10-song limit), RemoveSong, ReorderPlaylist, NextSong (pops first item)
 
 ### Step 2.4: Session Sharing Mechanism
 **Files**: `wwwroot/js/sessionBridge.js`, `Services/SessionService.cs`
@@ -71,8 +75,10 @@
 - Use **Broadcast Channel API** for cross-tab state synchronization:
   - Main tab (with folder access) broadcasts playlist/library changes
   - Secondary tabs (Playlist, Singer views) listen and update their state
+- **sessionStorage**: Persist session state (library metadata, playlist, settings) so tab refresh doesn't lose context
 - Create sessionBridge.js to handle broadcast messages
 - SessionService.cs manages session state in Fluxor and triggers JS broadcast
+- **Note**: Main tab must remain open (holds directory handle). If closed, session ends for all tabs.
 
 ### Step 2.5: Home Page (Session Initialization)
 **Files**: `Pages/Home.razor`
@@ -80,7 +86,7 @@
 - Replace template content with session initialization UI
 - "Select Karaoke Library" button (calls pickLibraryDirectory)
 - Checkbox: Allow singers to reorder playlist (default: unchecked)
-- Checkbox: Require singer name (default: checked)
+- Checkbox: Require singer name (default: checked) - **only configurable setting**
 - Textbox: Seconds pause between songs (default: 5)
 - Textbox: Filename parsing pattern (default: "%artist - %title")
 - Browser compatibility warning (File System Access API required)
@@ -116,7 +122,9 @@
 - If `RequireSingerName`: Show name entry form → confirm button → store in session state
 - Embeds `<LibrarySearch>` component with mobile-optimized styling
 - Large touch-friendly "Add to Queue" buttons
+- **Hard-coded limit**: Max 10 songs per singer (tracked in PlaylistState)
 - Success toast: "Song added! It's now #{position} in queue"
+- Error toast if limit reached: "Maximum 10 songs per singer"
 - No folder access needed (uses broadcast metadata from main tab)
 
 ### Step 2.9: Next Song View
@@ -283,7 +291,7 @@
 ## Open Questions (ANSWERED)
 
 1. **Sorting**: ✅ Library defaults to alphabetical by Artist, then Title (ascending)
-2. **Duplicates**: ✅ Allow duplicates - each gets unique GUID. User can add same song multiple times if desired.
+2. **Duplicates**: ✅ Only first song with same Artist and title will be added to library..
 3. **Singer names**: ✅ App stores current singer name in session state. Name persists for all songs added by that singer until they change it. No history tracking in Phase 2.
 4. **Playlist limit**: ✅ Max 10 songs per singer to prevent spam
 5. **Audio controls**: ✅ Singer view shows library search only. "Now Playing" info remains on main tab (NextSongView/PlayerView) and Playlist view.
@@ -322,5 +330,5 @@
 ---
 
 **Last Updated**: December 28, 2025  
-**Current Phase**: Phase 2 (Library Management & Multi-View Architecture)  
-**Next Milestone**: Directory scanning + metadata extraction
+**Current Phase**: Phase 1 (directly after prototype)  
+**Next Milestone**: Remove Template Files
