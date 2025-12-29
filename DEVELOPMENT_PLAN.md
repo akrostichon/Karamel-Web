@@ -151,16 +151,29 @@
 - ✅ **Edge cases**: Single song in queue, queue becomes empty after removal, reorder to same position
 - **Status**: ✅ COMPLETED (11 tests passing)
 
-### Step 2.8: Singer View
-**Files**: `Pages/SingerView.razor`
+### Step 2.8: Singer View ✅
+**Files**: `Pages/SingerView.razor`, `Karamel.Web.Tests/SingerViewTests.cs`
 
-- If `RequireSingerName`: Show name entry form → confirm button → store in session state
-- Embeds `<LibrarySearch>` component with mobile-optimized styling
-- Large touch-friendly "Add to Queue" buttons
-- **Hard-coded limit**: Max 10 songs per singer (tracked in PlaylistState)
-- Success toast: "Song added! It's now #{position} in queue"
-- Error toast if limit reached: "Maximum 10 songs per singer"
-- No folder access needed (uses broadcast metadata from main tab)
+#### Implementation:
+- ✅ If `RequireSingerName`: Show name entry form → confirm button → store in session state
+- ✅ Embeds `<LibrarySearch>` component with mobile-optimized styling
+- ✅ Large touch-friendly "Add to Queue" buttons
+- ✅ **Hard-coded limit**: Max 10 songs per singer (tracked in PlaylistState)
+- ✅ Success toast: "Song added! It's now #{position} in queue"
+- ✅ Error toast if limit reached: "Maximum 10 songs per singer"
+- ✅ No folder access needed (uses broadcast metadata from main tab)
+
+#### Testing:
+- ✅ **Unit tests**: Verify name entry form displays when RequireSingerName is true
+- ✅ **Unit tests**: Verify name entry form is skipped when RequireSingerName is false
+- ✅ **Unit tests**: Test singer name is stored in session state after confirmation
+- ✅ **Unit tests**: Verify LibrarySearch component is displayed after name confirmation
+- ✅ **Unit tests**: Test 10-song limit validation per singer (tracked in PlaylistState)
+- ✅ **Unit tests**: Verify success toast shows with correct queue position
+- ✅ **Unit tests**: Verify error toast displays when singer reaches 10-song limit
+- ✅ **Unit tests**: Test mobile-optimized styling and touch-friendly buttons
+- ✅ **Edge cases**: Empty singer name validation, special characters in names, session state persistence
+- **Status**: ✅ COMPLETED
 
 ### Step 2.9: Next Song View
 **Files**: `Pages/NextSongView.razor`, `wwwroot/js/qrcode.js`

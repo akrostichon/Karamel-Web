@@ -1,0 +1,233 @@
+@page "/singer"
+@using Fluxor
+@using Fluxor.Blazor.Web.Components
+@using Karamel.Web.Components
+@using Karamel.Web.Models
+@using Karamel.Web.Store.Library
+@using Karamel.Web.Store.Playlist
+@using Karamel.Web.Store.Session
+
+@inherits FluxorComponent
+
+@inject IState<SessionState> SessionState
+@inject IState<PlaylistState> PlaylistState
+@inject IState<LibraryState> LibraryState
+@inject IDispatcher Dispatcher
+@inject IActionSubscriber ActionSubscriber
+@inject NavigationManager NavigationManager
+
+<PageTitle>Singer View - Karamel Karaoke</PageTitle>
+
+<div class="singer-view">
+    @if (SessionState.Value.CurrentSession == null)
+    {
+        <div class="alert alert-danger m-4" role="alert">
+            <h4 class="alert-heading">Invalid Session</h4>
+            <p>No active karaoke session found. Please start a new session from the home page.</p>
+        </div>
+    }
+    else if (SessionState.Value.CurrentSession.RequireSingerName && string.IsNullOrWhiteSpace(singerName))
+    {
+        <div class="name-entry-container">
+            <div class="name-entry-card">
+                <h2 class="text-center mb-4">Welcome to Karaoke!</h2>
+                <p class="text-center mb-4">Please enter your name to continue</p>
+                
+                <div class="mb-3">
+                    <label for="singerNameInput" class="form-label">Your Name</label>
+                    <input 
+                        type="text" 
+                        class="form-control form-control-lg" 
+                        id="singerNameInput"
+                        @bind="tempSingerName"
+                        @onkeyup="HandleKeyUp"
+                        placeholder="Enter your name"
+                        maxlength="50"
+                        autofocus />
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(nameError))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @nameError
+                    </div>
+                }
+
+                <button 
+                    class="btn btn-primary btn-lg w-100 mt-3"
+                    @onclick="ConfirmName"
+                    disabled="@string.IsNullOrWhiteSpace(tempSingerName)">
+                    Continue
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="library-container">
+            <div class="singer-header">
+                @if (!string.IsNullOrWhiteSpace(singerName))
+                {
+                    <h3>Welcome, @singerName!</h3>
+                }
+                else
+                {
+                    <h3>Select Your Songs</h3>
+                }
+                <div class="song-count">
+                    @GetSongCount() / 10 songs in queue
+                </div>
+            </div>
+
+            <LibrarySearch OnAddToQueue="HandleAddToQueue" />
+        </div>
+    }
+
+    @if (showToast)
+    {
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header @toastClass">
+                    <i class="bi @toastIcon me-2"></i>
+                    <strong class="me-auto">@toastTitle</strong>
+                    <button type="button" class="btn-close" @onclick="HideToast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    @toastMessage
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string singerName = string.Empty;
+    private string tempSingerName = string.Empty;
+    private string nameError = string.Empty;
+    private bool showToast = false;
+    private string toastMessage = string.Empty;
+    private string toastTitle = string.Empty;
+    private string toastClass = string.Empty;
+    private string toastIcon = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        
+        // Subscribe to playlist actions for feedback
+        ActionSubscriber.SubscribeToAction<AddToPlaylistSuccessAction>(this, HandleAddToPlaylistSuccess);
+        ActionSubscriber.SubscribeToAction<AddToPlaylistFailureAction>(this, HandleAddToPlaylistFailure);
+    }
+
+    private void ConfirmName()
+    {
+        var trimmedName = tempSingerName.Trim();
+        
+        if (string.IsNullOrWhiteSpace(trimmedName))
+        {
+            nameError = "Name cannot be empty";
+            return;
+        }
+
+        if (trimmedName.Length < 2)
+        {
+            nameError = "Name must be at least 2 characters";
+            return;
+        }
+
+        singerName = trimmedName;
+        nameError = string.Empty;
+        StateHasChanged();
+    }
+
+    private void HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            ConfirmName();
+        }
+    }
+
+    private void HandleAddToQueue(Song song)
+    {
+        // Get current singer name (either from state or "Unknown" if RequireSingerName is false)
+        var currentSingerName = SessionState.Value.CurrentSession?.RequireSingerName == true 
+            ? singerName 
+            : null;
+
+        Dispatcher.Dispatch(new AddToPlaylistAction(song, currentSingerName));
+    }
+
+    private void HandleAddToPlaylistSuccess(AddToPlaylistSuccessAction action)
+    {
+        // Only show toast if this song was added by current singer
+        if (action.Song.AddedBySinger == singerName || 
+            (string.IsNullOrWhiteSpace(singerName) && string.IsNullOrWhiteSpace(action.Song.AddedBySinger)))
+        {
+            var position = PlaylistState.Value.Queue.Count;
+            ShowSuccessToast($"'{action.Song.Title}' added! It's now #{position} in queue");
+        }
+    }
+
+    private void HandleAddToPlaylistFailure(AddToPlaylistFailureAction action)
+    {
+        ShowErrorToast(action.ErrorMessage);
+    }
+
+    private int GetSongCount()
+    {
+        if (string.IsNullOrWhiteSpace(singerName))
+            return 0;
+            
+        return PlaylistState.Value.SingerSongCounts.GetValueOrDefault(singerName, 0);
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        toastMessage = message;
+        toastTitle = "Success";
+        toastClass = "bg-success text-white";
+        toastIcon = "bi-check-circle-fill";
+        showToast = true;
+        StateHasChanged();
+        
+        // Auto-hide after 3 seconds
+        Task.Delay(3000).ContinueWith(_ => 
+        {
+            InvokeAsync(() =>
+            {
+                HideToast();
+            });
+        });
+    }
+
+    private void ShowErrorToast(string message)
+    {
+        toastMessage = message;
+        toastTitle = "Error";
+        toastClass = "bg-danger text-white";
+        toastIcon = "bi-exclamation-triangle-fill";
+        showToast = true;
+        StateHasChanged();
+        
+        // Auto-hide after 4 seconds
+        Task.Delay(4000).ContinueWith(_ => 
+        {
+            InvokeAsync(() =>
+            {
+                HideToast();
+            });
+        });
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ActionSubscriber.UnsubscribeFromAllActions(this);
+    }
+}
