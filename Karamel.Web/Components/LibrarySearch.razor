@@ -1,0 +1,150 @@
+@using Fluxor
+@using Fluxor.Blazor.Web.Components
+@using Karamel.Web.Models
+@using Karamel.Web.Store.Library
+@using Karamel.Web.Store.Playlist
+
+@inherits FluxorComponent
+
+@inject IState<LibraryState> LibraryState
+@inject IDispatcher Dispatcher
+
+<div class="library-search">
+    <div class="search-box mb-3">
+        <input 
+            type="text" 
+            class="form-control form-control-lg" 
+            placeholder="Search by artist or title..."
+            value="@LibraryState.Value.SearchFilter"
+            @oninput="OnSearchInput" />
+    </div>
+
+    @if (LibraryState.Value.IsLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(LibraryState.Value.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @LibraryState.Value.ErrorMessage
+        </div>
+    }
+    else if (!FilteredAndSortedSongs.Any())
+    {
+        <div class="alert alert-info" role="alert">
+            @if (LibraryState.Value.Songs.Any())
+            {
+                <text>No songs match your search criteria.</text>
+            }
+            else
+            {
+                <text>No songs in library.</text>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">Artist</th>
+                        <th scope="col">Title</th>
+                        <th scope="col" class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var song in FilteredAndSortedSongs)
+                    {
+                        <tr>
+                            <td>@song.Artist</td>
+                            <td>@song.Title</td>
+                            <td class="text-center">
+                                <button 
+                                    class="btn btn-primary btn-sm"
+                                    @onclick="() => AddToQueue(song)"
+                                    title="Add to Queue">
+                                    <i class="bi bi-mic-fill"></i> Add
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="text-muted small">
+            Showing @FilteredAndSortedSongs.Count() of @LibraryState.Value.Songs.Count songs
+        </div>
+    }
+
+    @if (showToast)
+    {
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header @toastClass">
+                    <i class="bi @toastIcon me-2"></i>
+                    <strong class="me-auto">@toastTitle</strong>
+                    <button type="button" class="btn-close" @onclick="HideToast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    @toastMessage
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool showToast = false;
+    private string toastMessage = string.Empty;
+    private string toastTitle = string.Empty;
+    private string toastClass = string.Empty;
+    private string toastIcon = string.Empty;
+
+    private IEnumerable<Song> FilteredAndSortedSongs => 
+        LibraryState.Value.FilteredSongs
+            .OrderBy(s => s.Artist)
+            .ThenBy(s => s.Title);
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        var searchText = e.Value?.ToString() ?? string.Empty;
+        Dispatcher.Dispatch(new FilterSongsAction(searchText));
+    }
+
+    private void AddToQueue(Song song)
+    {
+        Dispatcher.Dispatch(new AddToPlaylistAction(song));
+        ShowSuccessToast($"'{song.Title}' by {song.Artist} added to queue!");
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        toastMessage = message;
+        toastTitle = "Success";
+        toastClass = "bg-success text-white";
+        toastIcon = "bi-check-circle-fill";
+        showToast = true;
+        StateHasChanged();
+        
+        // Auto-hide after 3 seconds
+        Task.Delay(3000).ContinueWith(_ => 
+        {
+            InvokeAsync(() =>
+            {
+                HideToast();
+            });
+        });
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+        StateHasChanged();
+    }
+}
