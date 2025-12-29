@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Karamel.Web;
+using Karamel.Web.Services;
 using Fluxor;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -14,5 +15,8 @@ builder.Services.AddFluxor(options =>
 {
     options.ScanAssemblies(typeof(Program).Assembly);
 });
+
+// Add SessionService for cross-tab communication
+builder.Services.AddScoped<SessionService>();
 
 await builder.Build().RunAsync();
