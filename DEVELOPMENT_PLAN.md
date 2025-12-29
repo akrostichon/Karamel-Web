@@ -41,14 +41,16 @@
 
 ## Phase 2: Library Management & Multi-View Architecture
 
-### Step 2.1: Directory Scanning
-**Files**: `wwwroot/js/fileAccess.js`
+### Step 2.1: Directory Scanning ✅
+**Files**: `wwwroot/js/fileAccess.js`, `wwwroot/js/fileAccess.test.js`
 
-- Add `pickLibraryDirectory()` function using `showDirectoryPicker()`
-- Recursively scan directory for `.mp3` files
-- For each MP3, look for matching `.cdg` file (same name, different extension)
-- Return array of song metadata objects
-- **Keep directory handle in JavaScript module scope** for session-long file access
+- ✅ Add `pickLibraryDirectory()` function using `showDirectoryPicker()`
+- ✅ Recursively scan directory for `.mp3` files
+- ✅ For each MP3, look for matching `.cdg` file (same name, different extension)
+- ✅ Return array of song metadata objects
+- ✅ **Keep directory handle in JavaScript module scope** for session-long file access
+- ✅ Added `loadSongFiles()` function for loading specific songs during playback
+- ✅ **Unit tests with Vitest** - 14 tests covering all functionality with mocked File System Access API
 
 ### Step 2.2: Song Metadata Extraction
 **Files**: `wwwroot/js/fileAccess.js`, `wwwroot/js/metadata.js`
