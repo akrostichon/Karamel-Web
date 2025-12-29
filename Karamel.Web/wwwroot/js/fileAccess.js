@@ -3,6 +3,7 @@
 
 let mp3Data = null;
 let cdgData = null;
+let libraryDirectoryHandle = null; // Keep directory handle for session-long access
 
 export async function pickMp3File() {
     try {
@@ -62,4 +63,143 @@ export function getCdgData() {
 
 export function hasFiles() {
     return mp3Data !== null && cdgData !== null;
+}
+
+/**
+ * Pick a library directory and scan for karaoke files (MP3 + CDG pairs)
+ * @returns {Promise<Array>} Array of song metadata objects
+ */
+export async function pickLibraryDirectory() {
+    try {
+        // Request directory access
+        libraryDirectoryHandle = await window.showDirectoryPicker({
+            mode: 'read'
+        });
+
+        // Recursively scan for songs
+        const songs = [];
+        await scanDirectoryForSongs(libraryDirectoryHandle, songs);
+
+        console.log(`Library scan complete: ${songs.length} songs found`);
+        return songs;
+    } catch (error) {
+        console.error('Error picking library directory:', error);
+        return null;
+    }
+}
+
+/**
+ * Recursively scan directory for MP3 files and their matching CDG files
+ * @param {FileSystemDirectoryHandle} directoryHandle 
+ * @param {Array} songs - Accumulator array for found songs
+ * @param {string} relativePath - Current relative path from library root
+ */
+async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '') {
+    try {
+        const mp3Files = new Map(); // Map of basename -> mp3 file handle
+        const cdgFiles = new Set(); // Set of basenames that have CDG files
+        const subdirectories = [];
+
+        // First pass: collect all files
+        for await (const entry of directoryHandle.values()) {
+            if (entry.kind === 'file') {
+                const fileName = entry.name.toLowerCase();
+                
+                if (fileName.endsWith('.mp3')) {
+                    const baseName = entry.name.slice(0, -4); // Remove .mp3 extension
+                    mp3Files.set(baseName, entry);
+                } else if (fileName.endsWith('.cdg')) {
+                    const baseName = entry.name.slice(0, -4); // Remove .cdg extension
+                    cdgFiles.add(baseName);
+                }
+            } else if (entry.kind === 'directory') {
+                subdirectories.push(entry);
+            }
+        }
+
+        // Second pass: match MP3s with CDGs
+        for (const [baseName, mp3Handle] of mp3Files) {
+            const hasCdg = cdgFiles.has(baseName);
+            
+            // Only include songs that have both MP3 and CDG files
+            if (!hasCdg) {
+                continue;
+            }
+            
+            const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
+
+            songs.push({
+                id: crypto.randomUUID(),
+                mp3FileName: `${baseName}.mp3`,
+                cdgFileName: `${baseName}.cdg`,
+                path: relativePath,
+                fullPath: fullPath,
+                mp3Handle: mp3Handle
+            });
+        }
+
+        // Recursively scan subdirectories
+        for (const subdir of subdirectories) {
+            const newPath = relativePath ? `${relativePath}/${subdir.name}` : subdir.name;
+            await scanDirectoryForSongs(subdir, songs, newPath);
+        }
+    } catch (error) {
+        console.error(`Error scanning directory ${relativePath}:`, error);
+    }
+}
+
+/**
+ * Get the library directory handle (for loading files during playback)
+ * @returns {FileSystemDirectoryHandle|null}
+ */
+export function getLibraryDirectoryHandle() {
+    return libraryDirectoryHandle;
+}
+
+/**
+ * Load MP3 and CDG file data from the library directory for a specific song
+ * @param {string} path - Relative path to the files
+ * @param {string} mp3FileName - MP3 filename
+ * @param {string} cdgFileName - CDG filename
+ * @returns {Promise<{mp3Data: Uint8Array, cdgData: Uint8Array}>}
+ */
+export async function loadSongFiles(path, mp3FileName, cdgFileName) {
+    try {
+        if (!libraryDirectoryHandle) {
+            throw new Error('No library directory selected');
+        }
+
+        // Navigate to the correct subdirectory
+        let currentDir = libraryDirectoryHandle;
+        if (path) {
+            const pathParts = path.split('/');
+            for (const part of pathParts) {
+                currentDir = await currentDir.getDirectoryHandle(part);
+            }
+        }
+
+        // Load MP3 file
+        const mp3FileHandle = await currentDir.getFileHandle(mp3FileName);
+        const mp3File = await mp3FileHandle.getFile();
+        const mp3ArrayBuffer = await mp3File.arrayBuffer();
+        const loadedMp3Data = new Uint8Array(mp3ArrayBuffer);
+
+        // Load CDG file
+        const cdgFileHandle = await currentDir.getFileHandle(cdgFileName);
+        const cdgFile = await cdgFileHandle.getFile();
+        const cdgArrayBuffer = await cdgFile.arrayBuffer();
+        const loadedCdgData = new Uint8Array(cdgArrayBuffer);
+
+        // Store in module-level variables for player access
+        mp3Data = loadedMp3Data;
+        cdgData = loadedCdgData;
+
+        return {
+            mp3Data: loadedMp3Data,
+            cdgData: loadedCdgData
+        };
+    } catch (error) {
+        console.error('Error loading song files:', error);
+        throw error;
+    }
 }
