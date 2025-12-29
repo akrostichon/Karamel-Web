@@ -40,8 +40,9 @@ public class SessionService : IAsyncDisposable
     /// <summary>
     /// Initialize session bridge with JavaScript module
     /// </summary>
+    /// <param name="sessionId">Session GUID</param>
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
-    public async Task InitializeAsync(bool asMainTab)
+    public async Task InitializeAsync(Guid sessionId, bool asMainTab)
     {
         if (_isInitialized)
             return;
@@ -50,12 +51,12 @@ public class SessionService : IAsyncDisposable
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./js/sessionBridge.js");
 
-        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", asMainTab);
+        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab);
 
         // Load existing session state from sessionStorage
         if (!asMainTab)
         {
-            await RestoreSessionStateAsync();
+            await RestoreSessionStateAsync(sessionId);
         }
 
         _isInitialized = true;
@@ -64,7 +65,7 @@ public class SessionService : IAsyncDisposable
     /// <summary>
     /// Save library to sessionStorage (main tab only, called once during session initialization)
     /// </summary>
-    public async Task SaveLibraryToSessionStorageAsync(IEnumerable<Song> songs)
+    public async Task SaveLibraryToSessionStorageAsync(Guid sessionId, IEnumerable<Song> songs)
     {
         if (!_isMainTab || _sessionBridgeModule == null)
             return;
@@ -81,7 +82,7 @@ public class SessionService : IAsyncDisposable
             }).ToArray()
         };
 
-        await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", data);
+        await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", sessionId.ToString(), data);
     }
 
     /// <summary>
@@ -190,14 +191,14 @@ public class SessionService : IAsyncDisposable
     /// Restore session state from sessionStorage (secondary tabs)
     /// Library is read from sessionStorage - already saved by main tab during session init
     /// </summary>
-    private async Task RestoreSessionStateAsync()
+    private async Task RestoreSessionStateAsync(Guid sessionId)
     {
         if (_sessionBridgeModule == null)
             return;
 
         try
         {
-            var stateJson = await _sessionBridgeModule.InvokeAsync<JsonElement>("getSessionState");
+            var stateJson = await _sessionBridgeModule.InvokeAsync<JsonElement>("getSessionStateForSession", sessionId.ToString());
 
             // Restore session settings
             if (stateJson.TryGetProperty("session", out var sessionData) && 

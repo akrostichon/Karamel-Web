@@ -76,7 +76,7 @@
 - **Status**: ✅ COMPLETED
 
 ### Step 2.4: Session Sharing Mechanism ✅
-**Files**: `wwwroot/js/sessionBridge.js`, `Services/SessionService.cs`
+**Files**: `wwwroot/js/sessionBridge.js`, `wwwroot/js/sessionBridge.test.js`, `Services/SessionService.cs`
 - ✅ Generate session URL with SessionId as query parameter: `/session?id={guid}`
 - ✅ Use **Broadcast Channel API** for cross-tab state synchronization:
   - Main tab (with folder access) broadcasts playlist changes (library will be stable)
@@ -84,11 +84,16 @@
 - ✅ **sessionStorage**: Persist session state (library metadata, playlist, settings) so tab refresh doesn't lose context
 - ✅ Create sessionBridge.js to handle broadcast messages
 - ✅ SessionService.cs manages session state in Fluxor and triggers JS broadcast
+- ✅ **Multiple Sessions Support**: Each session has its own isolated state using session-specific storage keys and broadcast channels
+  - Different browser tabs/windows can run independent karaoke sessions simultaneously
+  - Sessions are identified by unique GUIDs ensuring no cross-contamination
+  - Each session has its own directory handle, library, and playlist state
+- ✅ **Unit tests with Vitest** - Comprehensive test coverage for session isolation, broadcast messaging, and state synchronization
 - ✅ **Note**: Main tab must remain open (holds directory handle). If closed, session ends for all tabs.
 - **Status**: ✅ COMPLETED
 
 ### Step 2.5: Home Page (Session Initialization)
-**Files**: `Pages/Home.razor`
+**Files**: `Pages/Home.razor`, `wwwroot/js/homeInterop.js`, `wwwroot/js/homeInterop.test.js`
 
 - Replace template content with session initialization UI
 - "Select Karaoke Library" button (calls pickLibraryDirectory)
@@ -103,6 +108,7 @@
   - Opens Playlist view in new tab: `/playlist?session={guid}`
   - Opens Singer view in new tab: `/singer?session={guid}`
   - **Current tab navigates to NextSongView** (retains folder access)
+- **Testing**: Extract JavaScript logic to homeInterop.js module with comprehensive Vitest unit tests (see [TESTING_STRATEGY.md](TESTING_STRATEGY.md) for details)
 
 ### Step 2.6: Library Search Component
 **Files**: `Components/LibrarySearch.razor`

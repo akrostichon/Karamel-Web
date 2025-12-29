@@ -3,22 +3,44 @@
  * Uses Broadcast Channel API for real-time updates and sessionStorage for persistence
  */
 
-const CHANNEL_NAME = 'karamel-session';
-const SESSION_KEY = 'karamel-session-state';
-
 let broadcastChannel = null;
 let isMainTab = false;
+let currentSessionId = null;
+
+/**
+ * Get channel name for a session
+ * @param {string} sessionId - Session GUID
+ * @returns {string} Channel name
+ */
+function getChannelName(sessionId) {
+    return `karamel-session-${sessionId}`;
+}
+
+/**
+ * Get storage key for a session
+ * @param {string} sessionId - Session GUID
+ * @returns {string} Storage key
+ */
+function getSessionKey(sessionId) {
+    return `karamel-session-${sessionId}`;
+}
 
 /**
  * Initialize session bridge
+ * @param {string} sessionId - Session GUID
  * @param {boolean} asMainTab - Whether this tab has directory handle (main tab)
  * @returns {Promise<void>}
  */
-export function initializeSession(asMainTab) {
+export function initializeSession(sessionId, asMainTab) {
+    if (!sessionId) {
+        throw new Error('sessionId is required');
+    }
+    
+    currentSessionId = sessionId;
     isMainTab = asMainTab;
     
     try {
-        broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
+        broadcastChannel = new BroadcastChannel(getChannelName(sessionId));
         
         if (!isMainTab) {
             // Secondary tabs listen for updates from main tab
@@ -27,7 +49,7 @@ export function initializeSession(asMainTab) {
             };
         }
         
-        console.log(`Session bridge initialized as ${isMainTab ? 'MAIN' : 'SECONDARY'} tab`);
+        console.log(`Session bridge initialized as ${isMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId}`);
     } catch (error) {
         console.error('Failed to initialize Broadcast Channel:', error);
         throw new Error('Broadcast Channel API is not supported in this browser');
@@ -88,6 +110,11 @@ function handleBroadcastMessage(message) {
  */
 function saveToSessionStorage(type, data) {
     try {
+        if (!currentSessionId) {
+            console.error('Cannot save to sessionStorage: No active session');
+            return;
+        }
+        
         const sessionState = getSessionState();
         
         switch (type) {
@@ -105,7 +132,7 @@ function saveToSessionStorage(type, data) {
                 return;
         }
         
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionState));
+        sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(sessionState));
     } catch (error) {
         console.error('Failed to save to sessionStorage:', error);
     }
@@ -113,26 +140,36 @@ function saveToSessionStorage(type, data) {
 
 /**
  * Save library to sessionStorage (main tab only, called once during session init)
+ * @param {string} sessionId - Session GUID
  * @param {object} libraryData - Library data to save
  */
-export function saveLibraryToSessionStorage(libraryData) {
+export function saveLibraryToSessionStorage(sessionId, libraryData) {
     try {
-        const sessionState = getSessionState();
+        if (!sessionId) {
+            throw new Error('sessionId is required');
+        }
+        
+        const sessionState = getSessionStateForSession(sessionId);
         sessionState.library = libraryData;
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionState));
-        console.log('Library saved to sessionStorage:', libraryData.songs?.length || 0, 'songs');
+        sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(sessionState));
+        console.log('Library saved to sessionStorage for session', sessionId, ':', libraryData.songs?.length || 0, 'songs');
     } catch (error) {
         console.error('Failed to save library to sessionStorage:', error);
     }
 }
 
 /**
- * Get current session state from sessionStorage
+ * Get session state for a specific session from sessionStorage
+ * @param {string} sessionId - Session GUID
  * @returns {object} Session state object
  */
-export function getSessionState() {
+export function getSessionStateForSession(sessionId) {
     try {
-        const stored = sessionStorage.getItem(SESSION_KEY);
+        if (!sessionId) {
+            throw new Error('sessionId is required');
+        }
+        
+        const stored = sessionStorage.getItem(getSessionKey(sessionId));
         return stored ? JSON.parse(stored) : {
             session: null,
             library: null,
@@ -151,11 +188,30 @@ export function getSessionState() {
 }
 
 /**
+ * Get current session state from sessionStorage (uses current session)
+ * @returns {object} Session state object
+ */
+export function getSessionState() {
+    if (!currentSessionId) {
+        console.warn('No active session');
+        return {
+            session: null,
+            library: null,
+            playlist: null,
+            currentSong: null
+        };
+    }
+    return getSessionStateForSession(currentSessionId);
+}
+
+/**
  * Clear session state (when session ends)
  */
 export function clearSessionState() {
     try {
-        sessionStorage.removeItem(SESSION_KEY);
+        if (currentSessionId) {
+            sessionStorage.removeItem(getSessionKey(currentSessionId));
+        }
         
         if (broadcastChannel) {
             // Notify other tabs that session ended
@@ -167,7 +223,8 @@ export function clearSessionState() {
             broadcastChannel = null;
         }
         
-        console.log('Session state cleared');
+        console.log('Session state cleared for session', currentSessionId);
+        currentSessionId = null;
     } catch (error) {
         console.error('Failed to clear session state:', error);
     }

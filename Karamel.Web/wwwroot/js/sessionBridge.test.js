@@ -4,11 +4,15 @@ import {
     broadcastStateUpdate,
     saveLibraryToSessionStorage,
     getSessionState,
+    getSessionStateForSession,
     clearSessionState,
     generateSessionUrl,
     getSessionIdFromUrl,
     checkMainTabAlive
 } from './sessionBridge.js';
+
+// Test session ID
+const TEST_SESSION_ID = 'test-session-123';
 
 // Mock BroadcastChannel that simulates cross-tab communication
 class MockBroadcastChannel {
@@ -157,24 +161,26 @@ describe('sessionBridge', () => {
 
     describe('initializeSession', () => {
         it('should initialize as main tab', () => {
-            expect(() => initializeSession(true)).not.toThrow();
+            expect(() => initializeSession(TEST_SESSION_ID, true)).not.toThrow();
             expect(MockBroadcastChannel.instances).toHaveLength(1);
+            expect(MockBroadcastChannel.instances[0].name).toBe(`karamel-session-${TEST_SESSION_ID}`);
         });
 
         it('should initialize as secondary tab', () => {
-            expect(() => initializeSession(false)).not.toThrow();
+            expect(() => initializeSession(TEST_SESSION_ID, false)).not.toThrow();
             expect(MockBroadcastChannel.instances).toHaveLength(1);
+            expect(MockBroadcastChannel.instances[0].name).toBe(`karamel-session-${TEST_SESSION_ID}`);
         });
 
         it('should set up message listener for secondary tabs', () => {
-            initializeSession(false);
+            initializeSession(TEST_SESSION_ID, false);
             const channel = MockBroadcastChannel.instances[0];
             expect(channel.onmessage).toBeDefined();
             expect(typeof channel.onmessage).toBe('function');
         });
 
         it('should not set up message listener for main tab', () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             const channel = MockBroadcastChannel.instances[0];
             // Main tab sets up onmessage in the module for ping handling
             // but it's handled differently than secondary tabs
@@ -196,9 +202,9 @@ describe('sessionBridge', () => {
                 ]
             };
 
-            saveLibraryToSessionStorage(libraryData);
+            saveLibraryToSessionStorage(TEST_SESSION_ID, libraryData);
 
-            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
             expect(stored.library).toEqual(libraryData);
         });
 
@@ -210,15 +216,15 @@ describe('sessionBridge', () => {
                 playlist: { queue: [{ id: '1' }] },
                 currentSong: null
             };
-            mockSessionStorage.setItem('karamel-session-state', JSON.stringify(existingState));
+            mockSessionStorage.setItem(`karamel-session-${TEST_SESSION_ID}`, JSON.stringify(existingState));
 
             const libraryData = {
                 songs: [{ id: '789', artist: 'New Artist', title: 'New Song' }]
             };
 
-            saveLibraryToSessionStorage(libraryData);
+            saveLibraryToSessionStorage(TEST_SESSION_ID, libraryData);
 
-            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
             expect(stored.library).toEqual(libraryData);
             expect(stored.session).toEqual(existingState.session);
             expect(stored.playlist).toEqual(existingState.playlist);
@@ -245,7 +251,7 @@ describe('sessionBridge', () => {
 
     describe('broadcastStateUpdate', () => {
         it('should broadcast playlist-updated event', async () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             
             const playlistData = {
                 queue: [{ id: '123', artist: 'Artist', title: 'Song' }],
@@ -255,12 +261,12 @@ describe('sessionBridge', () => {
 
             broadcastStateUpdate('playlist-updated', playlistData);
 
-            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
             expect(stored.playlist).toEqual(playlistData);
         });
 
         it('should broadcast session-settings event', async () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             
             const sessionData = {
                 sessionId: 'abc-123',
@@ -270,23 +276,23 @@ describe('sessionBridge', () => {
 
             broadcastStateUpdate('session-settings', sessionData);
 
-            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
             expect(stored.session).toEqual(sessionData);
         });
 
         it('should not broadcast from secondary tab', () => {
             const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             
-            initializeSession(false);
-            broadcastStateUpdate('library-loaded', { songs: [] });
+            initializeSession(TEST_SESSION_ID, false);
+            broadcastStateUpdate('playlist-updated', { queue: [] });
 
             expect(consoleSpy).toHaveBeenCalledWith('Only main tab can broadcast state updates');
             consoleSpy.mockRestore();
         });
 
         it('should include timestamp in broadcast message', (done) => {
-            initializeSession(true);
-            initializeSession(false);
+            initializeSession(TEST_SESSION_ID, true);
+            initializeSession('test-session-456', false);
 
             const secondaryChannel = MockBroadcastChannel.instances[1];
             secondaryChannel.onmessage = (event) => {
@@ -294,14 +300,14 @@ describe('sessionBridge', () => {
                 done();
             };
 
-            broadcastStateUpdate('library-loaded', { songs: [] });
+            broadcastStateUpdate('playlist-updated', { queue: [] });
         });
     });
 
     describe('cross-tab communication', () => {
         it('should receive broadcast in secondary tab', (done) => {
-            initializeSession(true);
-            initializeSession(false);
+            initializeSession(TEST_SESSION_ID, true);
+            initializeSession(TEST_SESSION_ID, false);
 
             const secondaryChannel = MockBroadcastChannel.instances[1];
             const testData = { queue: [{ id: '1', artist: 'Test', title: 'Song' }] };
@@ -316,7 +322,7 @@ describe('sessionBridge', () => {
         });
 
         it('should dispatch custom event when secondary tab receives message', async () => {
-            initializeSession(false);
+            initializeSession(TEST_SESSION_ID, false);
 
             let eventFired = false;
             mockWindow.dispatchEvent.mockImplementation((event) => {
@@ -342,12 +348,12 @@ describe('sessionBridge', () => {
 
     describe('sessionStorage persistence', () => {
         it('should persist state to sessionStorage', () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             
             const playlistData = { queue: [{ id: '1', artist: 'A', title: 'B' }] };
             broadcastStateUpdate('playlist-updated', playlistData);
 
-            const stored = mockSessionStorage.getItem('karamel-session-state');
+            const stored = mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`);
             expect(stored).toBeDefined();
             
             const parsed = JSON.parse(stored);
@@ -362,14 +368,14 @@ describe('sessionBridge', () => {
                 currentSong: null
             };
 
-            mockSessionStorage.setItem('karamel-session-state', JSON.stringify(testState));
+            mockSessionStorage.setItem(`karamel-session-${TEST_SESSION_ID}`, JSON.stringify(testState));
 
-            const retrieved = getSessionState();
+            const retrieved = getSessionStateForSession(TEST_SESSION_ID);
             expect(retrieved).toEqual(testState);
         });
 
         it('should return default state if sessionStorage is empty', () => {
-            const state = getSessionState();
+            const state = getSessionStateForSession(TEST_SESSION_ID);
             
             expect(state).toEqual({
                 session: null,
@@ -382,9 +388,9 @@ describe('sessionBridge', () => {
         it('should handle corrupted sessionStorage data gracefully', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
             
-            mockSessionStorage.setItem('karamel-session-state', 'invalid json{');
+            mockSessionStorage.setItem(`karamel-session-${TEST_SESSION_ID}`, 'invalid json{');
             
-            const state = getSessionState();
+            const state = getSessionStateForSession(TEST_SESSION_ID);
             expect(state).toEqual({
                 session: null,
                 library: null,
@@ -398,19 +404,19 @@ describe('sessionBridge', () => {
 
     describe('clearSessionState', () => {
         it('should clear sessionStorage', () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             broadcastStateUpdate('playlist-updated', { queue: [] });
 
-            expect(mockSessionStorage.getItem('karamel-session-state')).not.toBeNull();
+            expect(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`)).not.toBeNull();
 
             clearSessionState();
 
-            expect(mockSessionStorage.getItem('karamel-session-state')).toBeNull();
+            expect(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`)).toBeNull();
         });
 
         it('should broadcast session-ended message', (done) => {
-            initializeSession(true);
-            initializeSession(false);
+            initializeSession(TEST_SESSION_ID, true);
+            initializeSession(TEST_SESSION_ID, false);
 
             const secondaryChannel = MockBroadcastChannel.instances[1];
             secondaryChannel.onmessage = (event) => {
@@ -424,7 +430,7 @@ describe('sessionBridge', () => {
         });
 
         it('should close broadcast channel', () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             const channel = MockBroadcastChannel.instances[0];
 
             clearSessionState();
@@ -516,14 +522,14 @@ describe('sessionBridge', () => {
 
     describe('checkMainTabAlive', () => {
         it('should return true if called from main tab', async () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
 
             const isAlive = await checkMainTabAlive();
             expect(isAlive).toBe(true);
         });
 
         it('should return false if no ping response within timeout', async () => {
-            initializeSession(false);
+            initializeSession(TEST_SESSION_ID, false);
 
             const isAlive = await checkMainTabAlive();
             expect(isAlive).toBe(false);
@@ -534,7 +540,7 @@ describe('sessionBridge', () => {
         it('should handle unknown state types gracefully', () => {
             const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             broadcastStateUpdate('unknown-type', { data: 'test' });
 
             expect(consoleSpy).toHaveBeenCalledWith('Unknown state type:', 'unknown-type');
@@ -542,10 +548,10 @@ describe('sessionBridge', () => {
         });
 
         it('should handle multiple initializations safely', () => {
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             const firstCount = MockBroadcastChannel.instances.length;
             
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             const secondCount = MockBroadcastChannel.instances.length;
 
             // Second init should not create another channel (implementation may vary)
@@ -562,13 +568,30 @@ describe('sessionBridge', () => {
                 throw new Error('Storage quota exceeded');
             };
 
-            initializeSession(true);
+            initializeSession(TEST_SESSION_ID, true);
             expect(() => broadcastStateUpdate('playlist-updated', { queue: [] })).not.toThrow();
 
             // Restore original function
             mockSessionStorage.setItem = originalSetItem;
             mockSessionStorage._originalSetItem = null;
             consoleSpy.mockRestore();
+        });
+
+        it('should isolate different sessions', () => {
+            const session1 = 'session-1';
+            const session2 = 'session-2';
+
+            saveLibraryToSessionStorage(session1, { songs: [{ id: '1', title: 'Song 1' }] });
+            saveLibraryToSessionStorage(session2, { songs: [{ id: '2', title: 'Song 2' }] });
+
+            const state1 = getSessionStateForSession(session1);
+            const state2 = getSessionStateForSession(session2);
+
+            expect(state1.library.songs).toHaveLength(1);
+            expect(state1.library.songs[0].id).toBe('1');
+            
+            expect(state2.library.songs).toHaveLength(1);
+            expect(state2.library.songs[0].id).toBe('2');
         });
     });
 });
