@@ -26,7 +26,7 @@
 ## Implementation rules
 - if current branch is main, always create a feature branch and switch to it, before you start implementing.
 - implement unit tests for non-ui logic
-- do not execute the merge back to main branch yourself. You may create a pull request that I will review.
+- do not execute the merge back to main branch yourself. push the changes on the feature branch and create a pull request.
 ---
 
 ## Phase 1: Prototype Cleanup ✅ COMPLETE
@@ -129,15 +129,27 @@
 - ✅ **Edge cases**: Empty library, empty search results, special characters in artist/title
 - **Status**: ✅ COMPLETED (14 tests passing)
 
-### Step 2.7: Playlist Management View
-**Files**: `Pages/Playlist.razor`
+### Step 2.7: Playlist Management View ✅
+**Files**: `Pages/Playlist.razor`, `Karamel.Web.Tests/PlaylistPageTests.cs`
 
-- Display current queue with drag-drop reordering (HTML5 Drag API, if singers allowed to reorder)
-- Show "Now Playing" (index 0) + "Up Next" sections
-- Remove button for each song
-- Clear playlist button (asks for confirmation)
-- Listens to Broadcast Channel for real-time updates from main tab
-- No folder access needed (metadata-only view)
+#### Implementation:
+- ✅ Display current queue with drag-drop reordering (HTML5 Drag API, if singers allowed to reorder)
+- ✅ Show "Now Playing" (index 0) + "Up Next" sections
+- ✅ Remove button for each song
+- ✅ Clear playlist button (asks for confirmation)
+- ✅ Listens to Broadcast Channel for real-time updates from main tab
+- ✅ No folder access needed (metadata-only view)
+
+#### Testing:
+- ✅ **Unit tests**: Verify "Now Playing" displays first song in queue with correct artist, title, and singer name
+- ✅ **Unit tests**: Verify "Up Next" displays remaining songs in order with correct metadata
+- ✅ **Unit tests**: Test RemoveSongAction dispatch when remove button clicked
+- ✅ **Unit tests**: Test ReorderPlaylistAction dispatch with correct old/new indices on drag-drop
+- ✅ **Unit tests**: Test ClearPlaylistAction dispatch when clear button clicked (with confirmation dialog)
+- ✅ **Unit tests**: Verify empty state message when playlist is empty
+- ✅ **Unit tests**: Verify drag-drop UI only enabled when singers allowed to reorder (session setting)
+- ✅ **Edge cases**: Single song in queue, queue becomes empty after removal, reorder to same position
+- **Status**: ✅ COMPLETED (11 tests passing)
 
 ### Step 2.8: Singer View
 **Files**: `Pages/SingerView.razor`
