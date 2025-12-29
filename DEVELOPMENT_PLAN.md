@@ -59,6 +59,8 @@
 - Extract ID3 tags: artist, title
 - **Fallback**: If no ID3 tags, parse filename using configurable pattern (default: "%artist - %title")
 - Return song metadata array (no file handles - those stay in JS for playback)
+- Unit tests with Vitest
+- **Status**: ✅ COMPLETED (commit: 0e5fe7e)
 
 ### Step 2.3: State Management Setup
 **Files**: `Models/Song.cs`, `Models/Session.cs`, `Store/LibraryState.cs`, `Store/PlaylistState.cs`
@@ -75,7 +77,7 @@
 
 - Generate session URL with SessionId as query parameter: `/session?id={guid}`
 - Use **Broadcast Channel API** for cross-tab state synchronization:
-  - Main tab (with folder access) broadcasts playlist/library changes
+  - Main tab (with folder access) broadcasts playlist changes (library will be stable)
   - Secondary tabs (Playlist, Singer views) listen and update their state
 - **sessionStorage**: Persist session state (library metadata, playlist, settings) so tab refresh doesn't lose context
 - Create sessionBridge.js to handle broadcast messages
@@ -150,6 +152,7 @@
 - Auto-advances to NextSongView when song ends
 - **Retains folder access** - all playback logic stays in JavaScript
 - Dispatches NextSong action on completion (removes song from queue index 0)
+- allows to open embedded playlist or singer view by hovering over the left side (15 pixels) of the screen. This hovering will cause an expand section icon to show. if this is clicked, the left side will show a pane where I can switch between showing a Singer view or the Playlist view. It will take up 20% of the screen width.
 
 ### Step 2.11: Navigation & Session Flow
 **Files**: `Layout/NavMenu.razor`, `App.razor`
