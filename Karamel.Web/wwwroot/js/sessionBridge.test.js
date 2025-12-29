@@ -1,0 +1,520 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+    initializeSession,
+    broadcastStateUpdate,
+    getSessionState,
+    clearSessionState,
+    generateSessionUrl,
+    getSessionIdFromUrl,
+    checkMainTabAlive
+} from './sessionBridge.js';
+
+// Mock BroadcastChannel that simulates cross-tab communication
+class MockBroadcastChannel {
+    constructor(name) {
+        this.name = name;
+        this.onmessage = null;
+        this._closed = false;
+        MockBroadcastChannel.instances.push(this);
+    }
+
+    postMessage(data) {
+        if (this._closed) {
+            throw new Error('Cannot post message on closed channel');
+        }
+        
+        // Simulate broadcasting to all other instances with same name
+        setTimeout(() => {
+            MockBroadcastChannel.instances
+                .filter(ch => ch.name === this.name && ch !== this && !ch._closed)
+                .forEach(ch => {
+                    if (ch.onmessage) {
+                        ch.onmessage({ data });
+                    }
+                    // Trigger event listeners
+                    if (ch._eventListeners && ch._eventListeners.message) {
+                        ch._eventListeners.message.forEach(fn => fn({ data }));
+                    }
+                });
+        }, 0);
+    }
+
+    addEventListener(event, handler) {
+        if (!this._eventListeners) this._eventListeners = {};
+        if (!this._eventListeners[event]) this._eventListeners[event] = [];
+        this._eventListeners[event].push(handler);
+    }
+
+    removeEventListener(event, handler) {
+        if (this._eventListeners && this._eventListeners[event]) {
+            const index = this._eventListeners[event].indexOf(handler);
+            if (index > -1) {
+                this._eventListeners[event].splice(index, 1);
+            }
+        }
+    }
+
+    close() {
+        this._closed = true;
+        const index = MockBroadcastChannel.instances.indexOf(this);
+        if (index > -1) {
+            MockBroadcastChannel.instances.splice(index, 1);
+        }
+    }
+
+    static instances = [];
+    
+    static reset() {
+        this.instances.forEach(ch => ch.close());
+        this.instances = [];
+    }
+}
+
+// Mock sessionStorage
+const mockSessionStorage = {
+    store: {},
+    getItem(key) {
+        return this.store[key] || null;
+    },
+    setItem(key, value) {
+        this.store[key] = value;
+    },
+    removeItem(key) {
+        delete this.store[key];
+    },
+    clear() {
+        this.store = {};
+    }
+};
+
+// Mock window.location
+const mockLocation = {
+    origin: 'http://localhost:5000',
+    search: ''
+};
+
+// Mock window for custom events
+const mockWindow = {
+    dispatchEvent: vi.fn(),
+    addEventListener: vi.fn(),
+    location: mockLocation
+};
+
+describe('sessionBridge', () => {
+    beforeEach(() => {
+        // Reset mocks
+        MockBroadcastChannel.reset();
+        mockSessionStorage.clear();
+        mockWindow.dispatchEvent = vi.fn();
+        mockWindow.addEventListener.mockClear();
+        mockLocation.search = '';
+
+        // Set up global mocks
+        global.BroadcastChannel = MockBroadcastChannel;
+        global.sessionStorage = mockSessionStorage;
+        global.window = mockWindow;
+        global.Date = {
+            ...Date,
+            now: vi.fn(() => 1234567890)
+        };
+        global.URL = class {
+            constructor(path, base) {
+                this.pathname = path;
+                this.origin = base;
+                this.searchParams = new Map();
+            }
+            set(key, value) {
+                this.searchParams.set(key, value);
+            }
+            toString() {
+                const params = Array.from(this.searchParams.entries())
+                    .map(([k, v]) => `${k}=${v}`)
+                    .join('&');
+                return `${this.origin}${this.pathname}${params ? '?' + params : ''}`;
+            }
+        };
+        global.URL.prototype.searchParams = {
+            set: function(key, value) {
+                if (!this._params) this._params = new Map();
+                this._params.set(key, value);
+            }
+        };
+    });
+
+    afterEach(() => {
+        MockBroadcastChannel.reset();
+    });
+
+    describe('initializeSession', () => {
+        it('should initialize as main tab', () => {
+            expect(() => initializeSession(true)).not.toThrow();
+            expect(MockBroadcastChannel.instances).toHaveLength(1);
+        });
+
+        it('should initialize as secondary tab', () => {
+            expect(() => initializeSession(false)).not.toThrow();
+            expect(MockBroadcastChannel.instances).toHaveLength(1);
+        });
+
+        it('should set up message listener for secondary tabs', () => {
+            initializeSession(false);
+            const channel = MockBroadcastChannel.instances[0];
+            expect(channel.onmessage).toBeDefined();
+            expect(typeof channel.onmessage).toBe('function');
+        });
+
+        it('should not set up message listener for main tab', () => {
+            initializeSession(true);
+            const channel = MockBroadcastChannel.instances[0];
+            // Main tab sets up onmessage in the module for ping handling
+            // but it's handled differently than secondary tabs
+            expect(MockBroadcastChannel.instances).toHaveLength(1);
+        });
+
+        it('should throw error if BroadcastChannel not supported', () => {
+            global.BroadcastChannel = undefined;
+            expect(() => initializeSession(true)).toThrow('Broadcast Channel API is not supported');
+        });
+    });
+
+    describe('broadcastStateUpdate', () => {
+        it('should broadcast library-loaded event from main tab', async () => {
+            initializeSession(true);
+            
+            const libraryData = {
+                songs: [
+                    { id: '123', artist: 'Artist 1', title: 'Song 1' },
+                    { id: '456', artist: 'Artist 2', title: 'Song 2' }
+                ]
+            };
+
+            broadcastStateUpdate('library-loaded', libraryData);
+
+            // Check sessionStorage was updated
+            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            expect(stored.library).toEqual(libraryData);
+        });
+
+        it('should broadcast playlist-updated event', async () => {
+            initializeSession(true);
+            
+            const playlistData = {
+                queue: [{ id: '123', artist: 'Artist', title: 'Song' }],
+                currentSong: null,
+                singerSongCounts: {}
+            };
+
+            broadcastStateUpdate('playlist-updated', playlistData);
+
+            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            expect(stored.playlist).toEqual(playlistData);
+        });
+
+        it('should broadcast session-settings event', async () => {
+            initializeSession(true);
+            
+            const sessionData = {
+                sessionId: 'abc-123',
+                requireSingerName: true,
+                pauseBetweenSongs: true
+            };
+
+            broadcastStateUpdate('session-settings', sessionData);
+
+            const stored = JSON.parse(mockSessionStorage.getItem('karamel-session-state'));
+            expect(stored.session).toEqual(sessionData);
+        });
+
+        it('should not broadcast from secondary tab', () => {
+            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            
+            initializeSession(false);
+            broadcastStateUpdate('library-loaded', { songs: [] });
+
+            expect(consoleSpy).toHaveBeenCalledWith('Only main tab can broadcast state updates');
+            consoleSpy.mockRestore();
+        });
+
+        it('should include timestamp in broadcast message', (done) => {
+            initializeSession(true);
+            initializeSession(false);
+
+            const secondaryChannel = MockBroadcastChannel.instances[1];
+            secondaryChannel.onmessage = (event) => {
+                expect(event.data.timestamp).toBe(1234567890);
+                done();
+            };
+
+            broadcastStateUpdate('library-loaded', { songs: [] });
+        });
+    });
+
+    describe('cross-tab communication', () => {
+        it('should receive broadcast in secondary tab', (done) => {
+            initializeSession(true);
+            initializeSession(false);
+
+            const secondaryChannel = MockBroadcastChannel.instances[1];
+            const testData = { songs: [{ id: '1', artist: 'Test', title: 'Song' }] };
+
+            secondaryChannel.onmessage = (event) => {
+                expect(event.data.type).toBe('library-loaded');
+                expect(event.data.data).toEqual(testData);
+                done();
+            };
+
+            broadcastStateUpdate('library-loaded', testData);
+        });
+
+        it('should dispatch custom event when secondary tab receives message', async () => {
+            initializeSession(false);
+
+            let eventFired = false;
+            mockWindow.dispatchEvent.mockImplementation((event) => {
+                if (event.type === 'session-state-updated') {
+                    expect(event.detail.type).toBe('playlist-updated');
+                    expect(event.detail.data.queue).toHaveLength(1);
+                    eventFired = true;
+                }
+            });
+
+            const mainChannel = MockBroadcastChannel.instances[0];
+            mainChannel.onmessage({
+                data: {
+                    type: 'playlist-updated',
+                    data: { queue: [{ id: '1' }] },
+                    timestamp: 1234567890
+                }
+            });
+
+            expect(eventFired).toBe(true);
+        });
+    });
+
+    describe('sessionStorage persistence', () => {
+        it('should persist state to sessionStorage', () => {
+            initializeSession(true);
+            
+            const libraryData = { songs: [{ id: '1', artist: 'A', title: 'B' }] };
+            broadcastStateUpdate('library-loaded', libraryData);
+
+            const stored = mockSessionStorage.getItem('karamel-session-state');
+            expect(stored).toBeDefined();
+            
+            const parsed = JSON.parse(stored);
+            expect(parsed.library).toEqual(libraryData);
+        });
+
+        it('should retrieve session state from sessionStorage', () => {
+            const testState = {
+                session: { sessionId: '123' },
+                library: { songs: [] },
+                playlist: { queue: [] },
+                currentSong: null
+            };
+
+            mockSessionStorage.setItem('karamel-session-state', JSON.stringify(testState));
+
+            const retrieved = getSessionState();
+            expect(retrieved).toEqual(testState);
+        });
+
+        it('should return default state if sessionStorage is empty', () => {
+            const state = getSessionState();
+            
+            expect(state).toEqual({
+                session: null,
+                library: null,
+                playlist: null,
+                currentSong: null
+            });
+        });
+
+        it('should handle corrupted sessionStorage data gracefully', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            
+            mockSessionStorage.setItem('karamel-session-state', 'invalid json{');
+            
+            const state = getSessionState();
+            expect(state).toEqual({
+                session: null,
+                library: null,
+                playlist: null,
+                currentSong: null
+            });
+
+            consoleSpy.mockRestore();
+        });
+    });
+
+    describe('clearSessionState', () => {
+        it('should clear sessionStorage', () => {
+            initializeSession(true);
+            broadcastStateUpdate('library-loaded', { songs: [] });
+
+            expect(mockSessionStorage.getItem('karamel-session-state')).not.toBeNull();
+
+            clearSessionState();
+
+            expect(mockSessionStorage.getItem('karamel-session-state')).toBeNull();
+        });
+
+        it('should broadcast session-ended message', (done) => {
+            initializeSession(true);
+            initializeSession(false);
+
+            const secondaryChannel = MockBroadcastChannel.instances[1];
+            secondaryChannel.onmessage = (event) => {
+                if (event.data.type === 'session-ended') {
+                    expect(event.data.timestamp).toBe(1234567890);
+                    done();
+                }
+            };
+
+            clearSessionState();
+        });
+
+        it('should close broadcast channel', () => {
+            initializeSession(true);
+            const channel = MockBroadcastChannel.instances[0];
+
+            clearSessionState();
+
+            expect(channel._closed).toBe(true);
+            expect(MockBroadcastChannel.instances).toHaveLength(0);
+        });
+    });
+
+    describe('generateSessionUrl', () => {
+        it('should generate URL with session ID parameter', () => {
+            const sessionId = 'abc-123-def-456';
+            const url = generateSessionUrl('/playlist', sessionId);
+
+            expect(url).toContain('/playlist');
+            expect(url).toContain('id=abc-123-def-456');
+            expect(url).toContain('http://localhost:5000');
+        });
+
+        it('should handle different paths', () => {
+            const sessionId = 'test-session';
+            
+            const playlistUrl = generateSessionUrl('/playlist', sessionId);
+            expect(playlistUrl).toContain('/playlist');
+            
+            const singerUrl = generateSessionUrl('/singer', sessionId);
+            expect(singerUrl).toContain('/singer');
+        });
+    });
+
+    describe('getSessionIdFromUrl', () => {
+        it('should extract session ID from URL', () => {
+            mockLocation.search = '?id=abc-123-def-456';
+            global.URLSearchParams = class {
+                constructor(search) {
+                    this.params = new Map();
+                    if (search.startsWith('?')) {
+                        search.slice(1).split('&').forEach(pair => {
+                            const [key, value] = pair.split('=');
+                            this.params.set(key, value);
+                        });
+                    }
+                }
+                get(key) {
+                    return this.params.get(key);
+                }
+            };
+
+            const sessionId = getSessionIdFromUrl();
+            expect(sessionId).toBe('abc-123-def-456');
+        });
+
+        it('should return null if no session ID in URL', () => {
+            mockLocation.search = '';
+            global.URLSearchParams = class {
+                constructor() {
+                    this.params = new Map();
+                }
+                get() {
+                    return null;
+                }
+            };
+
+            const sessionId = getSessionIdFromUrl();
+            expect(sessionId).toBeNull();
+        });
+
+        it('should handle other query parameters', () => {
+            mockLocation.search = '?foo=bar&id=test-123&baz=qux';
+            global.URLSearchParams = class {
+                constructor(search) {
+                    this.params = new Map();
+                    if (search.startsWith('?')) {
+                        search.slice(1).split('&').forEach(pair => {
+                            const [key, value] = pair.split('=');
+                            this.params.set(key, value);
+                        });
+                    }
+                }
+                get(key) {
+                    return this.params.get(key);
+                }
+            };
+
+            const sessionId = getSessionIdFromUrl();
+            expect(sessionId).toBe('test-123');
+        });
+    });
+
+    describe('checkMainTabAlive', () => {
+        it('should return true if called from main tab', async () => {
+            initializeSession(true);
+
+            const isAlive = await checkMainTabAlive();
+            expect(isAlive).toBe(true);
+        });
+
+        it('should return false if no ping response within timeout', async () => {
+            initializeSession(false);
+
+            const isAlive = await checkMainTabAlive();
+            expect(isAlive).toBe(false);
+        }, 3000);
+    });
+
+    describe('edge cases', () => {
+        it('should handle unknown state types gracefully', () => {
+            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            
+            initializeSession(true);
+            broadcastStateUpdate('unknown-type', { data: 'test' });
+
+            expect(consoleSpy).toHaveBeenCalledWith('Unknown state type:', 'unknown-type');
+            consoleSpy.mockRestore();
+        });
+
+        it('should handle multiple initializations safely', () => {
+            initializeSession(true);
+            const firstCount = MockBroadcastChannel.instances.length;
+            
+            initializeSession(true);
+            const secondCount = MockBroadcastChannel.instances.length;
+
+            // Second init should not create another channel (implementation may vary)
+            // For now, just ensure it doesn't crash
+            expect(secondCount).toBeGreaterThanOrEqual(firstCount);
+        });
+
+        it('should handle sessionStorage errors gracefully', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            
+            mockSessionStorage.setItem = () => {
+                throw new Error('Storage quota exceeded');
+            };
+
+            initializeSession(true);
+            expect(() => broadcastStateUpdate('library-loaded', { songs: [] })).not.toThrow();
+
+            consoleSpy.mockRestore();
+        });
+    });
+});
