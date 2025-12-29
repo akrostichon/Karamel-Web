@@ -26,6 +26,7 @@
 ## Implementation rules
 - if current branch is main, always create a feature branch and switch to it, before you start implementing.
 - implement unit tests for non-ui logic
+- do not execute the merge back to main branch yourself. You may create a pull request that I will review.
 ---
 
 ## Phase 1: Prototype Cleanup ✅ COMPLETE
@@ -52,7 +53,7 @@
 - ✅ Added `loadSongFiles()` function for loading specific songs during playback
 - ✅ **Unit tests with Vitest** - 14 tests covering all functionality with mocked File System Access API
 
-### Step 2.2: Song Metadata Extraction
+### Step 2.2: Song Metadata Extraction ✅
 **Files**: `wwwroot/js/fileAccess.js`, `wwwroot/js/metadata.js`
 
 - Import jsmediatags from CDN: `https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/+esm`
@@ -62,15 +63,17 @@
 - Unit tests with Vitest
 - **Status**: ✅ COMPLETED (commit: 0e5fe7e)
 
-### Step 2.3: State Management Setup
+### Step 2.3: State Management Setup ✅
 **Files**: `Models/Song.cs`, `Models/Session.cs`, `Store/LibraryState.cs`, `Store/PlaylistState.cs`
 
-- Install NuGet: `Fluxor.Blazor.Web`
-- Create `Song` model: Id (GUID), Artist, Title, Mp3FileName, CdgFileName, AddedBySinger
-- Create `Session` model: SessionId (GUID), CreatedAt, LibraryPath, RequireSingerName, PauseBetweenSongs, FilenamePattern
-- Create `LibraryState`: List<Song>, loading status, search filter (sorted alphabetically by Artist, then Title)
-- Create `PlaylistState`: Queue<Song> (queue first item is next song), current Song + SingerName, Dictionary<string, int> SingerSongCounts
-- Define actions: LoadLibrary, FilterSongs, AddToPlaylist (validates 10-song limit), RemoveSong, ReorderPlaylist, NextSong (pops first item)
+- ✅ Install NuGet: `Fluxor.Blazor.Web`
+- ✅ Create `Song` model: Id (GUID), Artist, Title, Mp3FileName, CdgFileName, AddedBySinger
+- ✅ Create `Session` model: SessionId (GUID), CreatedAt, LibraryPath, RequireSingerName, PauseBetweenSongs, FilenamePattern
+- ✅ Create `LibraryState`: List<Song>, loading status, search filter (sorted alphabetically by Artist, then Title)
+- ✅ Create `PlaylistState`: Queue<Song> (queue first item is next song), current Song + SingerName, Dictionary<string, int> SingerSongCounts
+- ✅ Define actions: LoadLibrary, FilterSongs, AddToPlaylist (validates 10-song limit), RemoveSong, ReorderPlaylist, NextSong (pops first item)
+- ✅ Configure Fluxor in Program.cs and App.razor
+- **Status**: ✅ COMPLETED
 
 ### Step 2.4: Session Sharing Mechanism
 **Files**: `wwwroot/js/sessionBridge.js`, `Services/SessionService.cs`
