@@ -1,7 +1,314 @@
 ﻿@page "/"
+@using Fluxor
+@using Karamel.Web.Models
+@using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Library
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject IDispatcher Dispatcher
+@inject NavigationManager NavigationManager
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Karamel - Karaoke Session Setup</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
+    <div class="card shadow-lg" style="max-width: 600px; width: 100%;">
+        <div class="card-header bg-primary text-white">
+            <h1 class="h3 mb-0">Karaoke Session Setup</h1>
+        </div>
+        <div class="card-body">
+            @if (!_isFileSystemAccessSupported)
+            {
+                <div class="alert alert-danger" role="alert">
+                    <strong>Browser Not Supported</strong>
+                    <p class="mb-0">This application requires the File System Access API, which is only available in Chrome, Edge, and Opera browsers.</p>
+                </div>
+            }
+            else
+            {
+                <div class="mb-4">
+                    <h5 class="mb-3">1. Select Karaoke Library</h5>
+                    <button class="btn btn-outline-primary btn-lg w-100 select-library" 
+                            @onclick="SelectLibrary" 
+                            disabled="@_isSelectingLibrary">
+                        @if (_isSelectingLibrary)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Scanning library...</span>
+                        }
+                        else if (_librarySelected)
+                        {
+                            <span>✓ Library Selected (@_songCount songs)</span>
+                        }
+                        else
+                        {
+                            <span>📁 Select Library Folder</span>
+                        }
+                    </button>
+                    @if (!string.IsNullOrEmpty(_libraryError))
+                    {
+                        <div class="alert alert-danger mt-2 mb-0" role="alert">
+                            @_libraryError
+                        </div>
+                    }
+                </div>
 
-Welcome to your new app.
+                <div class="mb-4">
+                    <h5 class="mb-3">2. Configure Settings</h5>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="requireSingerName" 
+                               @bind="_requireSingerName">
+                        <label class="form-check-label" for="requireSingerName">
+                            Require singer name
+                        </label>
+                        <small class="form-text text-muted d-block">Singers must enter their name before adding songs</small>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="allowSingerReorder" 
+                               @bind="_allowSingerReorder">
+                        <label class="form-check-label" for="allowSingerReorder">
+                            Allow singers to reorder playlist
+                        </label>
+                        <small class="form-text text-muted d-block">Let singers rearrange the queue order</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="pauseBetweenSongs" class="form-label">Pause between songs (seconds)</label>
+                        <input type="number" class="form-control" id="pauseBetweenSongs" 
+                               @bind="_pauseBetweenSongs" 
+                               min="0" max="60" step="1">
+                        <small class="form-text text-muted">Time to display "Next Song" screen (0-60 seconds)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="filenamePattern" class="form-label">Filename parsing pattern</label>
+                        <input type="text" class="form-control" id="filenamePattern" 
+                               @bind="_filenamePattern" 
+                               placeholder="%artist - %title">
+                        <small class="form-text text-muted">Use %artist and %title placeholders to parse filenames</small>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h5 class="mb-3">3. Start Session</h5>
+                    <button class="btn btn-success btn-lg w-100 start-session" 
+                            @onclick="StartSession" 
+                            disabled="@(!CanStartSession)">
+                        @if (_isStartingSession)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Starting session...</span>
+                        }
+                        else
+                        {
+                            <span>🎤 Start Karaoke Session</span>
+                        }
+                    </button>
+                    @if (!string.IsNullOrEmpty(_startSessionError))
+                    {
+                        <div class="alert alert-danger mt-2 mb-0" role="alert">
+                            @_startSessionError
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div class="card-footer text-muted text-center">
+            <small>Karamel Karaoke System v1.0</small>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IJSObjectReference? _homeInteropModule;
+    private bool _isFileSystemAccessSupported = true;
+    private bool _isSelectingLibrary = false;
+    private bool _librarySelected = false;
+    private bool _isStartingSession = false;
+    private string? _libraryError;
+    private string? _startSessionError;
+    private int _songCount = 0;
+    private List<Song>? _selectedSongs;
+
+    // Configuration settings
+    private bool _requireSingerName = true;
+    private bool _allowSingerReorder = false;
+    private int _pauseBetweenSongs = 5;
+    private string _filenamePattern = "%artist - %title";
+
+    private bool CanStartSession => _librarySelected && !_isStartingSession && !_isSelectingLibrary;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _homeInteropModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                    "import", "./js/homeInterop.js");
+
+                _isFileSystemAccessSupported = await _homeInteropModule.InvokeAsync<bool>(
+                    "isFileSystemAccessSupported");
+
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Failed to load homeInterop module: {ex.Message}");
+                _isFileSystemAccessSupported = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task SelectLibrary()
+    {
+        if (_homeInteropModule == null)
+            return;
+
+        _isSelectingLibrary = true;
+        _libraryError = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await _homeInteropModule.InvokeAsync<LibrarySelectionResult>(
+                "selectLibrary", _filenamePattern);
+
+            if (result == null)
+            {
+                // User cancelled
+                _libraryError = null;
+            }
+            else if (result.Success)
+            {
+                _librarySelected = true;
+                _songCount = result.SongCount;
+                _selectedSongs = result.Songs;
+                _libraryError = null;
+
+                // Dispatch action to load library into state
+                Dispatcher.Dispatch(new LoadLibraryAction(result.Songs));
+            }
+            else
+            {
+                _libraryError = $"Error loading library: {result.Error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _libraryError = $"Failed to select library: {ex.Message}";
+        }
+        finally
+        {
+            _isSelectingLibrary = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StartSession()
+    {
+        if (_homeInteropModule == null || _selectedSongs == null)
+            return;
+
+        _isStartingSession = true;
+        _startSessionError = null;
+        StateHasChanged();
+
+        try
+        {
+            // Create session ID
+            var sessionId = await _homeInteropModule.InvokeAsync<string>("generateSessionId");
+
+            // Create session configuration
+            var config = new SessionConfig
+            {
+                SessionId = sessionId,
+                RequireSingerName = _requireSingerName,
+                AllowSingerReorder = _allowSingerReorder,
+                PauseBetweenSongs = _pauseBetweenSongs,
+                FilenamePattern = _filenamePattern
+            };
+
+            // Validate configuration
+            var validation = await _homeInteropModule.InvokeAsync<ValidationResult>(
+                "validateConfiguration", config);
+
+            if (!validation.IsValid)
+            {
+                _startSessionError = $"Invalid configuration: {string.Join(", ", validation.Errors)}";
+                _isStartingSession = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Initialize session in state
+            var session = new Models.Session
+            {
+                SessionId = Guid.Parse(sessionId),
+                LibraryPath = "Selected Library", // We don't have actual path from File System Access API
+                RequireSingerName = _requireSingerName,
+                PauseBetweenSongs = true, // Always enable pause screen between songs
+                PauseBetweenSongsSeconds = _pauseBetweenSongs,
+                FilenamePattern = _filenamePattern
+            };
+
+            Dispatcher.Dispatch(new InitializeSessionAction(session));
+
+            // Start karaoke session (opens tabs and returns navigation URL)
+            var result = await _homeInteropModule.InvokeAsync<SessionStartResult>(
+                "startKaraokeSession", config, _selectedSongs);
+
+            // Navigate current tab to NextSongView
+            NavigationManager.NavigateTo(result.NextSongUrl, false);
+        }
+        catch (Exception ex)
+        {
+            _startSessionError = $"Failed to start session: {ex.Message}";
+            _isStartingSession = false;
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_homeInteropModule != null)
+        {
+            await _homeInteropModule.DisposeAsync();
+        }
+    }
+
+    // DTOs for JS interop
+    private class LibrarySelectionResult
+    {
+        public List<Song> Songs { get; set; } = new();
+        public int SongCount { get; set; }
+        public bool Success { get; set; }
+        public string? Error { get; set; }
+    }
+
+    private class SessionConfig
+    {
+        public string SessionId { get; set; } = string.Empty;
+        public bool RequireSingerName { get; set; }
+        public bool AllowSingerReorder { get; set; }
+        public int PauseBetweenSongs { get; set; }
+        public string FilenamePattern { get; set; } = string.Empty;
+    }
+
+    private class ValidationResult
+    {
+        public bool IsValid { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
+
+    private class SessionStartResult
+    {
+        public string SessionId { get; set; } = string.Empty;
+        public string NextSongUrl { get; set; } = string.Empty;
+        public string PlaylistUrl { get; set; } = string.Empty;
+        public string SingerUrl { get; set; } = string.Empty;
+    }
+}

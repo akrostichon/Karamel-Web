@@ -73,7 +73,7 @@ public static class PlaylistReducers
     }
 
     [ReducerMethod]
-    public static PlaylistState ReduceNextSongAction(PlaylistState state)
+    public static PlaylistState ReduceNextSongAction(PlaylistState state, NextSongAction action)
     {
         if (state.Queue.Count == 0)
             return state with
@@ -106,7 +106,7 @@ public static class PlaylistReducers
     }
 
     [ReducerMethod]
-    public static PlaylistState ReduceClearPlaylistAction(PlaylistState state) =>
+    public static PlaylistState ReduceClearPlaylistAction(PlaylistState state, ClearPlaylistAction action) =>
         state with
         {
             Queue = new Queue<Song>(),
