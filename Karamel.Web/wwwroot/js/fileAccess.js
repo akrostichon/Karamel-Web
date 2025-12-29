@@ -1,6 +1,8 @@
 // File System Access API wrapper for loading MP3 and CDG files
 // Store file data in module-level variables to avoid JSON serialization issues
 
+import { extractMetadata, validatePattern } from './metadata.js';
+
 let mp3Data = null;
 let cdgData = null;
 let libraryDirectoryHandle = null; // Keep directory handle for session-long access
@@ -67,18 +69,22 @@ export function hasFiles() {
 
 /**
  * Pick a library directory and scan for karaoke files (MP3 + CDG pairs)
+ * @param {string} filenamePattern - Pattern for parsing filenames (default: "%artist - %title")
  * @returns {Promise<Array>} Array of song metadata objects
  */
-export async function pickLibraryDirectory() {
+export async function pickLibraryDirectory(filenamePattern = '%artist - %title') {
     try {
         // Request directory access
         libraryDirectoryHandle = await window.showDirectoryPicker({
             mode: 'read'
         });
 
+        // Validate pattern
+        const validPattern = validatePattern(filenamePattern);
+
         // Recursively scan for songs
         const songs = [];
-        await scanDirectoryForSongs(libraryDirectoryHandle, songs);
+        await scanDirectoryForSongs(libraryDirectoryHandle, songs, '', validPattern);
 
         console.log(`Library scan complete: ${songs.length} songs found`);
         return songs;
@@ -93,10 +99,11 @@ export async function pickLibraryDirectory() {
  * @param {FileSystemDirectoryHandle} directoryHandle 
  * @param {Array} songs - Accumulator array for found songs
  * @param {string} relativePath - Current relative path from library root
+ * @param {string} filenamePattern - Pattern for parsing filenames
  */
-async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '') {
+async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '', filenamePattern = '%artist - %title') {
     try {
-        const mp3Files = new Map(); // Map of basename -> mp3 file handle
+        const mp3Files = new Map(); // Map of basename -> {handle, file}
         const cdgFiles = new Set(); // Set of basenames that have CDG files
         const subdirectories = [];
 
@@ -107,7 +114,8 @@ async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '') 
                 
                 if (fileName.endsWith('.mp3')) {
                     const baseName = entry.name.slice(0, -4); // Remove .mp3 extension
-                    mp3Files.set(baseName, entry);
+                    const file = await entry.getFile();
+                    mp3Files.set(baseName, { handle: entry, file: file });
                 } else if (fileName.endsWith('.cdg')) {
                     const baseName = entry.name.slice(0, -4); // Remove .cdg extension
                     cdgFiles.add(baseName);
@@ -117,8 +125,8 @@ async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '') 
             }
         }
 
-        // Second pass: match MP3s with CDGs
-        for (const [baseName, mp3Handle] of mp3Files) {
+        // Second pass: match MP3s with CDGs and extract metadata
+        for (const [baseName, mp3Data] of mp3Files) {
             const hasCdg = cdgFiles.has(baseName);
             
             // Only include songs that have both MP3 and CDG files
@@ -128,20 +136,24 @@ async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '') 
             
             const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
 
+            // Extract metadata (ID3 tags or filename parsing)
+            const metadata = await extractMetadata(mp3Data.file, fullPath, filenamePattern);
+
             songs.push({
                 id: crypto.randomUUID(),
+                artist: metadata.artist,
+                title: metadata.title,
                 mp3FileName: `${baseName}.mp3`,
                 cdgFileName: `${baseName}.cdg`,
                 path: relativePath,
-                fullPath: fullPath,
-                mp3Handle: mp3Handle
+                fullPath: fullPath
             });
         }
 
         // Recursively scan subdirectories
         for (const subdir of subdirectories) {
             const newPath = relativePath ? `${relativePath}/${subdir.name}` : subdir.name;
-            await scanDirectoryForSongs(subdir, songs, newPath);
+            await scanDirectoryForSongs(subdir, songs, newPath, filenamePattern);
         }
     } catch (error) {
         console.error(`Error scanning directory ${relativePath}:`, error);
