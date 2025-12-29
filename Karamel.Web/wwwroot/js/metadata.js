@@ -1,36 +1,73 @@
 // Song metadata extraction module
 // Uses jsmediatags for ID3 tag extraction with filename fallback
 
-// Import jsmediatags - use npm package in tests, CDN in browser
+// Import jsmediatags - use npm package in tests, browser UMD build in browser
 let jsmediatags;
+let id3Enabled = false;
+
 try {
-    // Try npm package first (for tests)
-    jsmediatags = await import('jsmediatags');
+    // Try npm package first (for tests with Node.js environment)
+    const module = await import('jsmediatags');
+    jsmediatags = module.default || module;
+    id3Enabled = true;
+    console.log('Using jsmediatags from npm package');
 } catch {
-    // Fall back to CDN (for browser)
-    jsmediatags = await import('https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/+esm');
+    // In browser, load UMD build from CDN
+    try {
+        // Check if already loaded via script tag
+        if (window.jsmediatags) {
+            jsmediatags = window.jsmediatags;
+            id3Enabled = true;
+            console.log('Using jsmediatags from window (pre-loaded)');
+        } else {
+            // Dynamically load the browser UMD build
+            await loadJsMediaTagsFromCDN();
+            jsmediatags = window.jsmediatags;
+            id3Enabled = true;
+            console.log('Using jsmediatags from CDN');
+        }
+    } catch (error) {
+        console.warn('Failed to load jsmediatags, using filename parsing only:', error);
+        id3Enabled = false;
+    }
+}
+
+/**
+ * Load jsmediatags browser UMD build from CDN
+ * @returns {Promise<void>}
+ */
+function loadJsMediaTagsFromCDN() {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/dist/jsmediatags.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load jsmediatags from CDN'));
+        document.head.appendChild(script);
+    });
 }
 
 /**
  * Extract song metadata from an MP3 file
- * Tries ID3 tags first, falls back to filename parsing
+ * Tries ID3 tags first (if available), falls back to filename parsing
  * @param {File} file - The MP3 file to extract metadata from
  * @param {string} relativePath - Relative path from library root (for fallback)
  * @param {string} filenamePattern - Pattern for parsing filename (default: "%artist - %title")
  * @returns {Promise<{artist: string, title: string}>} Artist and title
  */
 export async function extractMetadata(file, relativePath, filenamePattern = '%artist - %title') {
-    try {
-        // Try ID3 tags first
-        const id3Data = await readID3Tags(file);
-        if (id3Data && id3Data.artist && id3Data.title) {
-            return {
-                artist: id3Data.artist.trim(),
-                title: id3Data.title.trim()
-            };
+    // Try ID3 tags first if available
+    if (id3Enabled) {
+        try {
+            const id3Data = await readID3Tags(file);
+            if (id3Data && id3Data.artist && id3Data.title) {
+                return {
+                    artist: id3Data.artist.trim(),
+                    title: id3Data.title.trim()
+                };
+            }
+        } catch (error) {
+            console.warn('ID3 tag extraction failed, falling back to filename parsing:', error);
         }
-    } catch (error) {
-        console.warn('ID3 tag extraction failed, falling back to filename parsing:', error);
     }
 
     // Fallback to filename parsing
@@ -43,6 +80,10 @@ export async function extractMetadata(file, relativePath, filenamePattern = '%ar
  * @returns {Promise<{artist: string, title: string}|null>}
  */
 function readID3Tags(file) {
+    if (!id3Enabled || !jsmediatags) {
+        return Promise.resolve(null);
+    }
+    
     return new Promise((resolve, reject) => {
         jsmediatags.read(file, {
             onSuccess: (tag) => {

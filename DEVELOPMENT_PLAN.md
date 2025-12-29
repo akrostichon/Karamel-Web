@@ -92,23 +92,24 @@
 - ✅ **Note**: Main tab must remain open (holds directory handle). If closed, session ends for all tabs.
 - **Status**: ✅ COMPLETED
 
-### Step 2.5: Home Page (Session Initialization)
+### Step 2.5: Home Page (Session Initialization) ✅
 **Files**: `Pages/Home.razor`, `wwwroot/js/homeInterop.js`, `wwwroot/js/homeInterop.test.js`
 
-- Replace template content with session initialization UI
-- "Select Karaoke Library" button (calls pickLibraryDirectory)
-- Checkbox: Allow singers to reorder playlist (default: unchecked)
-- Checkbox: Require singer name (default: checked) - **only configurable setting**
-- Textbox: Seconds pause between songs (default: 5)
-- Textbox: Filename parsing pattern (default: "%artist - %title")
-- Browser compatibility warning (File System Access API required)
-- "Start Karaoke Session" button:
+- ✅ Replace template content with session initialization UI
+- ✅ "Select Karaoke Library" button (calls pickLibraryDirectory)
+- ✅ Checkbox: Allow singers to reorder playlist (default: unchecked)
+- ✅ Checkbox: Require singer name (default: checked)
+- ✅ Textbox: Seconds pause between songs (default: 5)
+- ✅ Textbox: Filename parsing pattern (default: "%artist - %title")
+- ✅ Browser compatibility warning (File System Access API required)
+- ✅ "Start Karaoke Session" button:
   - Disabled until library selected
   - Creates session GUID, saves settings to state
   - Opens Playlist view in new tab: `/playlist?session={guid}`
   - Opens Singer view in new tab: `/singer?session={guid}`
   - **Current tab navigates to NextSongView** (retains folder access)
-- **Testing**: Extract JavaScript logic to homeInterop.js module with comprehensive Vitest unit tests (see [TESTING_STRATEGY.md](TESTING_STRATEGY.md) for details)
+- ✅ **Testing**: Extract JavaScript logic to homeInterop.js module with comprehensive Vitest unit tests (see [TESTING_STRATEGY.md](TESTING_STRATEGY.md) for details)
+- **Status**: ✅ COMPLETED
 
 ### Step 2.6: Library Search Component
 **Files**: `Components/LibrarySearch.razor`
