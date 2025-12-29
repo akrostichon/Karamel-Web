@@ -26,7 +26,7 @@
 ## Implementation rules
 - if current branch is main, always create a feature branch and switch to it, before you start implementing.
 - implement unit tests for non-ui logic
-- do not execute the merge back to main branch yourself. push the changes on the feature branch and create a pull request.
+- do not execute the merge back to main branch yourself. push the changes on the feature branch.
 ---
 
 ## Phase 1: Prototype Cleanup ✅ COMPLETE
