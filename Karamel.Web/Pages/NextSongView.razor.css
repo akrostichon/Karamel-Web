@@ -1,0 +1,162 @@
+.nextsong-view {
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Next song display when queue has songs */
+.nextsong-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.nextsong-content {
+    text-align: center;
+    color: white;
+    padding: 2rem;
+    max-width: 80%;
+}
+
+.artist-name {
+    font-size: 4rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.song-title {
+    font-size: 3rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.singer-name {
+    font-size: 1.8rem;
+    font-weight: 400;
+    color: #ffd700;
+    margin-top: 1rem;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* QR code section (lower left) */
+.qrcode-section {
+    position: absolute;
+    bottom: 2rem;
+    left: 2rem;
+}
+
+.qrcode-content {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.qrcode-label {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.75rem;
+}
+
+.qrcode-small {
+    width: 150px;
+    height: 150px;
+}
+
+/* Empty queue display */
+.empty-queue-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-queue-content {
+    text-align: center;
+    color: white;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+.microphone-icon {
+    font-size: 8rem;
+    color: #ffd700;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.empty-queue-title {
+    font-size: 5rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.empty-queue-subtitle {
+    font-size: 2rem;
+    font-weight: 400;
+    margin: 0;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.qrcode-large {
+    width: 300px;
+    height: 300px;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .artist-name {
+        font-size: 2.5rem;
+    }
+
+    .song-title {
+        font-size: 2rem;
+    }
+
+    .singer-name {
+        font-size: 1.3rem;
+    }
+
+    .empty-queue-title {
+        font-size: 3rem;
+    }
+
+    .empty-queue-subtitle {
+        font-size: 1.5rem;
+    }
+
+    .microphone-icon {
+        font-size: 5rem;
+    }
+
+    .qrcode-large {
+        width: 200px;
+        height: 200px;
+    }
+
+    .qrcode-small {
+        width: 120px;
+        height: 120px;
+    }
+}

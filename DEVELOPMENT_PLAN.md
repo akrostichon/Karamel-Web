@@ -175,17 +175,26 @@
 - ✅ **Edge cases**: Empty singer name validation, special characters in names, session state persistence
 - **Status**: ✅ COMPLETED
 
-### Step 2.9: Next Song View
-**Files**: `Pages/NextSongView.razor`, `wwwroot/js/qrcode.js`
+### Step 2.9: Next Song View ✅
+**Files**: `Pages/NextSongView.razor`, `wwwroot/js/qrcode.js`, `wwwroot/js/qrcode.test.js`, `Karamel.Web.Tests/NextSongViewTests.cs`
 
+#### Implementation: ✅
 - **QR Code Library**: Import QRCode.js from CDN `https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js`
 - If queue has songs:
   - Center: Display next song (Artist above Title, Singer name below in different color)
   - Lower left: "Sing a song" + QR code linking to `/singer?session={guid}`
   - Auto-advance to PlayerView after configured pause seconds
 - If queue empty:
-  - Center: "Sing a song" message + QR code (large)
+  - Center: "Sing a song" message + QR code (large) - Left side shows a large microphone.
 - Listens to Broadcast Channel for playlist updates
+
+#### Testing: ✅
+- **Unit tests**: Verify display of next song from queue with correct artist, title, and singer name (18 C# tests, 20 JS tests - all passing)
+- **Unit tests**: Test empty queue state shows "Sing a song" message and large QR code
+- **Unit tests**: Verify QR code generation with correct session URL
+- **Unit tests**: Test auto-advance timer to PlayerView after configured pause seconds
+- **Unit tests**: Verify broadcast channel listener updates when playlist changes
+- **Edge cases**: Queue becomes empty while timer is running, session GUID validation, pause duration variations
 
 ### Step 2.10: Player View (Refactor KaraokePlayer.razor)
 **Files**: `Pages/PlayerView.razor` (renamed from KaraokePlayer.razor)
