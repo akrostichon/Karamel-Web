@@ -111,22 +111,23 @@
 - ✅ **Testing**: Extract JavaScript logic to homeInterop.js module with comprehensive Vitest unit tests (see [TESTING_STRATEGY.md](TESTING_STRATEGY.md) for details)
 - **Status**: ✅ COMPLETED
 
-### Step 2.6: Library Search Component
+### Step 2.6: Library Search Component ✅
 **Files**: `Components/LibrarySearch.razor`, `Karamel.Web.Tests/LibrarySearchTests.cs`
 
 #### Implementation:
-- Reusable component displaying scanned songs in searchable table
-- Columns: Artist, Title, Actions
-- Search box filters by artist/title (client-side, case-insensitive, contains)
-- "Add to Queue" button (microphone icon) dispatches AddToPlaylist action
-- Shows confirmation toast on successful add
+- ✅ Reusable component displaying scanned songs in searchable table
+- ✅ Columns: Artist, Title, Actions
+- ✅ Search box filters by artist/title (client-side, case-insensitive, contains)
+- ✅ "Add to Queue" button (microphone icon) dispatches AddToPlaylist action
+- ✅ Shows confirmation toast on successful add
 
 #### Testing:
-- **Unit tests**: Test filtering logic (case-insensitive, contains match)
-- **Unit tests**: Verify table displays correct columns with proper sorting (alphabetically by Artist, then Title)
-- **Unit tests**: Test AddToPlaylist action dispatch with correct song data
-- **Integration tests**: Test toast notification display on successful add
-- **Edge cases**: Empty library, empty search results, special characters in artist/title
+- ✅ **Unit tests**: Test filtering logic (case-insensitive, contains match)
+- ✅ **Unit tests**: Verify table displays correct columns with proper sorting (alphabetically by Artist, then Title)
+- ✅ **Unit tests**: Test AddToPlaylist action dispatch with correct song data
+- ✅ **Unit tests**: Test toast notification display on successful add
+- ✅ **Edge cases**: Empty library, empty search results, special characters in artist/title
+- **Status**: ✅ COMPLETED (14 tests passing)
 
 ### Step 2.7: Playlist Management View
 **Files**: `Pages/Playlist.razor`
