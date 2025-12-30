@@ -123,11 +123,22 @@ public static class PlaylistReducers
             Console.WriteLine($"PlaylistReducers: UpdatePlaylistFromBroadcastAction received with {action.Queue?.Count ?? 0} songs");
         }
         catch { }
-
         return state with
         {
             Queue = action.Queue != null ? new Queue<Song>(action.Queue) : new Queue<Song>(),
-            SingerSongCounts = action.SingerSongCounts ?? new Dictionary<string, int>()
+            SingerSongCounts = action.SingerSongCounts ?? new Dictionary<string, int>(),
+            CurrentSong = action.CurrentSong,
+            CurrentSingerName = action.CurrentSingerName
+        };
+    }
+
+    [ReducerMethod]
+    public static PlaylistState ReduceClearCurrentSongAction(PlaylistState state, ClearCurrentSongAction action)
+    {
+        return state with
+        {
+            CurrentSong = null,
+            CurrentSingerName = null
         };
     }
 }

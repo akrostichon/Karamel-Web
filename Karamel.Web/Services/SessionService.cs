@@ -117,7 +117,9 @@ public class SessionService : ISessionService
                 id = state.CurrentSong.Id.ToString(),
                 artist = state.CurrentSong.Artist,
                 title = state.CurrentSong.Title,
-                addedBySinger = state.CurrentSong.AddedBySinger
+                addedBySinger = state.CurrentSong.AddedBySinger,
+                mp3FileName = state.CurrentSong.Mp3FileName,
+                cdgFileName = state.CurrentSong.CdgFileName
             },
             currentSingerName = state.CurrentSingerName,
             singerSongCounts = state.SingerSongCounts
@@ -416,10 +418,38 @@ public class SessionService : ISessionService
                     Console.WriteLine($"SessionService: First queued song: id={first.Id} artist={first.Artist} title={first.Title} addedBy={first.AddedBySinger}");
                 }
 
-                // Dispatch action to update playlist state
-                _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts));
+                // Parse optional currentSong and currentSingerName
+                Song? currentSong = null;
+                string? currentSingerName = null;
+                try
+                {
+                    if (data.TryGetProperty("currentSong", out var currentSongObj) && currentSongObj.ValueKind != JsonValueKind.Null)
+                    {
+                        currentSong = new Song
+                        {
+                            Id = Guid.Parse(currentSongObj.GetProperty("id").GetString()!),
+                            Artist = currentSongObj.GetProperty("artist").GetString() ?? "",
+                            Title = currentSongObj.GetProperty("title").GetString() ?? "",
+                            Mp3FileName = currentSongObj.TryGetProperty("mp3FileName", out var mp3p) ? mp3p.GetString() ?? "" : "",
+                            CdgFileName = currentSongObj.TryGetProperty("cdgFileName", out var cdgp) ? cdgp.GetString() ?? "" : "",
+                            AddedBySinger = currentSongObj.TryGetProperty("addedBySinger", out var added) ? added.GetString() : null
+                        };
+                    }
 
-                Console.WriteLine($"SessionService: Dispatched playlist update with {queue.Count} songs");
+                    if (data.TryGetProperty("currentSingerName", out var currentSingerProp) && currentSingerProp.ValueKind != JsonValueKind.Null)
+                    {
+                        currentSingerName = currentSingerProp.GetString();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SessionService: Error parsing currentSong: {ex.Message}");
+                }
+
+                // Dispatch action to update playlist state including current song
+                _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts, currentSong, currentSingerName));
+
+                Console.WriteLine($"SessionService: Dispatched playlist update with {queue.Count} songs (currentSong={(currentSong!=null)})");
             }
         }
         catch (Exception ex)

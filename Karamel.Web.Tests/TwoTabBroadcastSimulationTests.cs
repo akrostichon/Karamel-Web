@@ -116,7 +116,7 @@ namespace Karamel.Web.Tests
             }).ToList();
             var singerCounts = singerPlaylistState.Value.SingerSongCounts.ToDictionary(kv => kv.Key, kv => kv.Value);
 
-            nextDispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(singerQueue, singerCounts));
+            nextDispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(singerQueue, singerCounts, null, null));
 
             // Render NextSongView in nextCtx
             var cut = nextCtx.RenderComponent<NextSongView>();

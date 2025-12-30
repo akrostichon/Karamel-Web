@@ -9,5 +9,6 @@ public record AddToPlaylistFailureAction(string ErrorMessage);
 public record RemoveSongAction(Guid SongId);
 public record ReorderPlaylistAction(int OldIndex, int NewIndex);
 public record NextSongAction();
+public record ClearCurrentSongAction();
 public record ClearPlaylistAction();
-public record UpdatePlaylistFromBroadcastAction(List<Song> Queue, Dictionary<string, int> SingerSongCounts);
+public record UpdatePlaylistFromBroadcastAction(List<Song> Queue, Dictionary<string, int> SingerSongCounts, Song? CurrentSong = null, string? CurrentSingerName = null);
