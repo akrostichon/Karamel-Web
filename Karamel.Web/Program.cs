@@ -17,6 +17,6 @@ builder.Services.AddFluxor(options =>
 });
 
 // Add SessionService for cross-tab communication
-builder.Services.AddScoped<SessionService>();
+builder.Services.AddScoped<ISessionService, SessionService>();
 
 await builder.Build().RunAsync();

@@ -1,9 +1,11 @@
 using Bunit;
 using Fluxor;
 using Karamel.Web.Pages;
+using Karamel.Web.Services;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Models;
+using Karamel.Web.Tests.TestHelpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Xunit;
@@ -14,39 +16,12 @@ namespace Karamel.Web.Tests;
 /// Integration tests for NextSongView component.
 /// Tests real Fluxor state updates and component reactivity.
 /// </summary>
-public class NextSongViewIntegrationTests : SessionTestBase
+public class NextSongViewIntegrationTests : IntegrationTestBase
 {
-    private readonly IStore _store;
-    private readonly IDispatcher _dispatcher;
-    private readonly Guid _testSessionId;
-
     public NextSongViewIntegrationTests()
+        : base(asMainTab: true)
     {
-        // Generate test session ID first
-        _testSessionId = Guid.NewGuid();
-        
-        // IMPORTANT: Add NavigationManager BEFORE Fluxor initialization
-        // This ensures the service provider isn't locked when we need session validation
-        var fakeNav = new FakeNavigationManager();
-        fakeNav.NavigateTo($"http://localhost/nextsong?session={_testSessionId}");
-        Services.AddSingleton<Microsoft.AspNetCore.Components.NavigationManager>(fakeNav);
-
-        // Add mock JS runtime
-        var mockJSRuntime = new MockJSRuntime();
-        Services.AddSingleton<IJSRuntime>(mockJSRuntime);
-
-        // Add Fluxor with real store (after NavigationManager)
-        Services.AddFluxor(options =>
-        {
-            options.ScanAssemblies(typeof(SessionState).Assembly);
-        });
-
-        // Get services after building
-        _store = Services.GetRequiredService<IStore>();
-        _dispatcher = Services.GetRequiredService<IDispatcher>();
-        
-        // Initialize the store
-        _store.InitializeAsync().Wait();
+        // Base class handles all setup with real Fluxor store
     }
 
     [Fact]
@@ -55,11 +30,11 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Arrange - dispatch initial session action with test session ID
         var initialSession = new Models.Session
         {
-            SessionId = _testSessionId,
+            SessionId = TestSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(initialSession));
+        Dispatcher.Dispatch(new InitializeSessionAction(initialSession));
 
         // Add a song to the queue
         var song = new Song
@@ -69,7 +44,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
             Mp3FileName = "test.mp3",
             CdgFileName = "test.cdg"
         };
-        _dispatcher.Dispatch(new AddToPlaylistAction(song, "Test Singer"));
+        Dispatcher.Dispatch(new AddToPlaylistAction(song, "Test Singer"));
 
         // Wait briefly for effect to process
         Thread.Sleep(100);
@@ -89,11 +64,11 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Arrange - dispatch initial session action with test session ID
         var initialSession = new Models.Session
         {
-            SessionId = _testSessionId,
+            SessionId = TestSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(initialSession));
+        Dispatcher.Dispatch(new InitializeSessionAction(initialSession));
 
         // Act - render component with initial empty queue state
         var cut = RenderComponent<NextSongView>();
@@ -109,11 +84,11 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Arrange - initialize session
         var session = new Models.Session
         {
-            SessionId = _testSessionId,
+            SessionId = TestSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(session));
+        Dispatcher.Dispatch(new InitializeSessionAction(session));
 
         // Act - render component
         var cut = RenderComponent<NextSongView>();
@@ -129,11 +104,11 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Arrange - initialize session
         var session = new Models.Session
         {
-            SessionId = _testSessionId,
+            SessionId = TestSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(session));
+        Dispatcher.Dispatch(new InitializeSessionAction(session));
 
         // Act - render component with empty queue
         var cut = RenderComponent<NextSongView>();
@@ -149,11 +124,11 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Arrange - initialize session with test session ID
         var session = new Models.Session
         {
-            SessionId = _testSessionId,
+            SessionId = TestSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(session));
+        Dispatcher.Dispatch(new InitializeSessionAction(session));
 
         // Add first song BEFORE rendering component
         var song1 = new Song
@@ -163,7 +138,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
             Mp3FileName = "song1.mp3",
             CdgFileName = "song1.cdg"
         };
-        _dispatcher.Dispatch(new AddToPlaylistAction(song1, "John Doe"));
+        Dispatcher.Dispatch(new AddToPlaylistAction(song1, "John Doe"));
 
         // Wait for effect to process and success action to update state
         await Task.Delay(100); // Give effect time to run
@@ -184,7 +159,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
             Mp3FileName = "song2.mp3",
             CdgFileName = "song2.cdg"
         };
-        _dispatcher.Dispatch(new AddToPlaylistAction(song2, "Jane Smith"));
+        Dispatcher.Dispatch(new AddToPlaylistAction(song2, "Jane Smith"));
 
         // Wait for effect to process
         await Task.Delay(100);
@@ -198,7 +173,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
         Assert.DoesNotContain("Jane Smith", cut.Markup);
 
         // Act - remove first song (simulate playing it)
-        _dispatcher.Dispatch(new NextSongAction());
+        Dispatcher.Dispatch(new NextSongAction());
 
         // Wait for state update
         await Task.Delay(100);
@@ -218,11 +193,11 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Arrange - initialize session with test session ID and add song
         var session = new Models.Session
         {
-            SessionId = _testSessionId,
+            SessionId = TestSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(session));
+        Dispatcher.Dispatch(new InitializeSessionAction(session));
 
         var song = new Song
         {
@@ -231,7 +206,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
             Mp3FileName = "song.mp3",
             CdgFileName = "song.cdg"
         };
-        _dispatcher.Dispatch(new AddToPlaylistAction(song, "Test Singer"));
+        Dispatcher.Dispatch(new AddToPlaylistAction(song, "Test Singer"));
 
         // Render component
         var cut = RenderComponent<NextSongView>();
@@ -248,7 +223,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
         Assert.Contains("Test Song", cut.Markup);
 
         // Act - remove the song
-        _dispatcher.Dispatch(new NextSongAction());
+        Dispatcher.Dispatch(new NextSongAction());
 
         // Wait for queue to become empty
         cut.WaitForState(() => 
@@ -268,11 +243,11 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Arrange - initialize session with test session ID
         var session = new Models.Session
         {
-            SessionId = _testSessionId,
+            SessionId = TestSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(session));
+        Dispatcher.Dispatch(new InitializeSessionAction(session));
 
         // Act & Assert - add multiple songs rapidly BEFORE rendering
         var songs = new List<Song>();
@@ -286,7 +261,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
                 CdgFileName = $"song{i}.cdg"
             };
             songs.Add(song);
-            _dispatcher.Dispatch(new AddToPlaylistAction(song, $"Singer {i}"));
+            Dispatcher.Dispatch(new AddToPlaylistAction(song, $"Singer {i}"));
         }
 
         // Wait for all effects to process
@@ -306,7 +281,7 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Act - remove songs one by one and verify state updates
         for (int i = 1; i <= 5; i++)
         {
-            _dispatcher.Dispatch(new NextSongAction());
+            Dispatcher.Dispatch(new NextSongAction());
             await Task.Delay(50);
             
             var state = Services.GetRequiredService<IState<PlaylistState>>();
@@ -316,46 +291,6 @@ public class NextSongViewIntegrationTests : SessionTestBase
         // Final state should have empty queue
         Assert.Empty(playlistState.Value.Queue);
     }
-
-    /// <summary>
-    /// Mock JS runtime that handles dynamic module imports
-    /// </summary>
-    private class MockJSRuntime : IJSRuntime
-    {
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
-        {
-            if (identifier == "import")
-            {
-                // Return mock JS module
-                return new ValueTask<TValue>((TValue)(object)new MockJSObjectReference());
-            }
-            return new ValueTask<TValue>(default(TValue)!);
-        }
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
-        {
-            return InvokeAsync<TValue>(identifier, args);
-        }
-    }
-
-    /// <summary>
-    /// Mock JS object reference for module methods
-    /// </summary>
-    private class MockJSObjectReference : IJSObjectReference
-    {
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
-        {
-            return new ValueTask<TValue>(default(TValue)!);
-        }
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
-        {
-            return InvokeAsync<TValue>(identifier, args);
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            return ValueTask.CompletedTask;
-        }
-    }
 }
+
+

@@ -111,7 +111,7 @@ public class NextSongViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -134,7 +134,7 @@ public class NextSongViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>() };
-        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -160,7 +160,7 @@ public class NextSongViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>() };
-        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -209,7 +209,7 @@ public class NextSongViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -321,7 +321,7 @@ public class NextSongViewTests : SessionTestBase
         // Arrange - Set up session with empty queue from the start
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var emptyPlaylistState = new PlaylistState { Queue = new Queue<Song>() };
-        SetupTestWithSession(sessionState, emptyPlaylistState, view: "nextsong");
+        SetupTestWithNonLocalhostSession(sessionState, emptyPlaylistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act

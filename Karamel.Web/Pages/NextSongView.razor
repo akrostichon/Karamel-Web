@@ -42,7 +42,16 @@
                 <div class="qrcode-section">
                     <div class="qrcode-content">
                         <p class="qrcode-label">Sing a song</p>
-                        <div id="qrcode-container" class="qrcode-small"></div>
+                        @if (isLocalhost)
+                        {
+                            <a href="@GenerateSessionUrl()" target="_blank" class="session-link">
+                                Open Singer View
+                            </a>
+                        }
+                        else
+                        {
+                            <div id="qrcode-container" class="qrcode-small"></div>
+                        }
                     </div>
                 </div>
             </div>
@@ -55,8 +64,20 @@
                         <i class="bi bi-mic-fill"></i>
                     </div>
                     <h1 class="empty-queue-title">Sing a song!</h1>
-                    <p class="empty-queue-subtitle">Scan the QR code to add songs to the queue</p>
-                    <div id="qrcode-container" class="qrcode-large"></div>
+                    @if (isLocalhost)
+                    {
+                        <p class="empty-queue-subtitle">Click the link below to add songs to the queue</p>
+                        <div class="qrcode-large">
+                            <a href="@GenerateSessionUrl()" target="_blank" class="session-link-large">
+                                Open Singer View
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="empty-queue-subtitle">Scan the QR code to add songs to the queue</p>
+                        <div id="qrcode-container" class="qrcode-large"></div>
+                    }
                 </div>
             </div>
         }
@@ -74,10 +95,14 @@
     private bool isDisposed = false;
     private Queue<Song>? previousQueue;
     private bool isSessionValid = false;
+    private bool isLocalhost = false;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
+
+        // Check if running on localhost
+        isLocalhost = IsLocalhostEnvironment();
 
         // Validate session parameter
         isSessionValid = ValidateSession();
@@ -87,6 +112,13 @@
             // Initialize next song
             UpdateNextSong();
         }
+    }
+
+    private bool IsLocalhostEnvironment()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        var host = uri.Host.ToLowerInvariant();
+        return host == "localhost" || host == "127.0.0.1" || host == "::1";
     }
 
     private bool ValidateSession()
@@ -111,9 +143,9 @@
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        if (firstRender && isSessionValid)
+        if (firstRender && isSessionValid && !isLocalhost)
         {
-            // Load QR code module
+            // Load QR code module only if not on localhost
             qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
                 "import", "./js/qrcode.js");
 
@@ -124,6 +156,11 @@
             await qrcodeModule.InvokeVoidAsync("generateQRCode", "qrcode-container", sessionUrl);
 
             // Start auto-advance timer if queue has songs
+            StartAutoAdvanceTimer();
+        }
+        else if (firstRender && isSessionValid && isLocalhost)
+        {
+            // Start auto-advance timer for localhost (no QR code needed)
             StartAutoAdvanceTimer();
         }
         else if (!firstRender && isSessionValid)

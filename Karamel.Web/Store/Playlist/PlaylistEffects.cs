@@ -1,8 +1,9 @@
 using Fluxor;
+using Karamel.Web.Services;
 
 namespace Karamel.Web.Store.Playlist;
 
-public class PlaylistEffects(IState<PlaylistState> playlistState)
+public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionService sessionService)
 {
     private const int MaxSongsPerSinger = 10;
 
@@ -25,5 +26,40 @@ public class PlaylistEffects(IState<PlaylistState> playlistState)
         dispatcher.Dispatch(new AddToPlaylistSuccessAction(songWithSinger));
         
         return Task.CompletedTask;
+    }
+
+    [EffectMethod]
+    public async Task HandleAddToPlaylistSuccessAction(AddToPlaylistSuccessAction action, IDispatcher dispatcher)
+    {
+        // Broadcast playlist update to other tabs
+        await sessionService.BroadcastPlaylistUpdatedAsync();
+    }
+
+    [EffectMethod]
+    public async Task HandleRemoveSongAction(RemoveSongAction action, IDispatcher dispatcher)
+    {
+        // Broadcast playlist update after removal
+        await sessionService.BroadcastPlaylistUpdatedAsync();
+    }
+
+    [EffectMethod]
+    public async Task HandleNextSongAction(NextSongAction action, IDispatcher dispatcher)
+    {
+        // Broadcast playlist update after advancing to next song
+        await sessionService.BroadcastPlaylistUpdatedAsync();
+    }
+
+    [EffectMethod]
+    public async Task HandleClearPlaylistAction(ClearPlaylistAction action, IDispatcher dispatcher)
+    {
+        // Broadcast playlist update after clearing
+        await sessionService.BroadcastPlaylistUpdatedAsync();
+    }
+
+    [EffectMethod]
+    public async Task HandleReorderPlaylistAction(ReorderPlaylistAction action, IDispatcher dispatcher)
+    {
+        // Broadcast playlist update after reordering
+        await sessionService.BroadcastPlaylistUpdatedAsync();
     }
 }

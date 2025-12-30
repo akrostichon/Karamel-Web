@@ -10,3 +10,4 @@ public record RemoveSongAction(Guid SongId);
 public record ReorderPlaylistAction(int OldIndex, int NewIndex);
 public record NextSongAction();
 public record ClearPlaylistAction();
+public record UpdatePlaylistFromBroadcastAction(List<Song> Queue, Dictionary<string, int> SingerSongCounts);
