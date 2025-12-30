@@ -221,8 +221,8 @@
 - ✅ **Edge cases**: Session without CurrentSong, playback errors, side panel state persistence
 - **Status**: ✅ COMPLETED (19 tests passing)
 
-### Step 2.11: Navigation & Session Flow ✅
-**Files**: `Layout/NavMenu.razor`, `Layout/MainLayout.razor`, `App.razor`, `Karamel.Web.Tests/NavigationFlowTests.cs`
+### Step 2.11: Navigation & Session Flow ✅ COMPLETED
+**Files**: `Layout/NavMenu.razor`, `Layout/MainLayout.razor`, `App.razor`, `Karamel.Web.Tests/NavigationFlowTests.cs`, `Karamel.Web.Tests/SessionTestBase.cs`, `Pages/*.razor`, `STRICT_SESSION_VALIDATION_PLAN.md`
 
 #### Implementation:
 - Remove NavMenu component from MainLayout (session-based routing via URLs)
@@ -232,16 +232,19 @@
   - `/player?session={guid}` → PlayerView.razor (same tab as NextSong)
   - `/playlist?session={guid}` → Playlist.razor (new tab, no file access)
   - `/singer?session={guid}` → SingerView.razor (new tab or QR code access)
-- All views except Home validate session GUID and load state from Fluxor
+- **STRICT validation**: All views validate `?session={guid}` parameter is present, valid GUID, and matches CurrentSession.SessionId
+- Multi-session support: Different tabs can run independent sessions simultaneously
 
 #### Testing:
 - ✅ **Unit tests**: Verify MainLayout no longer includes NavMenu component
 - ✅ **Unit tests**: Test minimal layout structure without sidebar navigation
-- ✅ **Unit tests**: Verify all views except Home validate session GUID from query parameters
-- ✅ **Unit tests**: Test invalid session GUID handling (error display or redirect)
+- ✅ **Unit tests**: Verify all views validate session GUID from query parameters (STRICT)
+- ✅ **Unit tests**: Test invalid session GUID handling (error display)
 - ✅ **Unit tests**: Test missing session parameter handling
 - ✅ **Edge cases**: Malformed GUIDs, empty session parameters, valid GUID but no session data
-- **Status**: ✅ COMPLETED (11 tests passing)
+- ✅ **Created SessionTestBase**: Centralized test infrastructure with SetupTestWithSession() helper
+- **Status**: ✅ COMPLETED (92 tests passing, 9 skipped with documented reasons)
+- **Date Completed**: 2025-01-20
 
 ---
 
