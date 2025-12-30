@@ -18,7 +18,7 @@
 <PageTitle>Karaoke Player</PageTitle>
 
 <div class="player-view">
-    @if (SessionState.Value.CurrentSession == null)
+    @if (!isSessionValid)
     {
         <div class="alert alert-danger m-4" role="alert">
             <h4 class="alert-heading">Invalid Session</h4>
@@ -96,6 +96,10 @@
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "session")]
+    public string? SessionParam { get; set; }
+
     private IJSObjectReference? fileAccessModule;
     private IJSObjectReference? playerModule;
     private DotNetObjectReference<PlayerView>? dotNetRef;
@@ -107,6 +111,38 @@
     private string sidePanelView = "singer";
     private string? errorMessage;
     private bool isInitialized = false;
+    private bool isSessionValid = false;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        isSessionValid = ValidateSession();
+    }
+
+    private bool ValidateSession()
+    {
+        // If no session in state, it's invalid
+        if (SessionState.Value.CurrentSession == null)
+        {
+            return false;
+        }
+
+        // If session parameter is provided, validate it matches
+        if (!string.IsNullOrWhiteSpace(SessionParam))
+        {
+            if (!Guid.TryParse(SessionParam, out var sessionGuid))
+            {
+                return false; // Invalid GUID format
+            }
+
+            // Session ID must match the parameter
+            return SessionState.Value.CurrentSession.SessionId == sessionGuid;
+        }
+
+        // If no session parameter but session exists in state, allow it
+        // (for backward compatibility and sessionStorage scenarios)
+        return true;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

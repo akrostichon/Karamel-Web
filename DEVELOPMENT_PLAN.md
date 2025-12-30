@@ -221,9 +221,10 @@
 - ✅ **Edge cases**: Session without CurrentSong, playback errors, side panel state persistence
 - **Status**: ✅ COMPLETED (19 tests passing)
 
-### Step 2.11: Navigation & Session Flow
-**Files**: `Layout/NavMenu.razor`, `App.razor`
+### Step 2.11: Navigation & Session Flow ✅
+**Files**: `Layout/NavMenu.razor`, `Layout/MainLayout.razor`, `App.razor`, `Karamel.Web.Tests/NavigationFlowTests.cs`
 
+#### Implementation:
 - Remove NavMenu component from MainLayout (session-based routing via URLs)
 - Session routing:
   - `/` → Home.razor (session initialization)
@@ -232,6 +233,15 @@
   - `/playlist?session={guid}` → Playlist.razor (new tab, no file access)
   - `/singer?session={guid}` → SingerView.razor (new tab or QR code access)
 - All views except Home validate session GUID and load state from Fluxor
+
+#### Testing:
+- ✅ **Unit tests**: Verify MainLayout no longer includes NavMenu component
+- ✅ **Unit tests**: Test minimal layout structure without sidebar navigation
+- ✅ **Unit tests**: Verify all views except Home validate session GUID from query parameters
+- ✅ **Unit tests**: Test invalid session GUID handling (error display or redirect)
+- ✅ **Unit tests**: Test missing session parameter handling
+- ✅ **Edge cases**: Malformed GUIDs, empty session parameters, valid GUID but no session data
+- **Status**: ✅ COMPLETED (11 tests passing)
 
 ---
 
@@ -245,6 +255,7 @@
 - Layout preferences (sidebar vs. top nav)
 - Singer view simplified vs. admin view
 - Mobile responsiveness requirements
+- favicon and program icon
 
 ### Step 3.2: Custom CSS
 **Files**: `wwwroot/css/app.css`, component-specific CSS
