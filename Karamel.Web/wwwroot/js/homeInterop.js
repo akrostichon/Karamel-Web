@@ -159,11 +159,14 @@ export async function initializeKaraokeSession(config, songs) {
     // Save library to sessionStorage
     await saveLibraryToSessionStorage(config.sessionId, { songs });
     
-    // Broadcast session settings
+    // Broadcast session settings (includes all session data for secondary tabs)
     broadcastStateUpdate('session-settings', {
+        sessionId: config.sessionId,
+        libraryPath: 'Selected Library', // We don't have actual path from File System Access API
         requireSingerName: config.requireSingerName,
         allowSingerReorder: config.allowSingerReorder,
-        pauseBetweenSongs: config.pauseBetweenSongs,
+        pauseBetweenSongs: true, // Always enable pause screen
+        pauseBetweenSongsSeconds: config.pauseBetweenSongs,
         filenamePattern: config.filenamePattern
     });
     
@@ -173,7 +176,7 @@ export async function initializeKaraokeSession(config, songs) {
 /**
  * Open new tabs for playlist and singer views
  * @param {string} sessionId - Session GUID
- * @returns {object} Result with opened window references
+ * @returns {object} Result with URLs (window references not returned to avoid circular JSON)
  */
 export function openSessionTabs(sessionId) {
     if (!sessionId) {
@@ -183,13 +186,14 @@ export function openSessionTabs(sessionId) {
     const playlistUrl = generateSessionUrl('playlist', sessionId);
     const singerUrl = generateSessionUrl('singer', sessionId);
     
-    // Open new tabs/windows
-    const playlistWindow = window.open(playlistUrl, '_blank');
-    const singerWindow = window.open(singerUrl, '_blank');
+    // Open new tabs/windows in background (don't switch focus)
+    window.open(playlistUrl, '_blank');
+    window.open(singerUrl, '_blank');
+    
+    // Refocus the current window to stay on this tab
+    window.focus();
     
     return {
-        playlistWindow,
-        singerWindow,
         playlistUrl,
         singerUrl
     };

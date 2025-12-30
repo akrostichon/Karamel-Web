@@ -3,6 +3,7 @@ using Karamel.Web.Models;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Library;
+using Karamel.Web.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
@@ -62,14 +63,6 @@ public abstract class SessionTestBase : TestContext
         var mockPlaylistState = new Mock<IState<PlaylistState>>();
         mockPlaylistState.Setup(s => s.Value).Returns(playlistState);
 
-        // Mock IState<LibraryState> if provided
-        if (libraryState != null)
-        {
-            var mockLibraryState = new Mock<IState<LibraryState>>();
-            mockLibraryState.Setup(s => s.Value).Returns(libraryState);
-            Services.AddSingleton(mockLibraryState.Object);
-        }
-
         // Mock IDispatcher
         var mockDispatcher = new Mock<IDispatcher>();
 
@@ -87,13 +80,21 @@ public abstract class SessionTestBase : TestContext
             It.IsAny<object[]>()))
             .ReturnsAsync(mockJSModule.Object);
 
-        // Register services
+        // Create mock LibraryState
+        var mockLibraryState = new Mock<IState<LibraryState>>();
+        mockLibraryState.Setup(s => s.Value).Returns(libraryState ?? new LibraryState());
+
+        // Register all services BEFORE creating any components
         Services.AddSingleton(mockSessionState.Object);
         Services.AddSingleton(mockPlaylistState.Object);
+        Services.AddSingleton(mockLibraryState.Object);
         Services.AddSingleton(mockDispatcher.Object);
         Services.AddSingleton(mockActionSubscriber.Object);
         Services.AddSingleton<NavigationManager>(fakeNavManager);
         Services.AddSingleton(mockJSRuntime.Object);
+        
+        // Register SessionService with the mocked dependencies
+        Services.AddSingleton<SessionService>();
 
         return (mockActionSubscriber, mockDispatcher, fakeNavManager);
     }

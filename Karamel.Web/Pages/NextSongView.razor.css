@@ -1,4 +1,7 @@
 .nextsong-view {
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100vw;
     height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -6,7 +9,8 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    position: relative;
+    margin: 0;
+    padding: 0;
 }
 
 /* Next song display when queue has songs */
@@ -68,12 +72,22 @@
     font-size: 1.2rem;
     font-weight: 600;
     color: #333;
-    margin-bottom: 0.75rem;
+    margin: 0 0 0.75rem 0;
 }
 
 .qrcode-small {
     width: 150px;
     height: 150px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qrcode-small img,
+.qrcode-small canvas {
+    display: block;
+    margin: 0 auto;
 }
 
 /* Empty queue display */
@@ -122,6 +136,15 @@
     padding: 1.5rem;
     border-radius: 1rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qrcode-large img,
+.qrcode-large canvas {
+    display: block;
+    margin: 0 auto;
 }
 
 /* Responsive adjustments */

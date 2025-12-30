@@ -3,10 +3,13 @@
 @using Karamel.Web.Models
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Library
+@using Karamel.Web.Services
 @inject IState<PlaylistState> PlaylistState
 @inject IState<SessionState> SessionState
 @inject IDispatcher Dispatcher
 @inject IJSRuntime JSRuntime
+@inject SessionService SessionService
 
 <PageTitle>Playlist - Karamel</PageTitle>
 
@@ -121,11 +124,21 @@
     private int? draggedIndex;
     private string dragOverClass = "";
     private bool isSessionValid = false;
+    private bool isInitializing = true;
 
-    protected override void OnInitialized()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        base.OnInitialized();
-        isSessionValid = ValidateSession();
+        await base.OnAfterRenderAsync(firstRender);
+        
+        if (firstRender && !string.IsNullOrWhiteSpace(SessionParam) && Guid.TryParse(SessionParam, out var sessionGuid))
+        {
+            // Initialize session as secondary tab and load state from sessionStorage
+            await SessionService.InitializeAsync(sessionGuid, false);
+            
+            isInitializing = false;
+            isSessionValid = ValidateSession();
+            StateHasChanged();
+        }
     }
 
     private bool ValidateSession()
