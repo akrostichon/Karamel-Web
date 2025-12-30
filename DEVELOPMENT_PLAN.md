@@ -197,15 +197,29 @@
 - **Edge cases**: Queue becomes empty while timer is running, session GUID validation, pause duration variations
 
 ### Step 2.10: Player View (Refactor KaraokePlayer.razor)
-**Files**: `Pages/PlayerView.razor` (renamed from KaraokePlayer.razor)
+**Files**: `Pages/PlayerView.razor` (renamed from KaraokePlayer.razor), `Karamel.Web.Tests/PlayerViewTests.cs`
 
+#### Implementation:
 - Full-screen CDG canvas with synchronized audio
 - Loads song files from directory handle (JavaScript file access)
 - Controls overlay (play/pause/stop) visible only on hover over lower center
 - Auto-advances to NextSongView when song ends
 - **Retains folder access** - all playback logic stays in JavaScript
 - Dispatches NextSong action on completion (removes song from queue index 0)
-- allows to open embedded playlist or singer view by hovering over the left side (15 pixels) of the screen. This hovering will cause an expand section icon to show. if this is clicked, the left side will show a pane where I can switch between showing a Singer view or the Playlist view. It will take up 20% of the screen width.
+- Allows to open embedded playlist or singer view by hovering over the left side (15 pixels) of the screen. This hovering will cause an expand section icon to show. if this is clicked, the left side will show a pane where I can switch between showing a Singer view or the Playlist view. It will take up 20% of the screen width.
+
+#### Testing: ✅
+- ✅ **Unit tests**: Verify session validation and invalid session error display
+- ✅ **Unit tests**: Test CurrentSong is loaded from PlaylistState automatically
+- ✅ **Unit tests**: Verify full-screen canvas display without card wrappers
+- ✅ **Unit tests**: Test controls overlay appears/hides based on hover state
+- ✅ **Unit tests**: Verify side panel opens on left-edge hover and icon click
+- ✅ **Unit tests**: Test switching between Singer and Playlist views in side panel
+- ✅ **Unit tests**: Verify NextSong action dispatch when song playback ends
+- ✅ **Unit tests**: Test navigation to NextSongView after song completion
+- ✅ **Unit tests**: Verify proper handling when queue is empty after song ends
+- ✅ **Edge cases**: Session without CurrentSong, playback errors, side panel state persistence
+- **Status**: ✅ COMPLETED (19 tests passing)
 
 ### Step 2.11: Navigation & Session Flow
 **Files**: `Layout/NavMenu.razor`, `App.razor`
