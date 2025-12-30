@@ -147,6 +147,35 @@
     margin: 0 auto;
 }
 
+/* Session links for localhost */
+.session-link,
+.session-link-large {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: #667eea;
+    color: white;
+    text-decoration: none;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.session-link:hover,
+.session-link-large:hover {
+    background: #5568d3;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+    color: white;
+    text-decoration: none;
+}
+
+.session-link-large {
+    font-size: 1.5rem;
+    padding: 1.25rem 2.5rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .artist-name {

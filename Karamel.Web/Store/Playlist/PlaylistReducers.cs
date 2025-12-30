@@ -114,4 +114,20 @@ public static class PlaylistReducers
             CurrentSingerName = null,
             SingerSongCounts = new Dictionary<string, int>()
         };
+
+    [ReducerMethod]
+    public static PlaylistState ReduceUpdatePlaylistFromBroadcastAction(PlaylistState state, UpdatePlaylistFromBroadcastAction action)
+    {
+        try
+        {
+            Console.WriteLine($"PlaylistReducers: UpdatePlaylistFromBroadcastAction received with {action.Queue?.Count ?? 0} songs");
+        }
+        catch { }
+
+        return state with
+        {
+            Queue = action.Queue != null ? new Queue<Song>(action.Queue) : new Queue<Song>(),
+            SingerSongCounts = action.SingerSongCounts ?? new Dictionary<string, int>()
+        };
+    }
 }

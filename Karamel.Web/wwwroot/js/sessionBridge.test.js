@@ -280,14 +280,14 @@ describe('sessionBridge', () => {
             expect(stored.session).toEqual(sessionData);
         });
 
-        it('should not broadcast from secondary tab', () => {
-            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-            
+        it('should allow secondary tab to broadcast (persist to sessionStorage)', () => {
             initializeSession(TEST_SESSION_ID, false);
-            broadcastStateUpdate('playlist-updated', { queue: [] });
+            const playlist = { queue: [] };
 
-            expect(consoleSpy).toHaveBeenCalledWith('Only main tab can broadcast state updates');
-            consoleSpy.mockRestore();
+            broadcastStateUpdate('playlist-updated', playlist);
+
+            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
+            expect(stored.playlist).toEqual(playlist);
         });
 
         it('should include timestamp in broadcast message', (done) => {
@@ -446,7 +446,7 @@ describe('sessionBridge', () => {
             const url = generateSessionUrl('/playlist', sessionId);
 
             expect(url).toContain('/playlist');
-            expect(url).toContain('id=abc-123-def-456');
+            expect(url).toContain('session=abc-123-def-456');
             expect(url).toContain('http://localhost:5000');
         });
 
@@ -463,7 +463,7 @@ describe('sessionBridge', () => {
 
     describe('getSessionIdFromUrl', () => {
         it('should extract session ID from URL', () => {
-            mockLocation.search = '?id=abc-123-def-456';
+            mockLocation.search = '?session=abc-123-def-456';
             global.URLSearchParams = class {
                 constructor(search) {
                     this.params = new Map();
@@ -499,7 +499,7 @@ describe('sessionBridge', () => {
         });
 
         it('should handle other query parameters', () => {
-            mockLocation.search = '?foo=bar&id=test-123&baz=qux';
+            mockLocation.search = '?foo=bar&session=test-123&baz=qux';
             global.URLSearchParams = class {
                 constructor(search) {
                     this.params = new Map();

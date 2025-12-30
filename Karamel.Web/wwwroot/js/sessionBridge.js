@@ -6,6 +6,8 @@
 let broadcastChannel = null;
 let isMainTab = false;
 let currentSessionId = null;
+// Unique ID for this tab instance to avoid processing our own broadcasts
+let tabId = null;
 
 /**
  * Get channel name for a session
@@ -38,15 +40,79 @@ export function initializeSession(sessionId, asMainTab) {
     
     currentSessionId = sessionId;
     isMainTab = asMainTab;
+    // Assign a unique tab id
+    try {
+        tabId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('tab-' + Math.random().toString(36).slice(2));
+    } catch (e) {
+        tabId = 'tab-' + Math.random().toString(36).slice(2);
+    }
     
     try {
         broadcastChannel = new BroadcastChannel(getChannelName(sessionId));
         
-        if (!isMainTab) {
-            // Secondary tabs listen for updates from main tab
+        if (isMainTab) {
+            // Main tab listens for state requests from secondary tabs
             broadcastChannel.onmessage = (event) => {
-                handleBroadcastMessage(event.data);
+                // Ignore messages originated from this tab
+                if (event.data && event.data.senderId === tabId) return;
+
+                // Diagnostic logging for any message received by main tab
+                try {
+                    console.log('Main tab onmessage received:', event.data);
+                } catch (e) {
+                    console.log('Main tab onmessage received (unserializable data)');
+                }
+
+                if (event.data && event.data.type === 'request-state') {
+                    console.log('Main tab received state request, sending current state...');
+                    const currentState = getSessionState();
+                    broadcastChannel.postMessage({
+                        type: 'state-sync-response',
+                        data: currentState,
+                        timestamp: Date.now(),
+                        senderId: tabId
+                    });
+                } else {
+                    // For non-request messages, process them the same way as secondary tabs
+                    if (event.data && event.data.type) {
+                        console.log(`Main tab received non-request message type: ${event.data.type}`);
+                    }
+
+                    try {
+                        // Reuse the same handling path so main tab persists state and notifies Blazor
+                        handleBroadcastMessage(event.data);
+                    } catch (e) {
+                        console.error('Error handling broadcast message on main tab:', e);
+                    }
+                }
             };
+        } else {
+            // Secondary tabs listen for updates and state sync responses
+            broadcastChannel.onmessage = (event) => {
+                // Ignore messages sent by this same tab
+                if (event.data && event.data.senderId === tabId) return;
+
+                if (event.data.type === 'state-sync-response') {
+                    console.log('Secondary tab received state sync response:', event.data.data);
+                    // Save the full state to this tab's sessionStorage
+                    sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(event.data.data));
+                    // Trigger custom event for Blazor to reload state
+                    const stateEvent = new CustomEvent('session-state-synced', {
+                        detail: event.data.data
+                    });
+                    window.dispatchEvent(stateEvent);
+                } else {
+                    handleBroadcastMessage(event.data);
+                }
+            };
+            
+            // Request current state from main tab
+            console.log('Secondary tab requesting state from main tab...');
+            broadcastChannel.postMessage({
+                type: 'request-state',
+                timestamp: Date.now(),
+                senderId: tabId
+            });
         }
         
         console.log(`Session bridge initialized as ${isMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId}`);
@@ -62,10 +128,9 @@ export function initializeSession(sessionId, asMainTab) {
  * @param {object} data - State data to broadcast
  */
 export function broadcastStateUpdate(type, data) {
-    if (!isMainTab) {
-        console.warn('Only main tab can broadcast state updates');
-        return;
-    }
+    // Allow any tab to write the latest state to sessionStorage and broadcast.
+    // This ensures secondary tabs that dispatch playlist changes will persist
+    // and notify other tabs as well.
     
     if (!broadcastChannel) {
         console.error('Broadcast channel not initialized');
@@ -75,7 +140,8 @@ export function broadcastStateUpdate(type, data) {
     const message = {
         type,
         data,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        senderId: tabId
     };
     
     // Save to sessionStorage for persistence
@@ -238,7 +304,7 @@ export function clearSessionState() {
  */
 export function generateSessionUrl(path, sessionId) {
     const url = new URL(path, window.location.origin);
-    url.searchParams.set('id', sessionId);
+    url.searchParams.set('session', sessionId);
     return url.toString();
 }
 
@@ -248,7 +314,46 @@ export function generateSessionUrl(path, sessionId) {
  */
 export function getSessionIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
-    return params.get('id');
+    return params.get('session');
+}
+
+/**
+ * Setup listener for state sync completion
+ * @param {object} dotNetRef - .NET object reference with OnStateSynced callback
+ */
+export function setupStateSyncListener(dotNetRef) {
+    const handler = (event) => {
+        if (event.type === 'session-state-synced') {
+            console.log('State sync event received, notifying .NET');
+            dotNetRef.invokeMethodAsync('OnStateSynced');
+            window.removeEventListener('session-state-synced', handler);
+        }
+    };
+    
+    window.addEventListener('session-state-synced', handler);
+    
+    // Cleanup after timeout
+    setTimeout(() => {
+        window.removeEventListener('session-state-synced', handler);
+    }, 3000);
+}
+
+/**
+ * Setup listener for ongoing state updates from main tab (secondary tabs only)
+ * @param {object} dotNetRef - .NET object reference with OnStateUpdated callback
+ */
+export function setupStateUpdateListener(dotNetRef) {
+    console.log('Registering state update listener (isMainTab=' + isMainTab + ')');
+
+    const handler = (event) => {
+        if (event.type === 'session-state-updated') {
+            console.log('State update event received:', event.detail.type);
+            dotNetRef.invokeMethodAsync('OnStateUpdated', event.detail.type, event.detail.data);
+        }
+    };
+    
+    window.addEventListener('session-state-updated', handler);
+    console.log('State update listener registered for secondary tab');
 }
 
 /**

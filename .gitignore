@@ -3,3 +3,7 @@
 **/node_modules
 **/coverage
 **/.vitest
+*.trx
+/dotnet_run_output.log
+/dotnet_run_verbose.log
+/test-output.log

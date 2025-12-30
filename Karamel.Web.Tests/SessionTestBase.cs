@@ -4,6 +4,7 @@ using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Library;
 using Karamel.Web.Services;
+using Karamel.Web.Tests.TestHelpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
@@ -20,6 +21,11 @@ namespace Karamel.Web.Tests;
 public abstract class SessionTestBase : TestContext
 {
     /// <summary>
+    /// Mock SessionService for verification in tests
+    /// </summary>
+    protected Mock<ISessionService>? MockSessionService { get; private set; }
+
+    /// <summary>
     /// Sets up a test context with a valid session and proper URL with session parameter.
     /// Automatically constructs the URL based on the session ID in state.
     /// </summary>
@@ -27,17 +33,41 @@ public abstract class SessionTestBase : TestContext
     /// <param name="playlistState">The playlist state to use</param>
     /// <param name="libraryState">The library state to use (optional, for SingerView)</param>
     /// <param name="view">The view name (e.g., "nextsong", "player", "playlist", "singer")</param>
+    /// <param name="isMainTab">Whether this is the main tab (default: true)</param>
     /// <returns>Tuple of (IActionSubscriber mock, IDispatcher mock, FakeNavigationManager)</returns>
     protected (Mock<IActionSubscriber>, Mock<IDispatcher>, FakeNavigationManager) SetupTestWithSession(
         SessionState sessionState,
         PlaylistState playlistState,
         LibraryState? libraryState = null,
-        string view = "nextsong")
+        string view = "nextsong",
+        bool isMainTab = true)
     {
         var sessionId = sessionState.CurrentSession?.SessionId ?? Guid.Empty;
         var currentUri = $"http://localhost/{view}?session={sessionId}";
         
-        return SetupFluxorWithStates(sessionState, playlistState, libraryState, currentUri);
+        return SetupFluxorWithStates(sessionState, playlistState, libraryState, currentUri, isMainTab);
+    }
+
+    /// <summary>
+    /// Sets up a test context with a non-localhost URL (for testing QR code behavior).
+    /// </summary>
+    /// <param name="sessionState">The session state to use</param>
+    /// <param name="playlistState">The playlist state to use</param>
+    /// <param name="libraryState">The library state to use (optional, for SingerView)</param>
+    /// <param name="view">The view name (e.g., "nextsong", "player", "playlist", "singer")</param>
+    /// <param name="isMainTab">Whether this is the main tab (default: true)</param>
+    /// <returns>Tuple of (IActionSubscriber mock, IDispatcher mock, FakeNavigationManager)</returns>
+    protected (Mock<IActionSubscriber>, Mock<IDispatcher>, FakeNavigationManager) SetupTestWithNonLocalhostSession(
+        SessionState sessionState,
+        PlaylistState playlistState,
+        LibraryState? libraryState = null,
+        string view = "nextsong",
+        bool isMainTab = true)
+    {
+        var sessionId = sessionState.CurrentSession?.SessionId ?? Guid.Empty;
+        var currentUri = $"https://karaoke.example.com/{view}?session={sessionId}";
+        
+        return SetupFluxorWithStates(sessionState, playlistState, libraryState, currentUri, isMainTab);
     }
 
     /// <summary>
@@ -46,14 +76,14 @@ public abstract class SessionTestBase : TestContext
     /// </summary>
     /// <param name="sessionState">The session state to use</param>
     /// <param name="playlistState">The playlist state to use</param>
-    /// <param name="libraryState">The library state to use (optional, for SingerView)</param>
-    /// <param name="currentUri">The current URI for NavigationManager</param>
+    /// <param name="isMainTab">Whether this is the main tab (default: true)</param>
     /// <returns>Tuple of (IActionSubscriber mock, IDispatcher mock, FakeNavigationManager)</returns>
     protected (Mock<IActionSubscriber>, Mock<IDispatcher>, FakeNavigationManager) SetupFluxorWithStates(
         SessionState sessionState,
         PlaylistState playlistState,
         LibraryState? libraryState = null,
-        string currentUri = "http://localhost/")
+        string currentUri = "http://localhost/",
+        bool isMainTab = true)
     {
         // Mock IState<SessionState>
         var mockSessionState = new Mock<IState<SessionState>>();
@@ -84,6 +114,15 @@ public abstract class SessionTestBase : TestContext
         var mockLibraryState = new Mock<IState<LibraryState>>();
         mockLibraryState.Setup(s => s.Value).Returns(libraryState ?? new LibraryState());
 
+        // Create mock SessionService using the builder
+        var sessionId = sessionState.CurrentSession?.SessionId ?? Guid.NewGuid();
+        MockSessionService = new SessionServiceMockBuilder()
+            .AsMainTab(isMainTab)
+            .WithSessionId(sessionId)
+            .WithGenerateUrl("http://localhost")
+            .WithGetSessionIdFromUrl(sessionId)
+            .Build();
+
         // Register all services BEFORE creating any components
         Services.AddSingleton(mockSessionState.Object);
         Services.AddSingleton(mockPlaylistState.Object);
@@ -93,8 +132,8 @@ public abstract class SessionTestBase : TestContext
         Services.AddSingleton<NavigationManager>(fakeNavManager);
         Services.AddSingleton(mockJSRuntime.Object);
         
-        // Register SessionService with the mocked dependencies
-        Services.AddSingleton<SessionService>();
+        // Register mock ISessionService instead of real SessionService
+        Services.AddSingleton(MockSessionService.Object);
 
         return (mockActionSubscriber, mockDispatcher, fakeNavManager);
     }
@@ -144,7 +183,9 @@ public abstract class SessionTestBase : TestContext
         
         public FakeNavigationManager(string uri = "http://localhost/")
         {
-            Initialize("http://localhost/", uri);
+            var baseUri = new Uri(uri);
+            var baseUrl = $"{baseUri.Scheme}://{baseUri.Host}{(baseUri.IsDefaultPort ? "" : $":{baseUri.Port}")}/";
+            Initialize(baseUrl, uri);
             NavigationHistory.Add(uri);
         }
 
