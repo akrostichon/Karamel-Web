@@ -167,7 +167,8 @@ export async function initializeKaraokeSession(config, songs) {
         allowSingerReorder: config.allowSingerReorder,
         pauseBetweenSongs: true, // Always enable pause screen
         pauseBetweenSongsSeconds: config.pauseBetweenSongs,
-        filenamePattern: config.filenamePattern
+        filenamePattern: config.filenamePattern,
+        theme: config.theme || null
     });
     
     console.log('Karaoke session initialized:', config.sessionId);

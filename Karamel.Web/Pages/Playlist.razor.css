@@ -5,14 +5,14 @@
 }
 
 .now-playing {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--gradient-light);
+    color: var(--color-text-on-gradient);
     border: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .now-playing .card-title {
-    color: white;
+    color: var(--color-text-on-gradient);
     margin-bottom: 1.5rem;
 }
 
@@ -48,13 +48,13 @@
     align-items: center;
     padding: 1rem;
     margin-bottom: 0.5rem;
-    background: #f8f9fa;
+    background: var(--color-surface-variant);
     border-radius: 8px;
     transition: all 0.2s ease;
 }
 
 .song-item:hover {
-    background: #e9ecef;
+    background: var(--color-surface);
     transform: translateX(4px);
 }
 
@@ -67,14 +67,14 @@
 }
 
 .song-item.drag-over {
-    border: 2px dashed #667eea;
-    background: #e7f0ff;
+    border: 2px dashed var(--color-accent);
+    background: rgba(var(--color-accent-rgb), 0.08);
 }
 
 .song-position {
     font-weight: bold;
     font-size: 1.2rem;
-    color: #667eea;
+    color: var(--color-accent);
     min-width: 50px;
     text-align: center;
 }

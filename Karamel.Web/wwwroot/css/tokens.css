@@ -1,0 +1,233 @@
+/* Design tokens for Karamel Web - base and dark overrides
+   Generated from STYLING_GUIDE.md recommendations.
+   Keep tokens semantic and minimal to start; components will reference these.
+*/
+
+:root {
+  /* Colors (updated from STYLING_GUIDE.md) */
+  --gradient-light-from: #E74C4C; /* Bright Red */
+  --gradient-light-to: #F3B179;   /* Bright Caramel */
+  --gradient-dark-from: #5B1B1B;  /* Dark Red */
+  --gradient-dark-to: #3A2014;    /* Very Dark Caramel Brown */
+
+  --color-primary: #EAAE63; /* Button primary light */
+  --color-primary-dark: #CB8F53; /* Button primary dark */
+  --color-accent: #C95CA2; /* Links / Accent (light) */
+  --color-accent-dark: #FF93CE; /* Links / Accent (dark) */
+  --color-surface: linear-gradient(35deg, #FBE7D0, #F6C895); /* surface-light gradient */
+  --color-surface-dark: linear-gradient(35deg, #4A2820, #60422E); /* surface-dark gradient */
+  --color-bg: var(--gradient-light-from); /* fallback base, used with gradient variables */
+  --color-text: #3C2415; /* Primary text (light) */
+  --color-text-dark: #F5E1C0; /* Primary text (dark) */
+  --color-text-secondary: #6B4B2B; /* Secondary text (light) */
+  --color-text-secondary-dark: #D6BFA5; /* Secondary text (dark) */
+  --color-highlight: #FFD894; /* Light highlight */
+  --color-highlight-dark: #FFC878; /* Dark highlight */
+  --color-success: #63B767;
+  --color-error: #C76C6C;
+
+  /* Typography */
+  --font-sans: "Nunito", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Poppins", "Baloo", var(--font-sans);
+  --text-base: 1rem; /* 16px */
+  --text-small: 0.875rem; /* 14px */
+
+  /* Spacing */
+  --space-1: 0.5rem; /* 8px */
+  --space-2: 1rem;   /* 16px */
+  --space-3: 1.5rem; /* 24px */
+
+  /* Elevation / radius */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+
+  /* Misc */
+  --focus-ring: 2px solid var(--color-highlight);
+
+  /* Bootstrap variable mappings (so Bootstrap components inherit our theme) */
+  --gradient-light: linear-gradient(35deg, var(--gradient-light-from), var(--gradient-light-to));
+  --gradient-dark: linear-gradient(35deg, var(--gradient-dark-from), var(--gradient-dark-to));
+
+  --bs-body-bg: var(--gradient-light);
+  --bs-body-color: var(--color-text);
+  --bs-primary: var(--color-primary);
+  --bs-primary-text: var(--color-text);
+  --bs-accent: var(--color-accent);
+  --bs-success: var(--color-success);
+  --bs-danger: var(--color-error);
+  --bs-link-color: var(--color-accent);
+  --bs-card-bg: var(--color-surface);
+  --bs-border-color: rgba(0,0,0,0.08);
+}
+
+/* Dark mode: both system preference and explicit data-theme toggle supported */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gradient-light: linear-gradient(35deg, var(--gradient-light-from), var(--gradient-light-to));
+    --gradient-dark: linear-gradient(35deg, var(--gradient-dark-from), var(--gradient-dark-to));
+
+    --color-primary: #CB8F53;
+    --color-primary-dark: #8B5A2B;
+    --color-accent: #FF93CE;
+    --color-surface: var(--color-surface-dark);
+    --color-bg: var(--gradient-dark);
+    --color-text: #F5E1C0;
+    --color-text-secondary: #D6BFA5;
+    --color-highlight: #FFC878;
+
+    /* Bootstrap dark mappings */
+    --bs-body-bg: var(--color-bg);
+    --bs-body-color: var(--color-text);
+    --bs-primary: var(--color-primary);
+    --bs-primary-text: var(--color-text);
+    --bs-accent: var(--color-accent);
+    --bs-success: var(--color-success);
+    --bs-danger: var(--color-error);
+    --bs-link-color: var(--color-accent);
+    --bs-card-bg: var(--color-surface);
+    --bs-border-color: rgba(255,255,255,0.06);
+  }
+}
+
+/* Explicit dark theme via attribute (allows toggle) */
+:root[data-theme="dark"] {
+  --gradient-light: linear-gradient(35deg, var(--gradient-light-from), var(--gradient-light-to));
+  --gradient-dark: linear-gradient(35deg, var(--gradient-dark-from), var(--gradient-dark-to));
+
+  --color-primary: #CB8F53;
+  --color-primary-dark: #8B5A2B;
+  --color-accent: #FF93CE;
+  --color-surface: var(--color-surface-dark);
+  --color-bg: var(--gradient-dark);
+  --color-text: #F5E1C0;
+  --color-text-secondary: #D6BFA5;
+  --color-highlight: #FFC878;
+
+  /* Bootstrap dark mappings */
+  --bs-body-bg: var(--color-bg);
+  --bs-body-color: var(--color-text);
+  --bs-primary: var(--color-primary);
+  --bs-primary-text: var(--color-text);
+  --bs-accent: var(--color-accent);
+  --bs-success: var(--color-success);
+  --bs-danger: var(--color-error);
+  --bs-link-color: var(--color-accent);
+  --bs-card-bg: var(--color-surface);
+  --bs-border-color: rgba(255,255,255,0.06);
+}
+
+/* Utility: ensure color scheme declared for form controls */
+html {
+  color-scheme: light dark;
+  background: var(--gradient-light);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+.k-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text);
+  border-radius: 10px;
+}
+
+/* Ensure common Bootstrap utility classes used in Home reflect our tokens
+   and update instantly when `data-theme` changes on the root element. */
+.card {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.card-header.bg-primary,
+.bg-primary {
+  background-color: var(--color-primary) !important;
+  color: var(--color-text) !important;
+}
+
+.btn-primary {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-text) !important;
+}
+
+.btn-outline-secondary {
+  color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+  background-color: rgba(0,0,0,0.04);
+}
+
+/* Explicit themeed overrides with high specificity to beat compiled component CSS */
+html[data-theme="dark"] body,
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .card-body,
+html[data-theme="dark"] .card-header,
+html[data-theme="dark"] .btn,
+html[data-theme="dark"] .btn-primary,
+html[data-theme="dark"] .btn-outline-secondary,
+html[data-theme="dark"] .container-fluid {
+  background: var(--gradient-dark) !important;
+  color: var(--color-text) !important;
+}
+
+html:not([data-theme="dark"]) body,
+html:not([data-theme="dark"]) .card,
+html:not([data-theme="dark"]) .card-body,
+html:not([data-theme="dark"]) .card-header,
+html:not([data-theme="dark"]) .btn,
+html:not([data-theme="dark"]) .btn-primary,
+html:not([data-theme="dark"]) .btn-outline-secondary,
+html:not([data-theme="dark"]) .container-fluid {
+  background: var(--gradient-light) !important;
+  color: var(--color-text) !important;
+}
+
+/* Ensure headers using bg-primary are themed */
+html[data-theme="dark"] .card-header.bg-primary,
+html:not([data-theme="dark"]) .card-header.bg-primary {
+  background: var(--color-primary) !important;
+  color: var(--color-text) !important;
+}
+
+/* Override explicit white text utility when used on themed headers */
+html[data-theme="dark"] .card-header.bg-primary.text-white,
+html:not([data-theme="dark"]) .card-header.bg-primary.text-white {
+  color: var(--color-text) !important;
+}
+
+/* If any elements use .text-white but are inside our card/header, override to our text token */
+html[data-theme="dark"] .card .text-white,
+html:not([data-theme="dark"]) .card .text-white {
+  color: var(--color-text) !important;
+}
+
+/* Semantic helpers for content to avoid relying on Bootstrap utility colors */
+.text-on-surface {
+  color: var(--color-text) !important;
+}
+
+.muted-on-surface {
+  color: var(--color-text-secondary) !important;
+}
+
+.card-header-title {
+  color: var(--color-text) !important;
+  font-weight: 600;
+}
+
+.form-text-muted {
+  color: var(--color-text-secondary) !important;
+}
+
+/* Toast helpers: semantic background + readable text */
+.toast-success {
+  background-color: var(--color-success) !important;
+  color: var(--color-text) !important;
+}
+
+.toast-error {
+  background-color: var(--color-error) !important;
+  color: var(--color-text) !important;
+}

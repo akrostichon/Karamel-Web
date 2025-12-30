@@ -14,10 +14,10 @@
 .name-entry-card {
     max-width: 500px;
     width: 100%;
-    background: white;
+    background: var(--color-surface-contrast);
     border-radius: 1rem;
     padding: 2rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(var(--color-shadow-rgb), 0.1);
 }
 
 .library-container {
@@ -31,8 +31,8 @@
     align-items: center;
     margin-bottom: 2rem;
     padding: 1.5rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--gradient-light);
+    color: var(--color-text-on-gradient);
     border-radius: 1rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -45,7 +45,7 @@
 .song-count {
     font-size: 1.1rem;
     font-weight: 500;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(var(--color-surface-contrast-rgb), 0.08);
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
 }

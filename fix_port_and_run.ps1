@@ -66,8 +66,8 @@ function Get-ListeningProcesses($port) {
         # Split on whitespace
         $parts = $line -split '\s+' | Where-Object { $_ -ne '' }
         if ($parts.Length -ge 5) {
-            $pid = $parts[-1]
-            if ($pid -as [int]) { $pids += [int]$pid }
+            $p = $parts[-1]
+            if ($p -as [int]) { $pids += [int]$p }
         }
     }
     return $pids | Select-Object -Unique
