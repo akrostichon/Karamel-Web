@@ -136,21 +136,14 @@
             return false;
         }
 
-        // If session parameter is provided, validate it matches
-        if (!string.IsNullOrWhiteSpace(SessionParam))
+        // STRICT VALIDATION: Session parameter is REQUIRED for multi-session support
+        if (string.IsNullOrWhiteSpace(SessionParam) || !Guid.TryParse(SessionParam, out var sessionGuid))
         {
-            if (!Guid.TryParse(SessionParam, out var sessionGuid))
-            {
-                return false; // Invalid GUID format
-            }
-
-            // Session ID must match the parameter
-            return SessionState.Value.CurrentSession.SessionId == sessionGuid;
+            return false;
         }
 
-        // If no session parameter but session exists in state, allow it
-        // (for backward compatibility and sessionStorage scenarios)
-        return true;
+        // Session ID must match the parameter
+        return SessionState.Value.CurrentSession.SessionId == sessionGuid;
     }
 
     private void RemoveSong(Guid songId)
