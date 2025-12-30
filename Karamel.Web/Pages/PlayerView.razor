@@ -335,26 +335,29 @@
         };
     }
 
-    public new async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore(bool disposing)
     {
-        if (playerModule != null)
+        if (disposing)
         {
-            try
+            if (playerModule != null)
             {
-                await playerModule.InvokeVoidAsync("dispose");
+                try
+                {
+                    await playerModule.InvokeVoidAsync("dispose");
+                }
+                catch { }
+                await playerModule.DisposeAsync();
             }
-            catch { }
-            await playerModule.DisposeAsync();
+            
+            if (fileAccessModule != null)
+            {
+                await fileAccessModule.DisposeAsync();
+            }
+            
+            dotNetRef?.Dispose();
         }
         
-        if (fileAccessModule != null)
-        {
-            await fileAccessModule.DisposeAsync();
-        }
-        
-        dotNetRef?.Dispose();
-        
-        // Call base dispose
-        await base.DisposeAsync();
+        // Call base to dispose Fluxor subscriptions
+        await base.DisposeAsyncCore(disposing);
     }
 }

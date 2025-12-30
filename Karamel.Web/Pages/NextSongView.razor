@@ -197,18 +197,24 @@
         return $"{baseUrl}/singer?session={sessionId}";
     }
 
-    public new async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore(bool disposing)
     {
-        isDisposed = true;
-
-        // Dispose timer
-        autoAdvanceTimer?.Dispose();
-        autoAdvanceTimer = null;
-
-        // Dispose JS module
-        if (qrcodeModule != null)
+        if (disposing)
         {
-            await qrcodeModule.DisposeAsync();
+            isDisposed = true;
+
+            // Dispose timer
+            autoAdvanceTimer?.Dispose();
+            autoAdvanceTimer = null;
+
+            // Dispose JS module
+            if (qrcodeModule != null)
+            {
+                await qrcodeModule.DisposeAsync();
+            }
         }
+
+        // Call base to dispose Fluxor subscriptions
+        await base.DisposeAsyncCore(disposing);
     }
 }

@@ -81,10 +81,11 @@ public abstract class SessionTestBase : TestContext
 
         // Mock JSRuntime
         var mockJSRuntime = new Mock<IJSRuntime>();
+        var mockJSModule = new Mock<IJSObjectReference>();
         mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
             It.IsAny<string>(),
             It.IsAny<object[]>()))
-            .ReturnsAsync((IJSObjectReference)null!);
+            .ReturnsAsync(mockJSModule.Object);
 
         // Register services
         Services.AddSingleton(mockSessionState.Object);
