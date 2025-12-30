@@ -363,7 +363,7 @@ public class SingerViewTests : SessionTestBase
         Assert.Contains("Maximum 10 songs per singer reached", toastBody.TextContent);
         
         var toastHeader = cut.Find(".toast-header");
-        Assert.Contains("bg-danger", toastHeader.ClassName);
+        Assert.Contains("toast-error", toastHeader.ClassName);
     }
 
     [Fact]

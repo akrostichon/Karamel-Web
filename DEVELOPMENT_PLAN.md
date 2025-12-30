@@ -246,11 +246,11 @@
 - ✅ **Edge cases**: Malformed GUIDs, empty session parameters, valid GUID but no session data
 - ✅ **Created SessionTestBase**: Centralized test infrastructure with SetupTestWithSession() helper
 - **Status**: ✅ COMPLETED (92 tests passing, 9 skipped with documented reasons)
-- **Date Completed**: 2025-01-20
 
-### Step 2.12: PlayerView starts playback
+### Step 2.12: PlayerView starts playback ✅ COMPLETED
 - first song is added to playlist
 - Currently PlayerView reports "No song is currently playing. Please select a song from the playlist.". Instead it should start playing the song.
+
 ---
 
 ## Phase 3: Styling & UX Polish
@@ -333,14 +333,14 @@
 
 ### Phase 6: Backend API
 - ASP.NET Core Web API
-- SignalR for real-time playlist sync
+- SignalR for real-time playlist sync - we are already using broadcast api in frontend. Should we move that all to the backend?
 - Azure SQL for songs/sessions/users
-- Authentication (Azure AD B2C or custom)
+- Authentication (Azure AD B2C or custom) - anybody having the link of the session may add songs.
+- Timeout of session 30 minutes after the last NextSongView with the sessionGuid has been shown and only if no paused PlayerView with the sessionGuid is shown.
 
 ### Phase 7: Multi-Device Support
-- QR code generation for session sharing
-- WebSocket connections for playlist sync
-- Admin controls: skip, pause, volume
+- WebSocket connections for playlist sync - see phase 6. Currently using broadcast api.
+- Admin controls: volume
 
 ### Phase 8: Production Deployment
 - Azure App Service hosting
@@ -348,8 +348,22 @@
 - Monitoring & logging
 - Performance optimization
 
----
+### Phase 9: Security review
+- Check for possible dDOS attacks - do not allow to add more than one song in 3 seconds.
+- Perform a full security review as a trained security expert, advise on options where we can improve
 
+---
+## Ideas for future improvements
+Playlist view for admins should allow to stop playback after the current song.
+This will cause the NextSong View to behave as if no song is within the queue after the current song has finished.
+An admin may then send a proceed playback command which will cause the NextSong View to show the next song in queue.
+
+NextSongView shall show current queue length.
+
+NextSongView should actually show the next two songs. The upcoming song should be shown in the same way as now.
+The song after that (if it exists) shall be shown in a much smaller font at the very top of the screen in the center of the screen. "Upcoming %artist - %title by %singer"
+
+---
 ## Technical Notes
 
 ### File System Access API Limitations

@@ -167,6 +167,22 @@ function handleBroadcastMessage(message) {
         detail: message
     });
     window.dispatchEvent(event);
+
+    // If session-settings include a theme, apply it on this tab
+    try {
+        if (message && message.type === 'session-settings' && message.data && message.data.theme) {
+            import('./themeToggle.js').then(module => {
+                try {
+                    module.setTheme(message.data.theme);
+                    console.log('Applied theme from session-settings:', message.data.theme);
+                } catch (e) {
+                    console.warn('Failed to apply theme from session-settings:', e);
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('Error while attempting to apply theme from broadcast:', e);
+    }
 }
 
 /**

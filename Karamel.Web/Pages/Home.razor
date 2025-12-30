@@ -13,7 +13,7 @@
 
 <div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
     <div class="card shadow-lg" style="max-width: 600px; width: 100%;">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header card-header-title">
             <h1 class="h3 mb-0">Karaoke Session Setup</h1>
         </div>
         <div class="card-body">
@@ -55,14 +55,14 @@
 
                 <div class="mb-4">
                     <h5 class="mb-3">2. Configure Settings</h5>
-                    
+
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="requireSingerName" 
                                @bind="_requireSingerName">
                         <label class="form-check-label" for="requireSingerName">
                             Require singer name
                         </label>
-                        <small class="form-text text-muted d-block">Singers must enter their name before adding songs</small>
+                        <small class="form-text-muted d-block">Singers must enter their name before adding songs</small>
                     </div>
 
                     <div class="form-check mb-3">
@@ -71,7 +71,7 @@
                         <label class="form-check-label" for="allowSingerReorder">
                             Allow singers to reorder playlist
                         </label>
-                        <small class="form-text text-muted d-block">Let singers rearrange the queue order</small>
+                        <small class="form-text-muted d-block">Let singers rearrange the queue order</small>
                     </div>
 
                     <div class="mb-3">
@@ -79,7 +79,7 @@
                         <input type="number" class="form-control" id="pauseBetweenSongs" 
                                @bind="_pauseBetweenSongs" 
                                min="0" max="60" step="1">
-                        <small class="form-text text-muted">Time to display "Next Song" screen (0-60 seconds)</small>
+                        <small class="form-text-muted">Time to display "Next Song" screen (0-60 seconds)</small>
                     </div>
 
                     <div class="mb-3">
@@ -87,11 +87,20 @@
                         <input type="text" class="form-control" id="filenamePattern" 
                                @bind="_filenamePattern" 
                                placeholder="%artist - %title">
-                        <small class="form-text text-muted">Use %artist and %title placeholders to parse filenames</small>
+                        <small class="form-text-muted">Use %artist and %title placeholders to parse filenames</small>
                     </div>
                 </div>
 
                 <div class="mb-3">
+                    <div class="mb-3">
+                        <label class="form-label">Theme</label>
+                        <div class="d-flex gap-2">
+                            <button class='@(_themeChoice == "light" ? "btn btn-primary" : "btn btn-outline-secondary")' @onclick="SetLightTheme" disabled="@_themeLocked">Light</button>
+                            <button class='@(_themeChoice == "dark" ? "btn btn-primary" : "btn btn-outline-secondary")' @onclick="SetDarkTheme" disabled="@_themeLocked">Dark</button>
+                        </div>
+                        <small class="form-text form-text-muted d-block">Choose a theme now. Once the session is started this choice is locked for all participants.</small>
+                    </div>
+
                     <h5 class="mb-3">3. Start Session</h5>
                     <button class="btn btn-success btn-lg w-100 start-session" 
                             @onclick="StartSession" 
@@ -115,7 +124,7 @@
                 </div>
             }
         </div>
-        <div class="card-footer text-muted text-center">
+        <div class="card-footer form-text-muted text-center">
             <small>Karamel Karaoke System v1.0</small>
         </div>
     </div>
@@ -123,7 +132,10 @@
 
 @code {
     private IJSObjectReference? _homeInteropModule;
+    private IJSObjectReference? _themeModule;
     private bool _isFileSystemAccessSupported = true;
+    private bool _themeLocked = false;
+    private string? _themeChoice = null;
     private bool _isSelectingLibrary = false;
     private bool _librarySelected = false;
     private bool _isStartingSession = false;
@@ -151,6 +163,29 @@
 
                 _isFileSystemAccessSupported = await _homeInteropModule.InvokeAsync<bool>(
                     "isFileSystemAccessSupported");
+
+                // Import theme module so we can call setTheme/getTheme without eval
+                try
+                {
+                    _themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/themeToggle.js");
+                    // Try to read persisted theme
+                    try
+                    {
+                        var theme = await _themeModule.InvokeAsync<string>("getTheme");
+                        if (!string.IsNullOrEmpty(theme))
+                        {
+                            _themeChoice = theme;
+                        }
+                    }
+                    catch
+                    {
+                        // ignore getTheme failures
+                    }
+                }
+                catch
+                {
+                    // ignore module load errors
+                }
 
                 StateHasChanged();
             }
@@ -208,6 +243,31 @@
         }
     }
 
+    private async Task SetThemeAsync(string theme)
+    {
+        try
+        {
+            _themeChoice = theme;
+            // Apply immediately in the host tab and persist via themeToggle module
+            if (_themeModule != null)
+            {
+                await _themeModule.InvokeVoidAsync("setTheme", theme);
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("eval", $"window.themeToggle && window.themeToggle.setTheme('{theme}')");
+            }
+            StateHasChanged();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private Task SetLightTheme() => SetThemeAsync("light");
+    private Task SetDarkTheme() => SetThemeAsync("dark");
+
     private async Task StartSession()
     {
         if (_homeInteropModule == null || _selectedSongs == null)
@@ -222,6 +282,17 @@
             // Create session ID
             var sessionId = await _homeInteropModule.InvokeAsync<string>("generateSessionId");
 
+            // Read current theme from themeToggle (if present)
+            string? currentTheme = null;
+            try
+            {
+                currentTheme = await JSRuntime.InvokeAsync<string>("eval", "window.themeToggle && window.themeToggle.getTheme ? window.themeToggle.getTheme() : null");
+            }
+            catch
+            {
+                // ignore
+            }
+
             // Create session configuration
             var config = new SessionConfig
             {
@@ -229,7 +300,8 @@
                 RequireSingerName = _requireSingerName,
                 AllowSingerReorder = _allowSingerReorder,
                 PauseBetweenSongs = _pauseBetweenSongs,
-                FilenamePattern = _filenamePattern
+                FilenamePattern = _filenamePattern,
+                Theme = currentTheme ?? _themeChoice
             };
 
             // Validate configuration
@@ -257,6 +329,10 @@
 
             Dispatcher.Dispatch(new InitializeSessionAction(session));
 
+            // Lock theme for this session so other tabs cannot change it
+            _themeLocked = true;
+            StateHasChanged();
+
             // Start karaoke session (opens tabs and returns navigation URL)
             var result = await _homeInteropModule.InvokeAsync<SessionStartResult>(
                 "startKaraokeSession", config, _selectedSongs);
@@ -278,6 +354,10 @@
         {
             await _homeInteropModule.DisposeAsync();
         }
+        if (_themeModule != null)
+        {
+            await _themeModule.DisposeAsync();
+        }
     }
 
     // DTOs for JS interop
@@ -296,6 +376,7 @@
         public bool AllowSingerReorder { get; set; }
         public int PauseBetweenSongs { get; set; }
         public string FilenamePattern { get; set; } = string.Empty;
+        public string? Theme { get; set; }
     }
 
     private class ValidationResult

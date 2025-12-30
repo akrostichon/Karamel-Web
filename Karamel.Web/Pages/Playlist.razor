@@ -40,7 +40,7 @@
         <div class="now-playing card mb-4">
             <div class="card-body">
                 <h2 class="card-title">
-                    <i class="bi bi-play-circle-fill text-primary me-2"></i>
+                    <i class="bi bi-play-circle-fill text-on-surface me-2"></i>
                     Now Playing
                 </h2>
                 @{
@@ -51,7 +51,7 @@
                     <div class="title h3 fw-bold">@nowPlaying.Title</div>
                     @if (!string.IsNullOrEmpty(nowPlaying.AddedBySinger))
                     {
-                        <div class="singer text-muted">
+                        <div class="singer muted-on-surface">
                             <i class="bi bi-person-fill"></i> @nowPlaying.AddedBySinger
                         </div>
                     }
@@ -99,7 +99,7 @@
                                     </div>
                                     @if (!string.IsNullOrEmpty(song.AddedBySinger))
                                     {
-                                        <div class="song-singer text-muted small">
+                                        <div class="song-singer muted-on-surface small">
                                             <i class="bi bi-person-fill"></i> @song.AddedBySinger
                                         </div>
                                     }
