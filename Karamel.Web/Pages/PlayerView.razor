@@ -211,12 +211,12 @@
     {
         try
         {
-            // Dispatch NextSong action to remove current song from queue
-            Dispatcher.Dispatch(new NextSongAction());
-            
+            // Clear the current song (stop playback state) - Next song is not auto-promoted
+            Dispatcher.Dispatch(new ClearCurrentSongAction());
+
             // Wait a moment for state to update
-            await Task.Delay(500);
-            
+            await Task.Delay(250);
+
             // Navigate back to NextSongView
             var sessionId = SessionState.Value.CurrentSession?.SessionId;
             if (sessionId.HasValue)

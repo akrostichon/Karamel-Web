@@ -430,7 +430,7 @@ public class PlayerViewTests : SessionTestBase
         await Task.Delay(100);
 
         // Assert
-        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<NextSongAction>()), Times.Once);
+        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<ClearCurrentSongAction>()), Times.Once);
     }
 
     [Fact]
