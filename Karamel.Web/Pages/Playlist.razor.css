@@ -122,3 +122,10 @@
         font-size: 1.3rem;
     }
 }
+
+/* Scoped override: make the "no songs" alert match app semantic colors */
+.playlist-container .alert.alert-info {
+    background-color: var(--color-surface-variant);
+    color: var(--color-text-secondary);
+    border: 1px solid rgba(var(--color-text-rgb), 0.06);
+}

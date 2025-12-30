@@ -5,17 +5,19 @@
 
 :root {
   /* Colors (updated from STYLING_GUIDE.md) */
-  --gradient-light-from: #E74C4C; /* Bright Red */
-  --gradient-light-to: #F3B179;   /* Bright Caramel */
-  --gradient-dark-from: #5B1B1B;  /* Dark Red */
-  --gradient-dark-to: #3A2014;    /* Very Dark Caramel Brown */
+  --gradient-light-from: #C84A46; /* Further-dimmed red (light mode) */
+  --gradient-light-to: #D89A62;   /* Slightly darker caramel (light mode) */
+  --gradient-dark-from: #8B1B1B;  /* Warmer rich red (dark mode, shifted toward warm red) */
+  --gradient-dark-to: #0F0C0B;    /* Near-black for deeper contrast in dark mode */
 
   --color-primary: #EAAE63; /* Button primary light */
   --color-primary-dark: #CB8F53; /* Button primary dark */
   --color-accent: #C95CA2; /* Links / Accent (light) */
   --color-accent-dark: #FF93CE; /* Links / Accent (dark) */
   --color-surface: linear-gradient(35deg, #FBE7D0, #F6C895); /* surface-light gradient */
-  --color-surface-dark: linear-gradient(35deg, #4A2820, #60422E); /* surface-dark gradient */
+  --color-surface-dark: linear-gradient(35deg, #5A2E22, #7A4A36); /* richer surface-dark gradient */
+  --color-surface-contrast: #ffffff;
+  --color-surface-contrast-rgb: 255,255,255;
   --color-bg: var(--gradient-light-from); /* fallback base, used with gradient variables */
   --color-text: #3C2415; /* Primary text (light) */
   --color-text-dark: #F5E1C0; /* Primary text (dark) */
@@ -70,6 +72,8 @@
     --color-primary-dark: #8B5A2B;
     --color-accent: #FF93CE;
     --color-surface: var(--color-surface-dark);
+    --color-surface-contrast: #2e231d;
+    --color-surface-contrast-rgb: 46,35,29;
     --color-bg: var(--gradient-dark);
     --color-text: #F5E1C0;
     --color-text-secondary: #D6BFA5;
@@ -146,6 +150,13 @@ html {
 .k-btn-success-outline {
   color: var(--color-success) !important;
   border: 1px solid var(--color-success) !important;
+  background: transparent !important;
+  border-radius: 10px;
+}
+
+.k-btn-outline-secondary {
+  color: var(--color-accent) !important;
+  border: 1px solid var(--color-accent) !important;
   background: transparent !important;
   border-radius: 10px;
 }
