@@ -315,36 +315,28 @@ public class NextSongViewTests : SessionTestBase
         // Note: Since bUnit TestContext is per-test, this validates different queue contents work
     }
 
-    [Fact(Skip = "Cannot modify Services after component is rendered in bUnit")]
-    public void Component_HandlesQueueEmptyWhileTimerRunning()
+    [Fact]
+    public void Component_DisplaysEmptyQueueState_WhenQueueIsEmpty()
     {
-        // Arrange
+        // Arrange - Set up session with empty queue from the start
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var initialQueue = new Queue<Song>(new[] { _testSongs[0] });
-        var playlistState = new PlaylistState { Queue = initialQueue };
-        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        var emptyPlaylistState = new PlaylistState { Queue = new Queue<Song>() };
+        SetupTestWithSession(sessionState, emptyPlaylistState, view: "nextsong");
         SetupJSRuntime();
 
+        // Act
         var cut = RenderComponent<NextSongView>();
 
-        // Assert initial state
-        var nextsongContainer = cut.FindAll(".nextsong-container");
-        Assert.Single(nextsongContainer);
-
-        // Act - Clear queue
-        var emptyPlaylistState = new PlaylistState { Queue = new Queue<Song>() };
-        var mockPlaylistState = new Mock<IState<PlaylistState>>();
-        mockPlaylistState.Setup(s => s.Value).Returns(emptyPlaylistState);
-        
-        // Replace the playlist state service
-        Services.AddSingleton(mockPlaylistState.Object);
-        
-        // Trigger state change
-        cut.Render();
-
-        // Assert - Now showing empty queue state
+        // Assert - Component should show empty queue state
         var emptyQueueContainer = cut.FindAll(".empty-queue-container");
         Assert.Single(emptyQueueContainer);
+        
+        // Verify QR code container exists with large styling
+        var qrcodeContainer = cut.Find("#qrcode-container");
+        Assert.Contains("qrcode-large", qrcodeContainer.ClassName);
+        
+        // Verify "Sing a song" message is present
+        Assert.Contains("Sing a song", cut.Markup);
     }
 
     [Fact]
