@@ -95,8 +95,8 @@
                     <div class="mb-3">
                         <label class="form-label">Theme</label>
                         <div class="d-flex gap-2">
-                            <button class='@(_themeChoice == "light" ? "btn k-btn-primary" : "btn btn-outline-secondary")' @onclick="SetLightTheme" disabled="@_themeLocked">Light</button>
-                            <button class='@(_themeChoice == "dark" ? "btn k-btn-primary" : "btn btn-outline-secondary")' @onclick="SetDarkTheme" disabled="@_themeLocked">Dark</button>
+                            <button class='btn @(_themeChoice == "light" ? "k-btn-primary" : "k-btn-outline-secondary")' @onclick="SetLightTheme" disabled="@_themeLocked">Light</button>
+                            <button class='btn @(_themeChoice == "dark" ? "k-btn-primary" : "k-btn-outline-secondary")' @onclick="SetDarkTheme" disabled="@_themeLocked">Dark</button>
                         </div>
                         <small class="form-text d-block muted-on-surface">Choose a theme now. Once the session is started this choice is locked for all participants.</small>
                     </div>
@@ -168,18 +168,24 @@
                 try
                 {
                     _themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/themeToggle.js");
-                    // Try to read persisted theme
+                    // Initialize theme preference from persisted storage or system preference
                     try
                     {
-                        var theme = await _themeModule.InvokeAsync<string>("getTheme");
-                        if (!string.IsNullOrEmpty(theme))
+                        var initResult = await _themeModule.InvokeAsync<string>("initTheme");
+                        if (!string.IsNullOrEmpty(initResult))
                         {
-                            _themeChoice = theme;
+                            _themeChoice = initResult;
+                        }
+                        else
+                        {
+                            // Fallback to prefers-color-scheme if no explicit preference
+                            var prefersDark = await JSRuntime.InvokeAsync<bool>("eval", "window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches");
+                            _themeChoice = prefersDark ? "dark" : "light";
                         }
                     }
                     catch
                     {
-                        // ignore getTheme failures
+                        // ignore get/init failures
                     }
                 }
                 catch

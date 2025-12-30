@@ -20,6 +20,28 @@
     box-shadow: 0 4px 6px rgba(var(--color-shadow-rgb), 0.1);
 }
 
+/* Ensure input text and placeholder colors are readable against the card background */
+.name-entry-card .form-control {
+    color: var(--color-text) !important;
+    background: transparent !important;
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+.name-entry-card .form-control::placeholder {
+    color: var(--color-text-secondary) !important;
+    opacity: 1;
+}
+
+/* Dark theme overrides */
+html[data-theme="dark"] .name-entry-card .form-control {
+    color: var(--color-text) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+
+html[data-theme="dark"] .name-entry-card .form-control::placeholder {
+    color: var(--color-text-secondary) !important;
+}
+
 .library-container {
     max-width: 1200px;
     margin: 0 auto;
@@ -48,6 +70,26 @@
     background: rgba(var(--color-surface-contrast-rgb), 0.08);
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
+}
+
+/* QR pane styling: ensure generated QR canvas uses theme surface instead of white */
+.qr-container,
+div[id$="-qrcode"],
+.qr-box {
+    background: var(--color-surface-contrast);
+    padding: 0.5rem;
+    border-radius: 8px;
+}
+
+.qr-container canvas,
+.qr-container img,
+.qr-box canvas,
+.qr-box img,
+div[id$="-qrcode"] canvas,
+div[id$="-qrcode"] img {
+    background: transparent !important;
+    display: block;
+    margin: 0 auto;
 }
 
 /* Mobile optimizations */

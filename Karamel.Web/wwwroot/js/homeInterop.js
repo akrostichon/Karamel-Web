@@ -160,16 +160,22 @@ export async function initializeKaraokeSession(config, songs) {
     await saveLibraryToSessionStorage(config.sessionId, { songs });
     
     // Broadcast session settings (includes all session data for secondary tabs)
-    broadcastStateUpdate('session-settings', {
+    const sessionSettings = {
         sessionId: config.sessionId,
         libraryPath: 'Selected Library', // We don't have actual path from File System Access API
         requireSingerName: config.requireSingerName,
         allowSingerReorder: config.allowSingerReorder,
         pauseBetweenSongs: true, // Always enable pause screen
         pauseBetweenSongsSeconds: config.pauseBetweenSongs,
-        filenamePattern: config.filenamePattern,
-        theme: config.theme || null
-    });
+        filenamePattern: config.filenamePattern
+    };
+
+    // Only include theme if explicitly provided
+    if (typeof config.theme !== 'undefined' && config.theme !== null) {
+        sessionSettings.theme = config.theme;
+    }
+
+    broadcastStateUpdate('session-settings', sessionSettings);
     
     console.log('Karaoke session initialized:', config.sessionId);
 }
