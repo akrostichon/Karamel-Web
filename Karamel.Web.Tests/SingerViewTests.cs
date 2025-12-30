@@ -79,7 +79,7 @@ public class SingerViewTests : SessionTestBase
         var heading = cut.Find("h2");
         Assert.Contains("Welcome to Karaoke", heading.TextContent);
         
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         Assert.Contains("Continue", continueButton.TextContent);
     }
 
@@ -111,7 +111,7 @@ public class SingerViewTests : SessionTestBase
 
         // Act
         var cut = RenderComponent<SingerView>();
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
 
         // Assert
         Assert.True(continueButton.HasAttribute("disabled"));
@@ -128,7 +128,7 @@ public class SingerViewTests : SessionTestBase
 
         // Act
         nameInput.Change("John");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
 
         // Assert
         Assert.False(continueButton.HasAttribute("disabled"));
@@ -145,7 +145,7 @@ public class SingerViewTests : SessionTestBase
 
         // Act
         nameInput.Change("J");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Assert
@@ -165,7 +165,7 @@ public class SingerViewTests : SessionTestBase
 
         // Act
         nameInput.Change("John Doe");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Assert
@@ -188,7 +188,7 @@ public class SingerViewTests : SessionTestBase
 
         // Act
         nameInput.Change("  John Doe  ");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Assert
@@ -251,12 +251,12 @@ public class SingerViewTests : SessionTestBase
         // Enter name first
         var nameInput = cut.Find("input#singerNameInput");
         nameInput.Change("Alice");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Act
         var librarySearch = cut.FindComponent<LibrarySearch>();
-        var addButtons = librarySearch.FindAll("button.btn-primary");
+        var addButtons = librarySearch.FindAll("button.k-btn-primary");
         addButtons[0].Click(); // Click first song's Add button
 
         // Assert
@@ -279,7 +279,7 @@ public class SingerViewTests : SessionTestBase
 
         // Act
         var librarySearch = cut.FindComponent<LibrarySearch>();
-        var addButtons = librarySearch.FindAll("button.btn-primary");
+        var addButtons = librarySearch.FindAll("button.k-btn-primary");
         addButtons[0].Click();
 
         // Assert
@@ -307,7 +307,7 @@ public class SingerViewTests : SessionTestBase
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
         nameInput.Change("Bob");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Act - Simulate AddToPlaylistSuccessAction
@@ -345,7 +345,7 @@ public class SingerViewTests : SessionTestBase
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
         nameInput.Change("Charlie");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Act - Simulate AddToPlaylistFailureAction
@@ -387,7 +387,7 @@ public class SingerViewTests : SessionTestBase
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
         nameInput.Change("David");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Assert
@@ -407,7 +407,7 @@ public class SingerViewTests : SessionTestBase
 
         // Act
         nameInput.Change("José María O'Neill");
-        var continueButton = cut.Find("button.btn-primary");
+        var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Assert
