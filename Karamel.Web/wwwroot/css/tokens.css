@@ -138,8 +138,8 @@ html {
 }
 
 .k-btn-success {
-  background: var(--color-success);
-  color: var(--color-text);
+  background: var(--color-success) !important;
+  color: var(--color-text) !important;
   border-radius: 10px;
 }
 
@@ -163,11 +163,7 @@ html {
   color: var(--color-text) !important;
 }
 
-.btn-primary {
-  background-color: var(--color-primary) !important;
-  border-color: var(--color-primary) !important;
-  color: var(--color-text) !important;
-}
+
 
 .btn-outline-secondary {
   color: var(--color-accent) !important;
