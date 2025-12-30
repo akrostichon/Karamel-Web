@@ -410,48 +410,58 @@ public class PlayerViewTests : SessionTestBase
             It.IsAny<object[]>()), Times.Once);
     }
 
-    [Fact(Skip = "Threading issue with OnSongEnded calling StateHasChanged - needs InvokeAsync")]
+    [Fact]
     public async Task OnSongEnded_DispatchesNextSongAction()
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         var playlistState = new PlaylistState { CurrentSong = _testSong };
         
-        var mockDispatcher = new Mock<IDispatcher>();
-        
-        SetupTestWithSession(sessionState, playlistState, view: "player");
-        Services.AddSingleton(mockDispatcher.Object);
+        var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
         // Act
         var cut = RenderComponent<PlayerView>();
-        var component = cut.Instance;
-        await component.OnSongEnded();
+        
+        // Invoke OnSongEnded using InvokeAsync to handle StateHasChanged properly
+        await cut.InvokeAsync(async () => await cut.Instance.OnSongEnded());
+        
+        // Wait for state updates to propagate
+        await Task.Delay(100);
 
         // Assert
         mockDispatcher.Verify(d => d.Dispatch(It.IsAny<NextSongAction>()), Times.Once);
     }
 
-    [Fact(Skip = "Threading issue with OnSongEnded calling StateHasChanged")]
+    [Fact]
     public async Task OnSongEnded_NavigatesToNextSongView()
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         var playlistState = new PlaylistState { CurrentSong = _testSong };
-        SetupTestWithSession(sessionState, playlistState, view: "player");
+        var (_, _, fakeNavManager) = SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
+
+        var cut = RenderComponent<PlayerView>();
         
-        var fakeNavManager = new FakeNavigationManager();
-        Services.AddSingleton<NavigationManager>(fakeNavManager);
+        // Track navigation by counting calls - FakeNavigationManager from SetupTestWithSession already tracks history
+        var initialNavigations = fakeNavManager.NavigationHistory.Count;
 
         // Act
-        var cut = RenderComponent<PlayerView>();
-        var component = cut.Instance;
-        await component.OnSongEnded();
+        // Invoke OnSongEnded using InvokeAsync to handle StateHasChanged properly
+        await cut.InvokeAsync(async () => await cut.Instance.OnSongEnded());
+        
+        // Wait for navigation to complete
+        await Task.Delay(600); // OnSongEnded has 500ms delay, so wait a bit longer
 
-        // Assert
-        Assert.Contains("/nextsong?session=", fakeNavManager.Uri);
-        Assert.Contains(_testSession.SessionId.ToString(), fakeNavManager.Uri);
+        // Assert - Check that a new navigation occurred
+        Assert.True(fakeNavManager.NavigationHistory.Count > initialNavigations, 
+            "NavigateTo should have been called");
+        
+        // Check the last navigation was to nextsong with correct session
+        var lastNavigation = fakeNavManager.NavigationHistory.Last();
+        Assert.Contains("/nextsong?session=", lastNavigation);
+        Assert.Contains(_testSession.SessionId.ToString(), lastNavigation);
     }
 
     [Fact]

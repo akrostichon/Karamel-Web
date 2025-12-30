@@ -138,15 +138,20 @@ public abstract class SessionTestBase : TestContext
     /// </summary>
     protected class FakeNavigationManager : NavigationManager
     {
+        public List<string> NavigationHistory { get; } = new List<string>();
+        
         public FakeNavigationManager(string uri = "http://localhost/")
         {
             Initialize("http://localhost/", uri);
+            NavigationHistory.Add(uri);
         }
 
         protected override void NavigateToCore(string uri, bool forceLoad)
         {
+            // Track navigation history
+            NavigationHistory.Add(uri);
             // Update the Uri property for navigation
-            Uri = uri;
+            Uri = ToAbsoluteUri(uri).ToString();
         }
     }
 }
