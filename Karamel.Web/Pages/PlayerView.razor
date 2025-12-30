@@ -1,0 +1,331 @@
+@page "/player"
+@using Fluxor
+@using Fluxor.Blazor.Web.Components
+@using Karamel.Web.Models
+@using Karamel.Web.Store.Playlist
+@using Karamel.Web.Store.Session
+@using Microsoft.JSInterop
+
+@inherits FluxorComponent
+@implements IAsyncDisposable
+
+@inject IState<SessionState> SessionState
+@inject IState<PlaylistState> PlaylistState
+@inject IDispatcher Dispatcher
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Karaoke Player</PageTitle>
+
+<div class="player-view">
+    @if (SessionState.Value.CurrentSession == null)
+    {
+        <div class="alert alert-danger m-4" role="alert">
+            <h4 class="alert-heading">Invalid Session</h4>
+            <p>No active karaoke session found. Please start a new session from the home page.</p>
+        </div>
+    }
+    else if (PlaylistState.Value.CurrentSong == null)
+    {
+        <div class="alert alert-warning m-4" role="alert">
+            <h4 class="alert-heading">No Song Selected</h4>
+            <p>No song is currently playing. Please select a song from the playlist.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Full-screen canvas for CDG display -->
+        <canvas id="cdgCanvas" width="300" height="216" class="cdg-canvas"></canvas>
+        
+        <!-- Hidden audio element -->
+        <audio id="audioPlayer" style="display: none;"></audio>
+        
+        <!-- Controls overlay (visible on hover) -->
+        <div class="controls-overlay" @onmouseenter="ShowControls" @onmouseleave="HideControls">
+            @if (showControls)
+            {
+                <div class="controls">
+                    <button class="btn btn-control" @onclick="TogglePlayPause">
+                        <i class="bi @(isPlaying ? "bi-pause-circle" : "bi-play-circle")"></i>
+                    </button>
+                    <button class="btn btn-control" @onclick="StopPlayback">
+                        <i class="bi bi-stop-circle"></i>
+                    </button>
+                </div>
+            }
+        </div>
+        
+        <!-- Left-edge hover detector -->
+        <div class="left-edge-detector" @onmouseenter="OnLeftEdgeHover" @onmouseleave="OnLeftEdgeLeave">
+            @if (showExpandIcon)
+            {
+                <div class="expand-icon" @onclick="ToggleSidePanel">
+                    <i class="bi bi-chevron-right"></i>
+                </div>
+            }
+        </div>
+        
+        <!-- Side panel -->
+        @if (sidePanelOpen)
+        {
+            <div class="side-panel">
+                <div class="side-panel-header">
+                    <button class="btn btn-sm @(sidePanelView == "singer" ? "btn-primary" : "btn-outline-primary")" 
+                            @onclick="@(() => SetSidePanelView("singer"))">
+                        Singer
+                    </button>
+                    <button class="btn btn-sm @(sidePanelView == "playlist" ? "btn-primary" : "btn-outline-primary")" 
+                            @onclick="@(() => SetSidePanelView("playlist"))">
+                        Playlist
+                    </button>
+                    <button class="btn btn-sm btn-close" @onclick="CloseSidePanel">×</button>
+                </div>
+                <div class="side-panel-content">
+                    <iframe src="@GetSidePanelUrl()" frameborder="0"></iframe>
+                </div>
+            </div>
+        }
+        
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger error-overlay" role="alert">
+                @errorMessage
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private IJSObjectReference? fileAccessModule;
+    private IJSObjectReference? playerModule;
+    private DotNetObjectReference<PlayerView>? dotNetRef;
+    
+    private bool showControls = false;
+    private bool isPlaying = false;
+    private bool showExpandIcon = false;
+    private bool sidePanelOpen = false;
+    private string sidePanelView = "singer";
+    private string? errorMessage;
+    private bool isInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Import JavaScript modules
+                fileAccessModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileAccess.js");
+                playerModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/player.js");
+                
+                // Create .NET reference for callbacks
+                dotNetRef = DotNetObjectReference.Create(this);
+                
+                // Check if session and current song exist
+                if (SessionState.Value.CurrentSession != null && PlaylistState.Value.CurrentSong != null)
+                {
+                    await LoadAndPlaySong();
+                }
+                
+                isInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Failed to initialize player: {ex.Message}";
+                StateHasChanged();
+            }
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // If a new song is loaded and we're initialized, play it
+        if (isInitialized && PlaylistState.Value.CurrentSong != null && fileAccessModule != null)
+        {
+            await LoadAndPlaySong();
+        }
+    }
+
+    private async Task LoadAndPlaySong()
+    {
+        try
+        {
+            var song = PlaylistState.Value.CurrentSong;
+            if (song == null || fileAccessModule == null || playerModule == null)
+            {
+                return;
+            }
+
+            errorMessage = null;
+
+            // Load song files from directory handle
+            await fileAccessModule.InvokeVoidAsync("loadSongFiles", 
+                song.Mp3FileName.Contains('/') ? song.Mp3FileName.Substring(0, song.Mp3FileName.LastIndexOf('/')) : "",
+                System.IO.Path.GetFileName(song.Mp3FileName),
+                System.IO.Path.GetFileName(song.CdgFileName));
+
+            // Initialize player with callback for song end
+            await playerModule.InvokeVoidAsync("initializePlayerWithCallback", dotNetRef);
+            
+            isPlaying = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading song: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnSongEnded()
+    {
+        try
+        {
+            // Dispatch NextSong action to remove current song from queue
+            Dispatcher.Dispatch(new NextSongAction());
+            
+            // Wait a moment for state to update
+            await Task.Delay(500);
+            
+            // Navigate back to NextSongView
+            var sessionId = SessionState.Value.CurrentSession?.SessionId;
+            if (sessionId.HasValue)
+            {
+                NavigationManager.NavigateTo($"/nextsong?session={sessionId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error handling song end: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task TogglePlayPause()
+    {
+        try
+        {
+            if (playerModule == null) return;
+
+            if (isPlaying)
+            {
+                await playerModule.InvokeVoidAsync("pausePlayback");
+                isPlaying = false;
+            }
+            else
+            {
+                await playerModule.InvokeVoidAsync("resumePlayback");
+                isPlaying = true;
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error toggling playback: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopPlayback()
+    {
+        try
+        {
+            if (playerModule == null) return;
+
+            await playerModule.InvokeVoidAsync("stopPlayback");
+            isPlaying = false;
+            
+            // Navigate back to NextSongView
+            var sessionId = SessionState.Value.CurrentSession?.SessionId;
+            if (sessionId.HasValue)
+            {
+                NavigationManager.NavigateTo($"/nextsong?session={sessionId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error stopping playback: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private void ShowControls()
+    {
+        showControls = true;
+        StateHasChanged();
+    }
+
+    private void HideControls()
+    {
+        showControls = false;
+        StateHasChanged();
+    }
+
+    private void OnLeftEdgeHover()
+    {
+        showExpandIcon = true;
+        StateHasChanged();
+    }
+
+    private void OnLeftEdgeLeave()
+    {
+        showExpandIcon = false;
+        StateHasChanged();
+    }
+
+    private void ToggleSidePanel()
+    {
+        sidePanelOpen = !sidePanelOpen;
+        StateHasChanged();
+    }
+
+    private void CloseSidePanel()
+    {
+        sidePanelOpen = false;
+        StateHasChanged();
+    }
+
+    private void SetSidePanelView(string view)
+    {
+        sidePanelView = view;
+        StateHasChanged();
+    }
+
+    private string GetSidePanelUrl()
+    {
+        var sessionId = SessionState.Value.CurrentSession?.SessionId;
+        if (!sessionId.HasValue) return "";
+
+        return sidePanelView switch
+        {
+            "singer" => $"/singer?session={sessionId}",
+            "playlist" => $"/playlist?session={sessionId}",
+            _ => ""
+        };
+    }
+
+    public new async ValueTask DisposeAsync()
+    {
+        if (playerModule != null)
+        {
+            try
+            {
+                await playerModule.InvokeVoidAsync("dispose");
+            }
+            catch { }
+            await playerModule.DisposeAsync();
+        }
+        
+        if (fileAccessModule != null)
+        {
+            await fileAccessModule.DisposeAsync();
+        }
+        
+        dotNetRef?.Dispose();
+        
+        // Call base dispose
+        await base.DisposeAsync();
+    }
+}

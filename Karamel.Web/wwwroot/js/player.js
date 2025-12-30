@@ -7,9 +7,16 @@ let cdgPlayer = null;
 let audioElement = null;
 let canvasElement = null;
 let animationFrameId = null;
+let dotNetRef = null;
 
 export function initializePlayer() {
+    return initializePlayerWithCallback(null);
+}
+
+export function initializePlayerWithCallback(dotNetReference) {
     try {
+        dotNetRef = dotNetReference;
+        
         // Get DOM elements
         audioElement = document.getElementById('audioPlayer');
         canvasElement = document.getElementById('cdgCanvas');
@@ -37,7 +44,6 @@ export function initializePlayer() {
         audioElement.load();
 
         // Initialize CDG player (pass buffer directly to constructor)
-        const context = canvasElement.getContext('2d');
         cdgPlayer = new CDGraphics(cdgData.buffer);
 
         // Set up event listeners
@@ -51,6 +57,9 @@ export function initializePlayer() {
         
         // Draw initial frame
         renderFrame();
+        
+        // Auto-play
+        audioElement.play().catch(err => console.error('Auto-play failed:', err));
 
     } catch (error) {
         console.error('Error initializing player:', error);
@@ -78,6 +87,12 @@ function onPause() {
 function onEnded() {
     console.log('Playback ended');
     stopAnimation();
+    
+    // Call .NET callback if available
+    if (dotNetRef) {
+        dotNetRef.invokeMethodAsync('OnSongEnded')
+            .catch(err => console.error('Error calling OnSongEnded:', err));
+    }
 }
 
 function onSeeked() {
@@ -143,4 +158,25 @@ export function dispose() {
     cdgPlayer = null;
     audioElement = null;
     canvasElement = null;
+    dotNetRef = null;
+}
+
+export function pausePlayback() {
+    if (audioElement) {
+        audioElement.pause();
+    }
+}
+
+export function resumePlayback() {
+    if (audioElement) {
+        audioElement.play().catch(err => console.error('Resume failed:', err));
+    }
+}
+
+export function stopPlayback() {
+    if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0;
+    }
+    stopAnimation();
 }
