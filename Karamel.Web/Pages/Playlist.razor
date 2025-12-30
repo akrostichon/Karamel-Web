@@ -1,10 +1,12 @@
 @page "/playlist"
 @using Fluxor
+@using Fluxor.Blazor.Web.Components
 @using Karamel.Web.Models
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
 @using Karamel.Web.Store.Library
 @using Karamel.Web.Services
+@inherits FluxorComponent
 @inject IState<PlaylistState> PlaylistState
 @inject IState<SessionState> SessionState
 @inject IDispatcher Dispatcher
@@ -124,7 +126,27 @@
     private int? draggedIndex;
     private string dragOverClass = "";
     private bool isSessionValid = false;
-    private bool isInitializing = true;
+    
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        // Subscribe to playlist state changes for debugging and to trigger re-render
+        PlaylistState.StateChanged += OnPlaylistStateChanged;
+    }
+
+    private void OnPlaylistStateChanged(object? sender, EventArgs e)
+    {
+        try
+        {
+            var state = PlaylistState.Value;
+            Console.WriteLine($"Playlist.razor: Playlist state changed. QueueCount={state.Queue?.Count ?? 0}");
+        }
+        catch { }
+
+        InvokeAsync(StateHasChanged);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -135,7 +157,6 @@
             // Initialize session as secondary tab and load state from sessionStorage
             await SessionService.InitializeAsync(sessionGuid, false);
             
-            isInitializing = false;
             isSessionValid = ValidateSession();
             StateHasChanged();
         }

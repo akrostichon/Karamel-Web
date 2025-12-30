@@ -116,10 +116,18 @@ public static class PlaylistReducers
         };
 
     [ReducerMethod]
-    public static PlaylistState ReduceUpdatePlaylistFromBroadcastAction(PlaylistState state, UpdatePlaylistFromBroadcastAction action) =>
-        state with
+    public static PlaylistState ReduceUpdatePlaylistFromBroadcastAction(PlaylistState state, UpdatePlaylistFromBroadcastAction action)
+    {
+        try
         {
-            Queue = new Queue<Song>(action.Queue),
-            SingerSongCounts = action.SingerSongCounts
+            Console.WriteLine($"PlaylistReducers: UpdatePlaylistFromBroadcastAction received with {action.Queue?.Count ?? 0} songs");
+        }
+        catch { }
+
+        return state with
+        {
+            Queue = action.Queue != null ? new Queue<Song>(action.Queue) : new Queue<Song>(),
+            SingerSongCounts = action.SingerSongCounts ?? new Dictionary<string, int>()
         };
+    }
 }

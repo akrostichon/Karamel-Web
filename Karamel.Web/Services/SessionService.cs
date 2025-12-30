@@ -62,6 +62,10 @@ public class SessionService : ISessionService
             await SetupStateUpdateListenerAsync();
         }
 
+        // Ensure state update listener is registered even for main tab so
+        // it receives session-state-updated events and can invoke OnStateUpdated.
+        await SetupStateUpdateListenerAsync();
+
         _isInitialized = true;
     }
 
@@ -93,7 +97,7 @@ public class SessionService : ISessionService
     /// </summary>
     public async Task BroadcastPlaylistUpdatedAsync()
     {
-        if (!_isMainTab || _sessionBridgeModule == null)
+        if (_sessionBridgeModule == null)
             return;
 
         var state = _playlistState.Value;
@@ -281,6 +285,46 @@ public class SessionService : ISessionService
 
             // Note: Playlist state doesn't need to be restored here initially as it starts empty
             // It will be updated via broadcast when songs are added
+
+            // Restore playlist if present in sessionStorage (useful if main tab saved it)
+            if (stateJson.TryGetProperty("playlist", out var playlistData) &&
+                playlistData.ValueKind != JsonValueKind.Null)
+            {
+                try
+                {
+                    Console.WriteLine($"SessionService: Found playlist data in sessionStorage");
+
+                    var queue = new List<Song>();
+                    if (playlistData.TryGetProperty("queue", out var queueArray))
+                    {
+                        queue = queueArray.EnumerateArray().Select(s => new Song
+                        {
+                            Id = Guid.Parse(s.GetProperty("id").GetString()!),
+                            Artist = s.GetProperty("artist").GetString() ?? "",
+                            Title = s.GetProperty("title").GetString() ?? "",
+                            Mp3FileName = s.GetProperty("mp3FileName").GetString() ?? "",
+                            CdgFileName = s.GetProperty("cdgFileName").GetString() ?? "",
+                            AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
+                        }).ToList();
+                    }
+
+                    var singerSongCounts = new Dictionary<string, int>();
+                    if (playlistData.TryGetProperty("singerSongCounts", out var countsObj))
+                    {
+                        foreach (var prop in countsObj.EnumerateObject())
+                        {
+                            singerSongCounts[prop.Name] = prop.Value.GetInt32();
+                        }
+                    }
+
+                    _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts));
+                    Console.WriteLine($"SessionService: Dispatched playlist restore with {queue.Count} songs");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SessionService: Error restoring playlist from sessionStorage: {ex.Message}");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -294,10 +338,11 @@ public class SessionService : ISessionService
     /// </summary>
     private async Task SetupStateUpdateListenerAsync()
     {
-        if (_isMainTab || _sessionBridgeModule == null)
+        if (_sessionBridgeModule == null)
             return;
 
         var dotNetRef = DotNetObjectReference.Create(this);
+        Console.WriteLine($"SessionService: Registering state update listener (isMainTab={_isMainTab})");
         await _sessionBridgeModule.InvokeVoidAsync("setupStateUpdateListener", dotNetRef);
     }
 
@@ -309,7 +354,7 @@ public class SessionService : ISessionService
     {
         try
         {
-            Console.WriteLine($"SessionService: Received state update: {type}");
+            Console.WriteLine($"SessionService: Received state update: {type}. PayloadKind={data.ValueKind}");
             
             switch (type)
             {
@@ -343,6 +388,7 @@ public class SessionService : ISessionService
             // Extract queue
             if (data.TryGetProperty("queue", out var queueArray))
             {
+                Console.WriteLine($"SessionService: Playlist update contains queue with {queueArray.GetArrayLength()} items");
                 var queue = queueArray.EnumerateArray().Select(s => new Song
                 {
                     Id = Guid.Parse(s.GetProperty("id").GetString()!),
@@ -363,9 +409,16 @@ public class SessionService : ISessionService
                     }
                 }
 
+                // Log sample of first item for diagnostics
+                if (queue.Count > 0)
+                {
+                    var first = queue[0];
+                    Console.WriteLine($"SessionService: First queued song: id={first.Id} artist={first.Artist} title={first.Title} addedBy={first.AddedBySinger}");
+                }
+
                 // Dispatch action to update playlist state
                 _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts));
-                
+
                 Console.WriteLine($"SessionService: Dispatched playlist update with {queue.Count} songs");
             }
         }

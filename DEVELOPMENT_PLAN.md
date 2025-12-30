@@ -234,6 +234,8 @@
   - `/singer?session={guid}` → SingerView.razor (new tab or QR code access)
 - **STRICT validation**: All views validate `?session={guid}` parameter is present, valid GUID, and matches CurrentSession.SessionId
 - Multi-session support: Different tabs can run independent sessions simultaneously
+- Test session handling: Can add song to playlist in SingerView. It is broadcast to NextSongView and PlaylistView.
+- Test: first song is added to playlist and NextSongView shows it and navigates to PlayerView.
 
 #### Testing:
 - ✅ **Unit tests**: Verify MainLayout no longer includes NavMenu component
@@ -246,6 +248,9 @@
 - **Status**: ✅ COMPLETED (92 tests passing, 9 skipped with documented reasons)
 - **Date Completed**: 2025-01-20
 
+### Step 2.12: PlayerView starts playback
+- first song is added to playlist
+- Currently PlayerView reports "No song is currently playing. Please select a song from the playlist.". Instead it should start playing the song.
 ---
 
 ## Phase 3: Styling & UX Polish

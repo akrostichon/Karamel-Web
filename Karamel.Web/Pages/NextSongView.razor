@@ -5,6 +5,7 @@
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
 @using Microsoft.JSInterop
+@using Karamel.Web.Services
 
 @inherits FluxorComponent
 @implements IAsyncDisposable
@@ -14,6 +15,7 @@
 @inject IDispatcher Dispatcher
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject IServiceProvider ServiceProvider
 
 <PageTitle>Next Song - Karamel Karaoke</PageTitle>
 
@@ -107,11 +109,54 @@
         // Validate session parameter
         isSessionValid = ValidateSession();
 
+        // Subscribe to playlist updates so we react immediately when queue changes
+        Console.WriteLine($"NextSongView: Subscribing to PlaylistState changes. Current queue count={PlaylistState.Value.Queue?.Count ?? 0}");
+        PlaylistState.StateChanged += OnPlaylistStateChanged;
+
+        // Subscribe to session state changes so we can initialize when session data arrives
+        SessionState.StateChanged += OnSessionStateChanged;
+
         if (isSessionValid)
         {
             // Initialize next song
             UpdateNextSong();
         }
+    }
+
+    private async void OnSessionStateChanged(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (!isSessionValid && ValidateSession())
+            {
+                isSessionValid = true;
+                // If session becomes valid later, initialize main-tab responsibilities
+                await InitializeMainTabAsync();
+                UpdateNextSong();
+                StartAutoAdvanceTimer();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NextSongView: Error handling session state change: {ex.Message}");
+        }
+    }
+
+    private void OnPlaylistStateChanged(object? sender, EventArgs e)
+    {
+        try
+        {
+            Console.WriteLine($"NextSongView: OnPlaylistStateChanged invoked. QueueCount={PlaylistState.Value.Queue?.Count ?? 0}");
+            UpdateNextSong();
+            StartAutoAdvanceTimer();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NextSongView: Error handling playlist state change: {ex.Message}");
+        }
+
+        InvokeAsync(StateHasChanged);
     }
 
     private bool IsLocalhostEnvironment()
@@ -143,25 +188,14 @@
     {
         await base.OnAfterRenderAsync(firstRender);
 
+        Console.WriteLine($"NextSongView: OnAfterRenderAsync firstRender={firstRender}. isSessionValid={isSessionValid}. QueueCount={PlaylistState.Value.Queue?.Count ?? 0}");
         if (firstRender && isSessionValid && !isLocalhost)
         {
-            // Load QR code module only if not on localhost
-            qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./js/qrcode.js");
-
-            // Generate session URL for QR code
-            var sessionUrl = GenerateSessionUrl();
-            
-            // Generate QR code
-            await qrcodeModule.InvokeVoidAsync("generateQRCode", "qrcode-container", sessionUrl);
-
-            // Start auto-advance timer if queue has songs
-            StartAutoAdvanceTimer();
+            await InitializeMainTabAsync();
         }
         else if (firstRender && isSessionValid && isLocalhost)
         {
-            // Start auto-advance timer for localhost (no QR code needed)
-            StartAutoAdvanceTimer();
+            await InitializeMainTabAsync();
         }
         else if (!firstRender && isSessionValid)
         {
@@ -173,6 +207,8 @@
                 var previousNextSong = nextSong;
                 UpdateNextSong();
 
+                    Console.WriteLine($"NextSongView: Playlist changed in OnAfterRender. previousNextId={previousNextSong?.Id} newNextId={nextSong?.Id}");
+
                 // Restart timer if song changed
                 if (previousNextSong?.Id != nextSong?.Id)
                 {
@@ -182,6 +218,41 @@
                 previousQueue = currentQueue;
             }
         }
+    }
+
+    private async Task InitializeMainTabAsync()
+    {
+        try
+        {
+            var sessionId = SessionState.Value.CurrentSession?.SessionId;
+            var sessionService = ServiceProvider.GetService(typeof(Karamel.Web.Services.ISessionService)) as Karamel.Web.Services.ISessionService;
+            if (sessionId != null && sessionService != null)
+            {
+                await sessionService.InitializeAsync(sessionId.Value, true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NextSongView: Failed to initialize SessionService as main tab: {ex.Message}");
+        }
+
+        // Load QR code module only if not on localhost
+        try
+        {
+            if (!isLocalhost)
+            {
+                qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/qrcode.js");
+                var sessionUrl = GenerateSessionUrl();
+                await qrcodeModule.InvokeVoidAsync("generateQRCode", "qrcode-container", sessionUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NextSongView: Failed to initialize QR code module: {ex.Message}");
+        }
+
+        // Start timer if appropriate
+        StartAutoAdvanceTimer();
     }
 
     private void UpdateNextSong()
@@ -243,6 +314,13 @@
             // Dispose timer
             autoAdvanceTimer?.Dispose();
             autoAdvanceTimer = null;
+
+            // Unsubscribe from playlist state changes
+            try
+            {
+                PlaylistState.StateChanged -= OnPlaylistStateChanged;
+            }
+            catch { }
 
             // Dispose JS module
             if (qrcodeModule != null)

@@ -304,6 +304,10 @@ describe('Library Selection', () => {
 describe('Session Initialization', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // Ensure window.focus exists in the test environment
+        if (typeof window !== 'undefined' && typeof window.focus !== 'function') {
+            window.focus = vi.fn();
+        }
     });
     
     it('should initialize karaoke session with valid config', async () => {
@@ -324,9 +328,12 @@ describe('Session Initialization', () => {
         expect(initializeSession).toHaveBeenCalledWith(config.sessionId, true);
         expect(saveLibraryToSessionStorage).toHaveBeenCalledWith(config.sessionId, { songs });
         expect(broadcastStateUpdate).toHaveBeenCalledWith('session-settings', {
+            sessionId: config.sessionId,
+            libraryPath: 'Selected Library',
             requireSingerName: true,
             allowSingerReorder: false,
-            pauseBetweenSongs: 5,
+            pauseBetweenSongs: true,
+            pauseBetweenSongsSeconds: config.pauseBetweenSongs,
             filenamePattern: '%artist - %title'
         });
     });
