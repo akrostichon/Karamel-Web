@@ -354,6 +354,9 @@
 
 ---
 ## Ideas for future improvements
+Allow PlayerView to either play Mp3+CDG or play video files. Parse video files as songs.
+have to change many tests to do so.
+
 Playlist view for admins should allow to stop playback after the current song.
 This will cause the NextSong View to behave as if no song is within the queue after the current song has finished.
 An admin may then send a proceed playback command which will cause the NextSong View to show the next song in queue.

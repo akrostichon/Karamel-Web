@@ -62,7 +62,7 @@
                         <label class="form-check-label" for="requireSingerName">
                             Require singer name
                         </label>
-                        <small class="form-text-muted d-block">Singers must enter their name before adding songs</small>
+                        <small class="form-text d-block muted-on-surface">Singers must enter their name before adding songs</small>
                     </div>
 
                     <div class="form-check mb-3">
@@ -71,7 +71,7 @@
                         <label class="form-check-label" for="allowSingerReorder">
                             Allow singers to reorder playlist
                         </label>
-                        <small class="form-text-muted d-block">Let singers rearrange the queue order</small>
+                        <small class="form-text d-block muted-on-surface">Let singers rearrange the queue order</small>
                     </div>
 
                     <div class="mb-3">
@@ -79,7 +79,7 @@
                         <input type="number" class="form-control" id="pauseBetweenSongs" 
                                @bind="_pauseBetweenSongs" 
                                min="0" max="60" step="1">
-                        <small class="form-text-muted">Time to display "Next Song" screen (0-60 seconds)</small>
+                        <small class="form-text muted-on-surface">Time to display "Next Song" screen (0-60 seconds)</small>
                     </div>
 
                     <div class="mb-3">
@@ -87,7 +87,7 @@
                         <input type="text" class="form-control" id="filenamePattern" 
                                @bind="_filenamePattern" 
                                placeholder="%artist - %title">
-                        <small class="form-text-muted">Use %artist and %title placeholders to parse filenames</small>
+                        <small class="form-text muted-on-surface">Use %artist and %title placeholders to parse filenames</small>
                     </div>
                 </div>
 
@@ -98,7 +98,7 @@
                             <button class='@(_themeChoice == "light" ? "btn btn-primary" : "btn btn-outline-secondary")' @onclick="SetLightTheme" disabled="@_themeLocked">Light</button>
                             <button class='@(_themeChoice == "dark" ? "btn btn-primary" : "btn btn-outline-secondary")' @onclick="SetDarkTheme" disabled="@_themeLocked">Dark</button>
                         </div>
-                        <small class="form-text form-text-muted d-block">Choose a theme now. Once the session is started this choice is locked for all participants.</small>
+                        <small class="form-text d-block muted-on-surface">Choose a theme now. Once the session is started this choice is locked for all participants.</small>
                     </div>
 
                     <h5 class="mb-3">3. Start Session</h5>
@@ -124,7 +124,7 @@
                 </div>
             }
         </div>
-        <div class="card-footer form-text-muted text-center">
+        <div class="card-footer text-center muted-on-surface">
             <small>Karamel Karaoke System v1.0</small>
         </div>
     </div>

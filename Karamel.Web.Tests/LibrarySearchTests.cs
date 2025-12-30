@@ -230,7 +230,7 @@ public class LibrarySearchTests : TestContext
         var cut = RenderComponent<LibrarySearch>();
 
         // Assert
-        var countText = cut.Find(".form-text-muted.small");
+        var countText = cut.Find(".form-text.small");
         Assert.Contains("Showing 5 of 5 songs", countText.TextContent);
     }
 
@@ -249,7 +249,7 @@ public class LibrarySearchTests : TestContext
         var cut = RenderComponent<LibrarySearch>();
 
         // Assert
-        var countText = cut.Find(".form-text-muted.small");
+        var countText = cut.Find(".form-text.small");
         Assert.Contains("Showing 2 of 5 songs", countText.TextContent);
     }
 
