@@ -204,26 +204,39 @@ public class SessionService : IAsyncDisposable
             if (stateJson.TryGetProperty("session", out var sessionData) && 
                 sessionData.ValueKind != JsonValueKind.Null)
             {
-                // TODO: Dispatch action to restore session
-                // This will be implemented when we have the necessary actions
+                var session = new Models.Session
+                {
+                    SessionId = sessionId,
+                    LibraryPath = sessionData.GetProperty("libraryPath").GetString() ?? "",
+                    RequireSingerName = sessionData.GetProperty("requireSingerName").GetBoolean(),
+                    AllowSingersToReorder = sessionData.TryGetProperty("allowSingerReorder", out var allowReorder) ? allowReorder.GetBoolean() : false,
+                    PauseBetweenSongs = sessionData.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) ? pauseEnabled.GetBoolean() : true,
+                    PauseBetweenSongsSeconds = sessionData.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
+                    FilenamePattern = sessionData.GetProperty("filenamePattern").GetString() ?? "%artist - %title"
+                };
+                
+                _dispatcher.Dispatch(new InitializeSessionAction(session));
             }
 
-            // Library is already in sessionStorage (saved by main tab during init)
-            // Secondary tabs just read it directly from state
+            // Restore library (saved by main tab during init)
             if (stateJson.TryGetProperty("library", out var libraryData) && 
-                libraryData.ValueKind != JsonValueKind.Null)
+                libraryData.ValueKind != JsonValueKind.Null &&
+                libraryData.TryGetProperty("songs", out var songsArray))
             {
-                // TODO: Dispatch action to restore library
-                // This will be implemented when we have the necessary actions
+                var songs = songsArray.EnumerateArray().Select(s => new Song
+                {
+                    Id = Guid.Parse(s.GetProperty("id").GetString()!),
+                    Artist = s.GetProperty("artist").GetString() ?? "",
+                    Title = s.GetProperty("title").GetString() ?? "",
+                    Mp3FileName = s.GetProperty("mp3FileName").GetString() ?? "",
+                    CdgFileName = s.GetProperty("cdgFileName").GetString() ?? ""
+                }).ToList();
+                
+                _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
             }
 
-            // Restore playlist
-            if (stateJson.TryGetProperty("playlist", out var playlistData) && 
-                playlistData.ValueKind != JsonValueKind.Null)
-            {
-                // TODO: Dispatch action to restore playlist
-                // This will be implemented when we have the necessary actions
-            }
+            // Note: Playlist state doesn't need to be restored here initially as it starts empty
+            // It will be updated via broadcast when songs are added
         }
         catch (Exception ex)
         {

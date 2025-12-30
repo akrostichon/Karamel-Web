@@ -14,22 +14,32 @@ namespace Karamel.Web.Tests;
 /// Integration tests for NextSongView component.
 /// Tests real Fluxor state updates and component reactivity.
 /// </summary>
-public class NextSongViewIntegrationTests : TestContext
+public class NextSongViewIntegrationTests : SessionTestBase
 {
     private readonly IStore _store;
     private readonly IDispatcher _dispatcher;
+    private readonly Guid _testSessionId;
 
     public NextSongViewIntegrationTests()
     {
-        // Add Fluxor with real store
-        Services.AddFluxor(options =>
-        {
-            options.ScanAssemblies(typeof(SessionState).Assembly);
-        });
+        // Generate test session ID first
+        _testSessionId = Guid.NewGuid();
+        
+        // IMPORTANT: Add NavigationManager BEFORE Fluxor initialization
+        // This ensures the service provider isn't locked when we need session validation
+        var fakeNav = new FakeNavigationManager();
+        fakeNav.NavigateTo($"http://localhost/nextsong?session={_testSessionId}");
+        Services.AddSingleton<Microsoft.AspNetCore.Components.NavigationManager>(fakeNav);
 
         // Add mock JS runtime
         var mockJSRuntime = new MockJSRuntime();
         Services.AddSingleton<IJSRuntime>(mockJSRuntime);
+
+        // Add Fluxor with real store (after NavigationManager)
+        Services.AddFluxor(options =>
+        {
+            options.ScanAssemblies(typeof(SessionState).Assembly);
+        });
 
         // Get services after building
         _store = Services.GetRequiredService<IStore>();
@@ -40,49 +50,106 @@ public class NextSongViewIntegrationTests : TestContext
     }
 
     [Fact]
-    public void Component_UpdatesDisplay_WhenSessionStateChanges()
+    public void Integration_DisplaysNextSongFromQueue()
     {
-        // Arrange - dispatch initial session action
+        // Arrange - dispatch initial session action with test session ID
         var initialSession = new Models.Session
         {
+            SessionId = _testSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         _dispatcher.Dispatch(new InitializeSessionAction(initialSession));
 
-        // Act - render component with initial state
+        // Add a song to the queue
+        var song = new Song
+        {
+            Artist = "Test Artist",
+            Title = "Test Song",
+            Mp3FileName = "test.mp3",
+            CdgFileName = "test.cdg"
+        };
+        _dispatcher.Dispatch(new AddToPlaylistAction(song, "Test Singer"));
+
+        // Wait briefly for effect to process
+        Thread.Sleep(100);
+
+        // Act - render component with song in queue
         var cut = RenderComponent<NextSongView>();
 
-        // Assert - should show empty queue state initially
-        Assert.Contains("empty-queue-container", cut.Markup);
+        // Assert - should show the song
+        Assert.Contains("Test Artist", cut.Markup);
+        Assert.Contains("Test Song", cut.Markup);
+        Assert.Contains("Test Singer", cut.Markup);
+    }
 
-        // Act - dispatch session with different settings
-        var newSession = new Models.Session
+    [Fact]
+    public void Integration_DisplaysEmptySongMessage_WhenQueueIsEmpty()
+    {
+        // Arrange - dispatch initial session action with test session ID
+        var initialSession = new Models.Session
         {
-            SessionId = Guid.NewGuid(),
-            LibraryPath = @"C:\NewLibrary",
-            PauseBetweenSongsSeconds = 10
+            SessionId = _testSessionId,
+            LibraryPath = @"C:\TestLibrary",
+            PauseBetweenSongsSeconds = 5
         };
-        _dispatcher.Dispatch(new InitializeSessionAction(newSession));
+        _dispatcher.Dispatch(new InitializeSessionAction(initialSession));
 
-        // Wait for state update to propagate
-        cut.WaitForState(() => 
+        // Act - render component with initial empty queue state
+        var cut = RenderComponent<NextSongView>();
+
+        // Assert - should show empty queue state
+        Assert.Contains("empty-queue-container", cut.Markup);
+        Assert.Contains("Sing a song", cut.Markup);
+    }
+
+    [Fact]
+    public void Integration_LoadsQRCodeModule()
+    {
+        // Arrange - initialize session
+        var session = new Models.Session
         {
-            var state = Services.GetRequiredService<IState<SessionState>>();
-            return state.Value.CurrentSession?.SessionId == newSession.SessionId;
-        }, timeout: TimeSpan.FromSeconds(5));
+            SessionId = _testSessionId,
+            LibraryPath = @"C:\TestLibrary",
+            PauseBetweenSongsSeconds = 5
+        };
+        _dispatcher.Dispatch(new InitializeSessionAction(session));
 
-        // Assert - component should reflect new session
-        var sessionState = Services.GetRequiredService<IState<SessionState>>();
-        Assert.Equal(newSession.SessionId, sessionState.Value.CurrentSession?.SessionId);
+        // Act - render component
+        var cut = RenderComponent<NextSongView>();
+
+        // Assert - QR code container should be present
+        var qrContainer = cut.Find("#qrcode-container");
+        Assert.NotNull(qrContainer);
+    }
+
+    [Fact]
+    public void Integration_ShowsQRCode_WhenQueueIsEmpty()
+    {
+        // Arrange - initialize session
+        var session = new Models.Session
+        {
+            SessionId = _testSessionId,
+            LibraryPath = @"C:\TestLibrary",
+            PauseBetweenSongsSeconds = 5
+        };
+        _dispatcher.Dispatch(new InitializeSessionAction(session));
+
+        // Act - render component with empty queue
+        var cut = RenderComponent<NextSongView>();
+
+        // Assert - QR code should have large styling
+        var qrContainer = cut.Find("#qrcode-container");
+        Assert.Contains("qrcode-large", qrContainer.ClassName);
     }
 
     [Fact]
     public async Task Component_UpdatesDisplay_WhenPlaylistStateChanges()
     {
-        // Arrange - initialize session
+        // Arrange - initialize session with test session ID
         var session = new Models.Session
         {
+            SessionId = _testSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
@@ -148,9 +215,10 @@ public class NextSongViewIntegrationTests : TestContext
     [Fact]
     public void Component_UpdatesDisplay_WhenQueueBecomesEmpty()
     {
-        // Arrange - initialize session and add song
+        // Arrange - initialize session with test session ID and add song
         var session = new Models.Session
         {
+            SessionId = _testSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
@@ -197,9 +265,10 @@ public class NextSongViewIntegrationTests : TestContext
     [Fact]
     public async Task Component_ReactsTo_MultipleQueueChanges()
     {
-        // Arrange - initialize session
+        // Arrange - initialize session with test session ID
         var session = new Models.Session
         {
+            SessionId = _testSessionId,
             LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };

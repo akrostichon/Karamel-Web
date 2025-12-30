@@ -3,15 +3,27 @@
 @using Karamel.Web.Models
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Library
+@using Karamel.Web.Services
 @inject IState<PlaylistState> PlaylistState
 @inject IState<SessionState> SessionState
 @inject IDispatcher Dispatcher
 @inject IJSRuntime JSRuntime
+@inject SessionService SessionService
 
 <PageTitle>Playlist - Karamel</PageTitle>
 
 <div class="playlist-container">
-    <h1 class="mb-4">Playlist</h1>
+    @if (!isSessionValid)
+    {
+        <div class="alert alert-danger m-4" role="alert">
+            <h4 class="alert-heading">Invalid Session</h4>
+            <p>No active karaoke session found. Please start a new session from the home page.</p>
+        </div>
+    }
+    else
+    {
+        <h1 class="mb-4">Playlist</h1>
 
     @if (!PlaylistState.Value.Queue.Any())
     {
@@ -101,11 +113,51 @@
             </div>
         }
     }
+    }
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "session")]
+    public string? SessionParam { get; set; }
+
     private int? draggedIndex;
     private string dragOverClass = "";
+    private bool isSessionValid = false;
+    private bool isInitializing = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        
+        if (firstRender && !string.IsNullOrWhiteSpace(SessionParam) && Guid.TryParse(SessionParam, out var sessionGuid))
+        {
+            // Initialize session as secondary tab and load state from sessionStorage
+            await SessionService.InitializeAsync(sessionGuid, false);
+            
+            isInitializing = false;
+            isSessionValid = ValidateSession();
+            StateHasChanged();
+        }
+    }
+
+    private bool ValidateSession()
+    {
+        // If no session in state, it's invalid
+        if (SessionState.Value.CurrentSession == null)
+        {
+            return false;
+        }
+
+        // STRICT VALIDATION: Session parameter is REQUIRED for multi-session support
+        if (string.IsNullOrWhiteSpace(SessionParam) || !Guid.TryParse(SessionParam, out var sessionGuid))
+        {
+            return false;
+        }
+
+        // Session ID must match the parameter
+        return SessionState.Value.CurrentSession.SessionId == sessionGuid;
+    }
 
     private void RemoveSong(Guid songId)
     {

@@ -18,7 +18,7 @@
 <PageTitle>Next Song - Karamel Karaoke</PageTitle>
 
 <div class="nextsong-view">
-    @if (SessionState.Value.CurrentSession == null)
+    @if (!isSessionValid)
     {
         <div class="alert alert-danger m-4" role="alert">
             <h4 class="alert-heading">Invalid Session</h4>
@@ -64,25 +64,54 @@
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "session")]
+    public string? SessionParam { get; set; }
+
     private IJSObjectReference? qrcodeModule;
     private Song? nextSong;
     private Timer? autoAdvanceTimer;
     private bool isDisposed = false;
     private Queue<Song>? previousQueue;
+    private bool isSessionValid = false;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
 
-        // Initialize next song
-        UpdateNextSong();
+        // Validate session parameter
+        isSessionValid = ValidateSession();
+
+        if (isSessionValid)
+        {
+            // Initialize next song
+            UpdateNextSong();
+        }
+    }
+
+    private bool ValidateSession()
+    {
+        // If no session in state, it's invalid
+        if (SessionState.Value.CurrentSession == null)
+        {
+            return false;
+        }
+
+        // STRICT VALIDATION: Session parameter is REQUIRED for multi-session support
+        if (string.IsNullOrWhiteSpace(SessionParam) || !Guid.TryParse(SessionParam, out var sessionGuid))
+        {
+            return false;
+        }
+
+        // Session ID must match the parameter
+        return SessionState.Value.CurrentSession.SessionId == sessionGuid;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        if (firstRender && SessionState.Value.CurrentSession != null)
+        if (firstRender && isSessionValid)
         {
             // Load QR code module
             qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
@@ -97,7 +126,7 @@
             // Start auto-advance timer if queue has songs
             StartAutoAdvanceTimer();
         }
-        else if (!firstRender)
+        else if (!firstRender && isSessionValid)
         {
             // Check if playlist changed
             var currentQueue = PlaylistState.Value.Queue;
@@ -168,18 +197,24 @@
         return $"{baseUrl}/singer?session={sessionId}";
     }
 
-    public new async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore(bool disposing)
     {
-        isDisposed = true;
-
-        // Dispose timer
-        autoAdvanceTimer?.Dispose();
-        autoAdvanceTimer = null;
-
-        // Dispose JS module
-        if (qrcodeModule != null)
+        if (disposing)
         {
-            await qrcodeModule.DisposeAsync();
+            isDisposed = true;
+
+            // Dispose timer
+            autoAdvanceTimer?.Dispose();
+            autoAdvanceTimer = null;
+
+            // Dispose JS module
+            if (qrcodeModule != null)
+            {
+                await qrcodeModule.DisposeAsync();
+            }
         }
+
+        // Call base to dispose Fluxor subscriptions
+        await base.DisposeAsyncCore(disposing);
     }
 }

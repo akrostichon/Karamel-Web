@@ -16,7 +16,7 @@ namespace Karamel.Web.Tests;
 /// Unit tests for the SingerView component.
 /// Tests name entry, library search integration, song limit enforcement, and toast notifications.
 /// </summary>
-public class SingerViewTests : TestContext
+public class SingerViewTests : SessionTestBase
 {
     private readonly List<Song> _testSongs;
     private readonly Models.Session _testSessionWithNameRequired;
@@ -51,7 +51,7 @@ public class SingerViewTests : TestContext
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = null };
-        SetupFluxor(sessionState, new LibraryState(), new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
 
         // Act
         var cut = RenderComponent<SingerView>();
@@ -67,7 +67,7 @@ public class SingerViewTests : TestContext
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupFluxor(sessionState, new LibraryState(), new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
 
         // Act
         var cut = RenderComponent<SingerView>();
@@ -89,7 +89,7 @@ public class SingerViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithoutNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupFluxor(sessionState, libraryState, new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
 
         // Act
         var cut = RenderComponent<SingerView>();
@@ -107,7 +107,7 @@ public class SingerViewTests : TestContext
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupFluxor(sessionState, new LibraryState(), new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
 
         // Act
         var cut = RenderComponent<SingerView>();
@@ -122,7 +122,7 @@ public class SingerViewTests : TestContext
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupFluxor(sessionState, new LibraryState(), new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
         var cut = RenderComponent<SingerView>();
         var nameInput = cut.Find("input#singerNameInput");
 
@@ -139,7 +139,7 @@ public class SingerViewTests : TestContext
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupFluxor(sessionState, new LibraryState(), new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
         var cut = RenderComponent<SingerView>();
         var nameInput = cut.Find("input#singerNameInput");
 
@@ -159,7 +159,7 @@ public class SingerViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupFluxor(sessionState, libraryState, new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         var cut = RenderComponent<SingerView>();
         var nameInput = cut.Find("input#singerNameInput");
 
@@ -182,7 +182,7 @@ public class SingerViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupFluxor(sessionState, libraryState, new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         var cut = RenderComponent<SingerView>();
         var nameInput = cut.Find("input#singerNameInput");
 
@@ -202,7 +202,7 @@ public class SingerViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupFluxor(sessionState, libraryState, new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         var cut = RenderComponent<SingerView>();
         var nameInput = cut.Find("input#singerNameInput");
 
@@ -228,7 +228,7 @@ public class SingerViewTests : TestContext
         {
             SingerSongCounts = new Dictionary<string, int> { { "John", 3 } }
         };
-        SetupFluxor(sessionState, libraryState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
 
         // Act
         var cut = RenderComponent<SingerView>();
@@ -244,7 +244,7 @@ public class SingerViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        var (_, dispatcher, _) = SetupFluxor(sessionState, libraryState, new PlaylistState());
+        var (_, dispatcher, _) = SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         
         var cut = RenderComponent<SingerView>();
         
@@ -273,7 +273,7 @@ public class SingerViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithoutNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        var (_, dispatcher, _) = SetupFluxor(sessionState, libraryState, new PlaylistState());
+        var (_, dispatcher, _) = SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         
         var cut = RenderComponent<SingerView>();
 
@@ -300,7 +300,7 @@ public class SingerViewTests : TestContext
         {
             Queue = new Queue<Song>(new[] { _testSongs[0] })
         };
-        var (actionSubscriber, _, _) = SetupFluxor(sessionState, libraryState, playlistState);
+        var (actionSubscriber, _, _) = SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
         var cut = RenderComponent<SingerView>();
         
@@ -338,7 +338,7 @@ public class SingerViewTests : TestContext
         {
             SingerSongCounts = new Dictionary<string, int> { { "Charlie", 10 } }
         };
-        var (actionSubscriber, _, _) = SetupFluxor(sessionState, libraryState, playlistState);
+        var (actionSubscriber, _, _) = SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
         var cut = RenderComponent<SingerView>();
         
@@ -380,7 +380,7 @@ public class SingerViewTests : TestContext
                 { "Eve", 5 }
             }
         };
-        SetupFluxor(sessionState, libraryState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
         var cut = RenderComponent<SingerView>();
         
@@ -401,7 +401,7 @@ public class SingerViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupFluxor(sessionState, libraryState, new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         var cut = RenderComponent<SingerView>();
         var nameInput = cut.Find("input#singerNameInput");
 
@@ -420,7 +420,7 @@ public class SingerViewTests : TestContext
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupFluxor(sessionState, new LibraryState(), new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
         var cut = RenderComponent<SingerView>();
         var nameInput = cut.Find("input#singerNameInput");
 
@@ -428,29 +428,4 @@ public class SingerViewTests : TestContext
         Assert.Equal("50", nameInput.GetAttribute("maxlength"));
     }
 
-    private (Mock<IActionSubscriber>, Mock<IDispatcher>, Mock<IState<PlaylistState>>) SetupFluxor(
-        SessionState sessionState, 
-        LibraryState libraryState, 
-        PlaylistState playlistState)
-    {
-        var mockDispatcher = new Mock<IDispatcher>();
-        var mockActionSubscriber = new Mock<IActionSubscriber>();
-        
-        var mockSessionState = new Mock<IState<SessionState>>();
-        mockSessionState.Setup(s => s.Value).Returns(sessionState);
-        
-        var mockLibraryState = new Mock<IState<LibraryState>>();
-        mockLibraryState.Setup(s => s.Value).Returns(libraryState);
-        
-        var mockPlaylistState = new Mock<IState<PlaylistState>>();
-        mockPlaylistState.Setup(s => s.Value).Returns(playlistState);
-
-        Services.AddSingleton(mockDispatcher.Object);
-        Services.AddSingleton(mockActionSubscriber.Object);
-        Services.AddSingleton(mockSessionState.Object);
-        Services.AddSingleton(mockLibraryState.Object);
-        Services.AddSingleton(mockPlaylistState.Object);
-
-        return (mockActionSubscriber, mockDispatcher, mockPlaylistState);
-    }
 }

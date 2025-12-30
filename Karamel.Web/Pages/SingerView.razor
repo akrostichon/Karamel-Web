@@ -19,7 +19,7 @@
 <PageTitle>Singer View - Karamel Karaoke</PageTitle>
 
 <div class="singer-view">
-    @if (SessionState.Value.CurrentSession == null)
+    @if (!isSessionValid)
     {
         <div class="alert alert-danger m-4" role="alert">
             <h4 class="alert-heading">Invalid Session</h4>
@@ -101,6 +101,10 @@
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "session")]
+    public string? SessionParam { get; set; }
+
     private string singerName = string.Empty;
     private string tempSingerName = string.Empty;
     private string nameError = string.Empty;
@@ -109,14 +113,36 @@
     private string toastTitle = string.Empty;
     private string toastClass = string.Empty;
     private string toastIcon = string.Empty;
+    private bool isSessionValid = false;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
         
+        // Validate session parameter
+        isSessionValid = ValidateSession();
+        
         // Subscribe to playlist actions for feedback
         ActionSubscriber.SubscribeToAction<AddToPlaylistSuccessAction>(this, HandleAddToPlaylistSuccess);
         ActionSubscriber.SubscribeToAction<AddToPlaylistFailureAction>(this, HandleAddToPlaylistFailure);
+    }
+
+    private bool ValidateSession()
+    {
+        // If no session in state, it's invalid
+        if (SessionState.Value.CurrentSession == null)
+        {
+            return false;
+        }
+
+        // STRICT VALIDATION: Session parameter is REQUIRED for multi-session support
+        if (string.IsNullOrWhiteSpace(SessionParam) || !Guid.TryParse(SessionParam, out var sessionGuid))
+        {
+            return false;
+        }
+
+        // Session ID must match the parameter
+        return SessionState.Value.CurrentSession.SessionId == sessionGuid;
     }
 
     private void ConfirmName()

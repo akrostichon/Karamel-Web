@@ -15,7 +15,7 @@ namespace Karamel.Web.Tests;
 /// Unit tests for the NextSongView component.
 /// Tests next song display, QR code generation, empty queue state, and auto-advance timer.
 /// </summary>
-public class NextSongViewTests : TestContext
+public class NextSongViewTests : SessionTestBase
 {
     private readonly List<Song> _testSongs;
     private readonly Models.Session _testSessionWithPause;
@@ -70,7 +70,7 @@ public class NextSongViewTests : TestContext
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = null };
-        SetupFluxor(sessionState, new PlaylistState());
+        SetupTestWithSession(sessionState, new PlaylistState(), view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -88,7 +88,7 @@ public class NextSongViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -111,7 +111,7 @@ public class NextSongViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -134,7 +134,7 @@ public class NextSongViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>() };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -160,7 +160,7 @@ public class NextSongViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>() };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -186,7 +186,7 @@ public class NextSongViewTests : TestContext
         };
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(new[] { songWithoutSinger }) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -209,7 +209,7 @@ public class NextSongViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -237,7 +237,7 @@ public class NextSongViewTests : TestContext
         };
         var sessionState = new SessionState { CurrentSession = session, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -255,7 +255,7 @@ public class NextSongViewTests : TestContext
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithoutPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -280,7 +280,7 @@ public class NextSongViewTests : TestContext
         };
         var sessionState = new SessionState { CurrentSession = sessionWithLongPause, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -299,7 +299,7 @@ public class NextSongViewTests : TestContext
             var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
             var queue = new Queue<Song>(new[] { _testSongs[0] });
             var playlistState = new PlaylistState { Queue = queue };
-            SetupFluxor(sessionState, playlistState);
+            SetupTestWithSession(sessionState, playlistState, view: "nextsong");
             SetupJSRuntime();
 
             var cut = RenderComponent<NextSongView>();
@@ -316,31 +316,27 @@ public class NextSongViewTests : TestContext
     }
 
     [Fact]
-    public void Component_HandlesQueueEmptyWhileTimerRunning()
+    public void Component_DisplaysEmptyQueueState_WhenQueueIsEmpty()
     {
-        // Arrange
+        // Arrange - Set up session with empty queue from the start
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var initialQueue = new Queue<Song>(new[] { _testSongs[0] });
-        var playlistState = new PlaylistState { Queue = initialQueue };
-        var (mockPlaylistState, _) = SetupFluxor(sessionState, playlistState);
+        var emptyPlaylistState = new PlaylistState { Queue = new Queue<Song>() };
+        SetupTestWithSession(sessionState, emptyPlaylistState, view: "nextsong");
         SetupJSRuntime();
 
+        // Act
         var cut = RenderComponent<NextSongView>();
 
-        // Assert initial state
-        var nextsongContainer = cut.FindAll(".nextsong-container");
-        Assert.Single(nextsongContainer);
-
-        // Act - Clear queue
-        var emptyPlaylistState = new PlaylistState { Queue = new Queue<Song>() };
-        mockPlaylistState.Setup(s => s.Value).Returns(emptyPlaylistState);
-        
-        // Trigger state change
-        cut.Render();
-
-        // Assert - Now showing empty queue state
+        // Assert - Component should show empty queue state
         var emptyQueueContainer = cut.FindAll(".empty-queue-container");
         Assert.Single(emptyQueueContainer);
+        
+        // Verify QR code container exists with large styling
+        var qrcodeContainer = cut.Find("#qrcode-container");
+        Assert.Contains("qrcode-large", qrcodeContainer.ClassName);
+        
+        // Verify "Sing a song" message is present
+        Assert.Contains("Sing a song", cut.Markup);
     }
 
     [Fact]
@@ -357,7 +353,7 @@ public class NextSongViewTests : TestContext
         };
         var sessionState = new SessionState { CurrentSession = session, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -386,7 +382,7 @@ public class NextSongViewTests : TestContext
         };
         var sessionState = new SessionState { CurrentSession = session, IsInitialized = true };
         var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
-        SetupFluxor(sessionState, playlistState);
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
         // Act
@@ -394,27 +390,6 @@ public class NextSongViewTests : TestContext
 
         // Assert
         Assert.Equal(duration, session.PauseBetweenSongsSeconds);
-    }
-
-    private (Mock<IState<PlaylistState>>, Mock<IDispatcher>) SetupFluxor(
-        SessionState sessionState,
-        PlaylistState playlistState)
-    {
-        var mockDispatcher = new Mock<IDispatcher>();
-        var mockActionSubscriber = new Mock<IActionSubscriber>();
-
-        var mockSessionState = new Mock<IState<SessionState>>();
-        mockSessionState.Setup(s => s.Value).Returns(sessionState);
-
-        var mockPlaylistState = new Mock<IState<PlaylistState>>();
-        mockPlaylistState.Setup(s => s.Value).Returns(playlistState);
-
-        Services.AddSingleton(mockDispatcher.Object);
-        Services.AddSingleton(mockActionSubscriber.Object);
-        Services.AddSingleton(mockSessionState.Object);
-        Services.AddSingleton(mockPlaylistState.Object);
-
-        return (mockPlaylistState, mockDispatcher);
     }
 
     private Mock<IJSObjectReference> SetupJSRuntime()

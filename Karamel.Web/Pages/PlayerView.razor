@@ -18,7 +18,7 @@
 <PageTitle>Karaoke Player</PageTitle>
 
 <div class="player-view">
-    @if (SessionState.Value.CurrentSession == null)
+    @if (!isSessionValid)
     {
         <div class="alert alert-danger m-4" role="alert">
             <h4 class="alert-heading">Invalid Session</h4>
@@ -96,6 +96,10 @@
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "session")]
+    public string? SessionParam { get; set; }
+
     private IJSObjectReference? fileAccessModule;
     private IJSObjectReference? playerModule;
     private DotNetObjectReference<PlayerView>? dotNetRef;
@@ -107,6 +111,31 @@
     private string sidePanelView = "singer";
     private string? errorMessage;
     private bool isInitialized = false;
+    private bool isSessionValid = false;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        isSessionValid = ValidateSession();
+    }
+
+    private bool ValidateSession()
+    {
+        // If no session in state, it's invalid
+        if (SessionState.Value.CurrentSession == null)
+        {
+            return false;
+        }
+
+        // STRICT VALIDATION: Session parameter is REQUIRED for multi-session support
+        if (string.IsNullOrWhiteSpace(SessionParam) || !Guid.TryParse(SessionParam, out var sessionGuid))
+        {
+            return false;
+        }
+
+        // Session ID must match the parameter
+        return SessionState.Value.CurrentSession.SessionId == sessionGuid;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -306,26 +335,29 @@
         };
     }
 
-    public new async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore(bool disposing)
     {
-        if (playerModule != null)
+        if (disposing)
         {
-            try
+            if (playerModule != null)
             {
-                await playerModule.InvokeVoidAsync("dispose");
+                try
+                {
+                    await playerModule.InvokeVoidAsync("dispose");
+                }
+                catch { }
+                await playerModule.DisposeAsync();
             }
-            catch { }
-            await playerModule.DisposeAsync();
+            
+            if (fileAccessModule != null)
+            {
+                await fileAccessModule.DisposeAsync();
+            }
+            
+            dotNetRef?.Dispose();
         }
         
-        if (fileAccessModule != null)
-        {
-            await fileAccessModule.DisposeAsync();
-        }
-        
-        dotNetRef?.Dispose();
-        
-        // Call base dispose
-        await base.DisposeAsync();
+        // Call base to dispose Fluxor subscriptions
+        await base.DisposeAsyncCore(disposing);
     }
 }
