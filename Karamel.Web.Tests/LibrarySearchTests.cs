@@ -189,7 +189,7 @@ public class LibrarySearchTests : TestContext
         var cut = RenderComponent<LibrarySearch>();
 
         // Act
-        var addButtons = cut.FindAll("button.btn-primary");
+        var addButtons = cut.FindAll("button.k-btn-primary");
         addButtons[0].Click(); // Click first song's Add button
 
         // Assert
@@ -207,7 +207,7 @@ public class LibrarySearchTests : TestContext
         var cut = RenderComponent<LibrarySearch>();
 
         // Act
-        var addButtons = cut.FindAll("button.btn-primary");
+        var addButtons = cut.FindAll("button.k-btn-primary");
         addButtons[0].Click();
 
         // Assert
@@ -289,7 +289,7 @@ public class LibrarySearchTests : TestContext
         var cut = RenderComponent<LibrarySearch>();
 
         // Assert
-        var addButtons = cut.FindAll("button.btn-primary");
+        var addButtons = cut.FindAll("button.k-btn-primary");
         Assert.All(addButtons, button => 
         {
             var icon = button.QuerySelector("i.bi-mic-fill");
