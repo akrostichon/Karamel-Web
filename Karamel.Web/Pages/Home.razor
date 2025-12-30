@@ -28,7 +28,7 @@
             {
                 <div class="mb-4">
                     <h5 class="mb-3">1. Select Karaoke Library</h5>
-                    <button class="btn btn-outline-primary btn-lg w-100 select-library" 
+                        <button class="btn k-btn-outline btn-lg w-100 select-library" 
                             @onclick="SelectLibrary" 
                             disabled="@_isSelectingLibrary">
                         @if (_isSelectingLibrary)
@@ -95,14 +95,14 @@
                     <div class="mb-3">
                         <label class="form-label">Theme</label>
                         <div class="d-flex gap-2">
-                            <button class='@(_themeChoice == "light" ? "btn btn-primary" : "btn btn-outline-secondary")' @onclick="SetLightTheme" disabled="@_themeLocked">Light</button>
-                            <button class='@(_themeChoice == "dark" ? "btn btn-primary" : "btn btn-outline-secondary")' @onclick="SetDarkTheme" disabled="@_themeLocked">Dark</button>
+                            <button class='@(_themeChoice == "light" ? "btn k-btn-primary" : "btn btn-outline-secondary")' @onclick="SetLightTheme" disabled="@_themeLocked">Light</button>
+                            <button class='@(_themeChoice == "dark" ? "btn k-btn-primary" : "btn btn-outline-secondary")' @onclick="SetDarkTheme" disabled="@_themeLocked">Dark</button>
                         </div>
                         <small class="form-text d-block muted-on-surface">Choose a theme now. Once the session is started this choice is locked for all participants.</small>
                     </div>
 
                     <h5 class="mb-3">3. Start Session</h5>
-                    <button class="btn btn-success btn-lg w-100 start-session" 
+                        <button class="btn k-btn-success btn-lg w-100 start-session" 
                             @onclick="StartSession" 
                             disabled="@(!CanStartSession)">
                         @if (_isStartingSession)
