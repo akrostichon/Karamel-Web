@@ -353,20 +353,6 @@
 - Perform a full security review as a trained security expert, advise on options where we can improve
 
 ---
-## Ideas for future improvements
-Allow PlayerView to either play Mp3+CDG or play video files. Parse video files as songs.
-have to change many tests to do so.
-
-Playlist view for admins should allow to stop playback after the current song.
-This will cause the NextSong View to behave as if no song is within the queue after the current song has finished.
-An admin may then send a proceed playback command which will cause the NextSong View to show the next song in queue.
-
-NextSongView shall show current queue length.
-
-NextSongView should actually show the next two songs. The upcoming song should be shown in the same way as now.
-The song after that (if it exists) shall be shown in a much smaller font at the very top of the screen in the center of the screen. "Upcoming %artist - %title by %singer"
-
----
 ## Technical Notes
 
 ### File System Access API Limitations

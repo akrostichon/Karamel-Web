@@ -231,3 +231,20 @@ html:not([data-theme="dark"]) .card .text-white {
   background-color: var(--color-error) !important;
   color: var(--color-text) !important;
 }
+
+/* Semantic destructive button to avoid direct reliance on Bootstrap's .btn-danger
+   Uses tokenized error color so it adapts to light/dark themes. */
+.btn-destructive {
+  --bs-btn-bg: var(--color-error);
+  --bs-btn-border-color: var(--color-error);
+  background-color: var(--color-error) !important;
+  border-color: var(--color-error) !important;
+  color: var(--color-text) !important;
+}
+
+/* Outline variant for destructive actions */
+.btn-destructive-outline {
+  color: var(--color-error) !important;
+  border-color: var(--color-error) !important;
+  background-color: transparent !important;
+}
