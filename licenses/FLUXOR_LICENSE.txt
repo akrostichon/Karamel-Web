@@ -1,0 +1,8 @@
+Fluxor - License: MIT
+
+The Fluxor library used by this project is licensed under the MIT License.
+
+Please see the upstream repository for the official license text:
+https://github.com/mrpmorris/Fluxor
+
+If an explicit LICENSE file is required, include the MIT.txt from this folder when redistributing.

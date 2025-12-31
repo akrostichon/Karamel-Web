@@ -1,0 +1,11 @@
+jsmediatags - License: LGPL-3.0
+
+jsmediatags is licensed under the GNU Lesser General Public License v3.0.
+See the full license text in LGPL-3.0.txt in this folder or at:
+https://www.gnu.org/licenses/lgpl-3.0.en.html
+
+If you redistribute jsmediatags bundled with this project, ensure you comply
+with LGPL-3.0 obligations (provide source or offer of source for the LGPL-covered
+components, include license texts, and provide appropriate notices).
+
+Upstream project URL: https://github.com/aadsm/jsmediatags
