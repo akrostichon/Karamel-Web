@@ -467,6 +467,15 @@ Schema additions and considerations:
 - Check for possible dDOS attacks - do not allow to add more than one song in 3 seconds.
 - Perform a full security review as a trained security expert, advise on options where we can improve
 
+### Step 9.1 Secure secret management for link tokens (REQUIRED)
+- Purpose: Ensure link-token HMAC secrets are provisioned, stored, and rotated securely in all environments.
+- Requirements:
+  - **Secret source**: Read token secret from environment variable `KARAMEL_TOKEN_SECRET` or configuration `Karamel:TokenSecret`. In production, secrets must be provided via Azure Key Vault and not as checked-in config.
+  - **No production fallback**: The application must fail startup in non-development environments if the secret is missing or empty.
+  - **Secret strength**: Require a minimum secret length of 32 bytes (256 bits). Document how to generate a secure secret in `DEPLOYMENT.md` or README.
+  - **Rotation tests**: Add unit tests validating that tokens generated with an old secret fail validation after rotation (to confirm rotation behavior), and document rotation procedure.
+  - **Revocation**: If per-token revocation is needed, change token design to persist tokens in DB instead of deterministic HMACs.
+
 ---
 ## Technical Notes
 
