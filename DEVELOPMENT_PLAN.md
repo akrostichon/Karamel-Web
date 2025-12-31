@@ -366,7 +366,7 @@ Notes:
 - Unit tests using `Microsoft.EntityFrameworkCore.InMemory` have been added and pass locally.
 - `Program.cs` configures the DB provider via `DB_PROVIDER` env var (defaults to `Sqlite`).
 
-#### Step 6.2.1 Tests for DB layer
+#### Step 6.2.1 Tests for DB layer 
 - Purpose: Define unit and integration tests to validate provider-agnostic behavior and repository correctness.
 - Tests:
   - Unit tests using `Microsoft.EntityFrameworkCore.InMemory` to verify basic CRUD operations for `Session`, `Playlist`, and `PlaylistItem` repositories.
@@ -375,10 +375,14 @@ Notes:
   - Place tests in `Karamel.Backend.Tests` and ensure they run with `dotnet test`.
 
 
-### Step 6.3 Session + Playlist models and REST API (link-based tokens)
+### Step 6.3 Session + Playlist models and REST API (link-based tokens) ✅ COMPLETED
 - Purpose: Implement `Session`, `Playlist`, `PlaylistItem` models and REST endpoints for create/get/heartbeat/end and playlist mutations. Issue link-based tokens at session creation.
 - Files to add/update: `Karamel.Backend/Models/Session.cs`, `Karamel.Backend/Models/PlaylistItem.cs`, `Karamel.Backend/Controllers/SessionController.cs`, `Karamel.Backend/Controllers/PlaylistController.cs`, `Karamel.Backend/Services/TokenService.cs`
 - Quick verification: Unit tests for token validation and `POST /api/sessions` producing a `linkToken`; `dotnet test` for new tests.
+  - Substep (Tests): Add integration tests in `Karamel.Backend.Tests` covering:
+    - `POST /api/sessions` returns `linkToken` and session Id
+    - Protected playlist mutation endpoints require valid `X-Link-Token` header
+    - Playlist CRUD with InMemory DB
 - Estimate: 1 day. Risk: medium.
 - Acceptance: Sessions can be created and read; link token validates for protected endpoints.
 
