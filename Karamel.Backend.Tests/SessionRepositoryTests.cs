@@ -10,7 +10,7 @@ namespace Karamel.Backend.Tests
 {
     public class SessionRepositoryTests
     {
-        private BackendDbContext CreateInMemoryContext(string dbName = null)
+        private BackendDbContext CreateInMemoryContext(string? dbName = null)
         {
             var options = new DbContextOptionsBuilder<BackendDbContext>()
                 .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
