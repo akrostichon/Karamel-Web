@@ -22,6 +22,10 @@ else
 
 // Register repositories
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
+builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Karamel.Backend.Repositories.PlaylistRepository>();
+// Register TokenService with secret from configuration (fallback for dev)
+var tokenSecret = builder.Configuration["TokenSecret"] ?? Environment.GetEnvironmentVariable("TOKEN_SECRET") ?? "dev-secret-change-me";
+builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new Karamel.Backend.Services.TokenService(tokenSecret));
 var app = builder.Build();
 
 // Register Swagger services so swagger JSON can be generated in development runs.
