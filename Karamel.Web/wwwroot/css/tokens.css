@@ -20,6 +20,8 @@
   --color-surface-contrast-rgb: 255,255,255;
   --color-bg: var(--gradient-light-from); /* fallback base, used with gradient variables */
   --color-text: #3C2415; /* Primary text (light) */
+  --color-text-border: var(--color-text);
+  --color-text-rgb: 60,36,21;
   --color-text-dark: #F5E1C0; /* Primary text (dark) */
   --color-text-secondary: #6B4B2B; /* Secondary text (light) */
   --color-text-secondary-dark: #D6BFA5; /* Secondary text (dark) */
@@ -76,6 +78,8 @@
     --color-surface-contrast-rgb: 46,35,29;
     --color-bg: var(--gradient-dark);
     --color-text: #F5E1C0;
+    --color-text-border: var(--color-text);
+    --color-text-rgb: 245,225,192;
     --color-text-secondary: #D6BFA5;
     --color-highlight: #FFC878;
 
@@ -104,6 +108,8 @@
   --color-surface: var(--color-surface-dark);
   --color-bg: var(--gradient-dark);
   --color-text: #F5E1C0;
+  --color-text-border: var(--color-text);
+  --color-text-rgb: 245,225,192;
   --color-text-secondary: #D6BFA5;
   --color-highlight: #FFC878;
 
@@ -274,4 +280,38 @@ html:not([data-theme="dark"]) .card .text-white {
   color: var(--color-error) !important;
   border-color: var(--color-error) !important;
   background-color: transparent !important;
+}
+
+/* Use color-text for form control borders and checkbox outlines so theme text color drives accents */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+textarea,
+select,
+.form-control {
+  border: 1px solid var(--color-text-border) !important;
+  color: var(--color-text) !important;
+}
+
+/* Bootstrap form-check-input uses --bs-border-color; ensure it maps to our token for consistent checkbox borders */
+.form-check-input {
+  border: 1px solid var(--color-text-border) !important;
+  background-color: transparent !important;
+}
+
+.form-check-input:focus,
+.form-check-input:active,
+input:focus,
+textarea:focus,
+.form-control:focus {
+  box-shadow: 0 0 0 0.15rem rgba(var(--color-text-rgb), 0.12);
+  border-color: var(--color-text-border) !important;
+}
+
+/* Ensure checked/indeterminate states also respect tokenized color */
+.form-check-input:checked,
+.form-check-input:indeterminate {
+  border-color: var(--color-text-border) !important;
+  background-color: var(--color-text-border) !important;
 }
