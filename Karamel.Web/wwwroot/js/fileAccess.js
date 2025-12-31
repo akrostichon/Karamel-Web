@@ -72,7 +72,7 @@ export function hasFiles() {
  * @param {string} filenamePattern - Pattern for parsing filenames (default: "%artist - %title")
  * @returns {Promise<Array>} Array of song metadata objects
  */
-export async function pickLibraryDirectory(filenamePattern = '%artist - %title') {
+export async function pickLibraryDirectory(filenamePattern = '%artist - %title', progressStep = 10) {
     try {
         // Request directory access
         libraryDirectoryHandle = await window.showDirectoryPicker({
@@ -84,7 +84,78 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title')
 
         // Recursively scan for songs
         const songs = [];
-        await scanDirectoryForSongs(libraryDirectoryHandle, songs, '', validPattern);
+        // matchedCount tracks number of matched (mp3+cdg) songs discovered so far
+        let matchedCount = 0;
+
+        async function scanWrapper(directoryHandle, songsAcc, relativePath = '', filenamePatternInner = '%artist - %title') {
+            const mp3Files = new Map();
+            const cdgFiles = new Set();
+            const subdirectories = [];
+
+            for await (const entry of directoryHandle.values()) {
+                if (entry.kind === 'file') {
+                    const fileName = entry.name.toLowerCase();
+
+                    if (fileName.endsWith('.mp3')) {
+                        const baseName = entry.name.slice(0, -4); // Remove .mp3 extension
+                        const file = await entry.getFile();
+                        mp3Files.set(baseName, { handle: entry, file: file });
+                    } else if (fileName.endsWith('.cdg')) {
+                        const baseName = entry.name.slice(0, -4); // Remove .cdg extension
+                        cdgFiles.add(baseName);
+                    }
+                } else if (entry.kind === 'directory') {
+                    subdirectories.push(entry);
+                }
+            }
+
+            for (const [baseName, mp3Data] of mp3Files) {
+                const hasCdg = cdgFiles.has(baseName);
+
+                // Only include songs that have both MP3 and CDG files
+                if (!hasCdg) {
+                    continue;
+                }
+
+                const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
+
+                // Extract metadata (ID3 tags or filename parsing)
+                const metadata = await extractMetadata(mp3Data.file, fullPath, filenamePatternInner);
+
+                songsAcc.push({
+                    id: crypto.randomUUID(),
+                    artist: metadata.artist,
+                    title: metadata.title,
+                    mp3FileName: `${baseName}.mp3`,
+                    cdgFileName: `${baseName}.cdg`,
+                    path: relativePath,
+                    fullPath: fullPath
+                });
+
+                matchedCount++;
+                try {
+                    if (matchedCount % progressStep === 0) {
+                        window.dispatchEvent(new CustomEvent('library-scan-progress', { detail: { scanned: matchedCount } }));
+                    }
+                } catch (e) {
+                    console.warn('Failed to dispatch library-scan-progress event', e);
+                }
+            }
+
+            for (const subdir of subdirectories) {
+                const newPath = relativePath ? `${relativePath}/${subdir.name}` : subdir.name;
+                await scanWrapper(subdir, songsAcc, newPath, filenamePatternInner);
+            }
+        }
+
+        await scanWrapper(libraryDirectoryHandle, songs, '', validPattern);
+
+        // Final progress dispatch so UI knows we're complete
+        try {
+            window.dispatchEvent(new CustomEvent('library-scan-progress', { detail: { scanned: songs.length, complete: true } }));
+        } catch (e) {
+            // ignore
+        }
 
         console.log(`Library scan complete: ${songs.length} songs found`);
         return songs;

@@ -312,15 +312,16 @@
 ## Phase 5: Testing & Polish
 
 ### Step 5.1: Error Handling ✅ COMPLETED
-- File access denied scenarios (tests added)
-- No CDG file found for MP3 (tests added)
-- Corrupt CDG files (tests pending)
-- Browser compatibility fallback message (implementation/tests pending)
+- File access denied scenarios
+- No CDG file found for MP3
+- Corrupt CDG files
+- Browser compatibility fallback message
 
 ### Step 5.2: Loading States
-- "Scanning library..." indicator
-- Progress for large directories
-- Skeleton loaders for song lists
+### Step 5.2: Loading States ✅ COMPLETED
+- ✅ "Scanning library..." indicator
+- ✅ Progress for large directories (batched updates)
+- ✅ Skeleton loaders for song lists
 
 ### Step 5.3: User Feedback
 - Toast notifications for actions

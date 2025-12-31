@@ -9,7 +9,9 @@ public static class LibraryReducers
         state with
         {
             IsLoading = true,
-            ErrorMessage = null
+            ErrorMessage = null,
+            ScannedCount = 0,
+            ScanComplete = false
         };
 
     [ReducerMethod]
@@ -27,6 +29,16 @@ public static class LibraryReducers
             ErrorMessage = null
         };
     }
+
+    [ReducerMethod]
+    public static LibraryState ReduceScanProgressAction(LibraryState state, ScanProgressAction action) =>
+        state with
+        {
+            ScannedCount = action.Scanned,
+            ScanComplete = action.Complete,
+            // Keep IsLoading true until we receive LoadLibrarySuccess or failure
+            IsLoading = !action.Complete
+        };
 
     [ReducerMethod]
     public static LibraryState ReduceLoadLibraryFailureAction(LibraryState state, LoadLibraryFailureAction action) =>

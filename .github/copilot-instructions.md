@@ -31,6 +31,8 @@ dotnet test
 # Known skipped tests: 2 in PlaylistPageTests (async JSInterop mocking limitations), 1 in PlayerViewTests (session validation changes)
 ```
 
+**NOTE FOR COPILOT**: Do not use `dotnet test --no-build` when running tests. Always run `dotnet test` so the build step is included.
+
 **JavaScript Tests** (Vitest):
 ```powershell
 cd Karamel.Web\wwwroot
@@ -71,6 +73,7 @@ git push origin feature/your-feature-name
 2. Run `dotnet test` and ensure at least 101 tests pass
 3. For JavaScript changes: `cd Karamel.Web\wwwroot; npm run test:run`
 4. Test the running application manually if UI changes were made
+5. If you are handling a step in an md file (e.g., DEVELOPMENT_PLAN.md), update the status accordingly
 
 ## Project Architecture
 
