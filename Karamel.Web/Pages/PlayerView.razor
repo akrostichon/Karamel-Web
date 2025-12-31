@@ -160,7 +160,7 @@
             }
             catch (Exception ex)
             {
-                errorMessage = $"Failed to initialize player: {ex.Message}";
+                errorMessage = MapExceptionToUserMessage(ex, initializing: true);
                 StateHasChanged();
             }
         }
@@ -201,7 +201,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error loading song: {ex.Message}";
+            errorMessage = MapExceptionToUserMessage(ex, initializing: false);
             StateHasChanged();
         }
     }
@@ -333,6 +333,33 @@
             "playlist" => $"/playlist?session={sessionId}",
             _ => ""
         };
+    }
+
+    private string MapExceptionToUserMessage(Exception ex, bool initializing)
+    {
+        var msg = ex is JSException jsEx ? (jsEx.Message ?? "") : (ex.Message ?? "");
+
+        if (initializing)
+        {
+            if (msg.Contains("File System Access API not available"))
+            {
+                return "Browser does not support required File System Access API. Please use Chrome or Edge.";
+            }
+            return $"Failed to initialize player: {msg}";
+        }
+
+        // loading errors
+        if (msg.Contains("missing_cdg"))
+        {
+            return "Missing or corrupt CDG file. Please ensure the .cdg file exists and is valid.";
+        }
+
+        if (msg.Contains("corrupt_cdg") || msg.Contains("Unable to cast object"))
+        {
+            return "Missing or corrupt CDG file. Please ensure the .cdg file exists and is valid.";
+        }
+
+        return $"Error loading song: {msg}";
     }
 
     protected override async ValueTask DisposeAsyncCore(bool disposing)
