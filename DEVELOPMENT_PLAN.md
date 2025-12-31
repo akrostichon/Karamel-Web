@@ -309,7 +309,7 @@
 
 ---
 
-## Phase 5: Testing & Polish
+## Phase 5: Testing & Polish ✅ COMPLETED
 
 ### Step 5.1: Error Handling ✅ COMPLETED
 - File access denied scenarios
@@ -317,27 +317,109 @@
 - Corrupt CDG files
 - Browser compatibility fallback message
 
-### Step 5.2: Loading States
 ### Step 5.2: Loading States ✅ COMPLETED
 - ✅ "Scanning library..." indicator
 - ✅ Progress for large directories (batched updates)
 - ✅ Skeleton loaders for song lists
 
-### Step 5.3: User Feedback
-- Toast notifications for actions
-- Confirmation dialogs for destructive actions
-- Success messages for song additions
+### Step 5.3: User Feedback ✅ COMPLETED
+- Toast notifications for actions (implemented in Components/LibrarySearch.razor and Pages/SingerView.razor)
+- Confirmation dialogs for destructive actions (Clear All in Pages/Playlist.razor uses JS confirm)
+- Success messages for song additions (SingerView shows success toast with queue position)
 
 ---
 
 ## Future Phases (Backend Integration)
 
 ### Phase 6: Backend API
+**Files**: `openapi-summary.md`
 - ASP.NET Core Web API
 - SignalR for real-time playlist sync - we are already using broadcast api in frontend. Should we move that all to the backend?
 - Azure SQL for songs/sessions/users
 - Authentication (Azure AD B2C or custom) - anybody having the link of the session may add songs.
 - Timeout of session 30 minutes after the last NextSongView with the sessionGuid has been shown and only if no paused PlayerView with the sessionGuid is shown.
+
+Backend API — Substeps (incremental)
+Phase 6 will be implemented as a sequence of small, testable substeps. Each substep focuses on a single responsibility and has clear acceptance criteria. The overall goal: replace BroadcastChannel with a server-backed SignalR sync, persist sessions/playlists, enforce link-based session tokens, and support Azure App Service + Azure SQL deployment while keeping SQLite for local dev.
+
+### Step 6.1 Scaffolding: backend project and health endpoints
+**Status**: ✅ COMPLETED (scaffold + tests added)
+### Step 6.2 Database layer: provider-agnostic EF Core + repositories
+- Purpose: Define `BackendDbContext`, repository interfaces and implementations so the DB provider (SQLite dev / SQL Server prod) is pluggable.
+
+### Step 6.3 Session + Playlist models and REST API (link-based tokens)
+- Purpose: Implement `Session`, `Playlist`, `PlaylistItem` models and REST endpoints for create/get/heartbeat/end and playlist mutations. Issue link-based tokens at session creation.
+- Files to add/update: `Karamel.Backend/Models/Session.cs`, `Karamel.Backend/Models/PlaylistItem.cs`, `Karamel.Backend/Controllers/SessionController.cs`, `Karamel.Backend/Controllers/PlaylistController.cs`, `Karamel.Backend/Services/TokenService.cs`
+- Quick verification: Unit tests for token validation and `POST /api/sessions` producing a `linkToken`; `dotnet test` for new tests.
+- Estimate: 1 day. Risk: medium.
+- Acceptance: Sessions can be created and read; link token validates for protected endpoints.
+
+### Step 6.4 Real-time sync: `PlaylistHub` SignalR implementation (server-mode default)
+- Purpose: Implement `PlaylistHub` at `/hubs/playlist`, enforce link-token authorization for mutation methods, and make the hub the single source of truth for playlist state.
+- Files to add/update: `Karamel.Backend/Hubs/PlaylistHub.cs`, `Karamel.Backend/Contracts/*` (DTOs), update `Karamel.Backend/Program.cs` to add SignalR and hub endpoints.
+- Quick verification: Connect a test SignalR client to the hub, call `JoinSession` and receive `ReceivePlaylistUpdated` messages after mutations.
+- Estimate: 1–2 days. Risk: high (ordering, race conditions).
+- Acceptance: Clients connected to the hub receive canonical playlist updates after server-side mutations.
+
+### Step 6.5 Frontend migration: remove BroadcastChannel, add SignalR bridge
+- Purpose: Replace `sessionBridge.js` BroadcastChannel logic with `signalRBridge.js` and update `SessionService.cs` to use SignalR by default. Make server-mode default for the app.
+- Files to update: `Karamel.Web/wwwroot/js/sessionBridge.js` (remove BC logic), `Karamel.Web/wwwroot/js/signalRBridge.js` (new), `Karamel.Web/Services/SessionService.cs` (wire server tokens and SignalR interop), `Karamel.Web/Pages/Home.razor` (session creation flow updates to show shareable link/token/QR)
+- Quick verification: `dotnet build`; frontend JS tests: `cd Karamel.Web/wwwroot; npm run test:run`; manual test with backend running—open main tab and a secondary tab and verify playlist sync via SignalR.
+- Estimate: 1–2 days. Risk: high (breaking previous local-only behavior). This step will remove BroadcastChannel entirely.
+- Acceptance: Frontend uses SignalR for state sync; no BroadcastChannel code remains in active flow.
+
+### Step 6.6 Session cleanup & heartbeats
+- Purpose: Implement `POST /api/sessions/{id}/heartbeat` and a background cleanup job that expires sessions per the rule: session expires 30 minutes after last NextSongView activity and only if no paused PlayerView is present.
+- Files to add/update: `Karamel.Backend/Services/SessionCleanupService.cs`, `Karamel.Backend/Controllers/SessionController.cs` (heartbeat), update `Karamel.Web/Pages/NextSongView.razor` and `Karamel.Web/Pages/PlayerView.razor` to call heartbeat endpoints.
+- Quick verification: Integration test using short TTL to simulate expiry; manual test to confirm clients receive `ReceiveSessionEnded` and handle gracefully.
+- Estimate: 1 day. Risk: medium.
+- Acceptance: Sessions expire as configured and clients are notified.
+
+### Step 6.7 Deployment prep (Azure)
+- Purpose: Add `appsettings.Production.json` with Azure SQL connection placeholders, a short `DEPLOYMENT.md` describing Azure App Service steps, and ensure WebSockets are enabled in deployment guidance.
+- Files to add: `Karamel.Backend/appsettings.Production.json` (template), `DEPLOYMENT.md` (short Azure checklist), `Karamel.Backend/Dockerfile` (optional, recommended for container deployments).
+- Quick verification: CI step to run migrations against a staging SQL Server and deploy to App Service (manual step in short doc). 
+- Estimate: 4–8 hours. Risk: low–medium.
+- Acceptance: Deployment doc present and connection settings documented for Azure App Service + Azure SQL.
+
+---
+
+### Notes & Constraints
+- Non-main tabs will not access media files; they operate on metadata only. Main tab retains File System Access API handle and handles actual file I/O for playback.
+- Link tokens expire together with the containing session. Token TTL is configured through `KARAMEL_SESSION_TTL_MINUTES`.
+- BroadcastChannel will be removed — accept that main-tab responsibilities remain for file access.
+
+### Phase 6: Database Schema Considerations (adjusted for FUTURE_REQUIREMENTS)
+The following notes augment the Phase 6 DB design to support future requirements in `FUTURE_REQUIREMENTS.md` (video support, admin playback controls, and richer NextSongView data). They should be incorporated into the `BackendDbContext` models and repository contracts.
+
+Schema additions and considerations:
+
+- `Song` table enhancements
+  - Add `MediaType` enum column (e.g., `Mp3Cdg`, `Video`) to indicate handling differences.
+  - Add `VideoFileName` and `VideoMetadata` JSON column (nullable) for video-specific fields (codec, container, resolution, durationMs) so PlayerView can treat videos like songs.
+  - Keep `Mp3FileName`/`CdgFileName` nullable when `MediaType` is `Video`.
+
+- `PlaylistItem` changes
+  - Add `StopAfterCurrent` boolean flag at `Session` level (not per item) — see `Session` below. PlaylistItem remains metadata-only referencing `Song.Id`.
+  - `PlaylistItem` must include `displayTitle` and `displayArtist` snapshot fields to preserve what was shown at the time of adding (avoid metadata drift if library metadata changes).
+
+- `Session` table changes
+  - Add `StopAfterCurrent` boolean column to reflect admin intent to stop playback at end of current song.
+  - Add `NowPlayingItemId` (nullable FK to `PlaylistItem`) and `NowPlayingPositionMs` integer to represent server canonical playback position for NextSongView and cross-tab consistency.
+  - Add `LastNextSongViewAt` DateTime and `AnyPausedPlayerViewCount` integer or derived state to enable TTL logic: session expires 30 minutes after `LastNextSongViewAt` only if `AnyPausedPlayerViewCount == 0`.
+
+- `SessionActivity` / heartbeat table
+  - Consider a lightweight `SessionActivity` table for audit/cleanup that records `{ SessionId, Source, IsPaused, Timestamp }` to allow accurate TTL decisions and diagnostics without frequent large row updates to `Session`.
+
+- Indexing & queries
+  - Index `Session.ExpiresAt`, `Session.LastNextSongViewAt`, and `PlaylistItem.SessionId` to make cleanup and playlist retrieval efficient.
+  - Consider composite index on `PlaylistItem(SessionId, AddedAt)` for queue ordering.
+
+- DTO & migration notes
+  - Keep DTOs provider-agnostic and use repository interfaces so switching SQLite ↔ SQL Server is straightforward.
+  - Migrations: generate against SQLite dev, but validate against SQL Server in staging before production deployment.
+
+
 
 ### Phase 7: Multi-Device Support
 - WebSocket connections for playlist sync - see phase 6. Currently using broadcast api.
