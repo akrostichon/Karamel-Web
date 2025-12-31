@@ -346,6 +346,34 @@ Phase 6 will be implemented as a sequence of small, testable substeps. Each subs
 **Status**: ✅ COMPLETED (scaffold + tests added)
 ### Step 6.2 Database layer: provider-agnostic EF Core + repositories
 - Purpose: Define `BackendDbContext`, repository interfaces and implementations so the DB provider (SQLite dev / SQL Server prod) is pluggable.
+**Status**: ✅ COMPLETED
+
+Files added/updated for this step:
+
+- `Karamel.Backend/Models/Session.cs`
+- `Karamel.Backend/Models/Playlist.cs`
+- `Karamel.Backend/Models/PlaylistItem.cs`
+- `Karamel.Backend/Data/BackendDbContext.cs`
+- `Karamel.Backend/Repositories/IRepository.cs`
+- `Karamel.Backend/Repositories/ISessionRepository.cs`
+- `Karamel.Backend/Repositories/EfRepository.cs`
+- `Karamel.Backend/Repositories/SessionRepository.cs`
+- `Karamel.Backend/Karamel.Backend.csproj` (EF Core package references)
+- `Karamel.Backend/Program.cs` (DbContext and repository DI registration)
+- `Karamel.Backend.Tests/SessionRepositoryTests.cs` (InMemory provider tests)
+
+Notes:
+- Unit tests using `Microsoft.EntityFrameworkCore.InMemory` have been added and pass locally.
+- `Program.cs` configures the DB provider via `DB_PROVIDER` env var (defaults to `Sqlite`).
+
+#### Step 6.2.1 Tests for DB layer
+- Purpose: Define unit and integration tests to validate provider-agnostic behavior and repository correctness.
+- Tests:
+  - Unit tests using `Microsoft.EntityFrameworkCore.InMemory` to verify basic CRUD operations for `Session`, `Playlist`, and `PlaylistItem` repositories.
+  - Integration tests using SQLite in-memory mode (`DataSource=:memory:`) to validate migrations and provider-specific behaviors where necessary.
+  - Tests should assert that repositories work correctly when swapping providers (InMemory → SQLite) and that `BackendDbContext` can be configured via DI.
+  - Place tests in `Karamel.Backend.Tests` and ensure they run with `dotnet test`.
+
 
 ### Step 6.3 Session + Playlist models and REST API (link-based tokens)
 - Purpose: Implement `Session`, `Playlist`, `PlaylistItem` models and REST endpoints for create/get/heartbeat/end and playlist mutations. Issue link-based tokens at session creation.

@@ -1,8 +1,27 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+// Configure EF Core DbContext with provider-agnostic options
+var dbProvider = builder.Configuration["DB_PROVIDER"] ?? System.Environment.GetEnvironmentVariable("DB_PROVIDER") ?? "Sqlite";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? builder.Configuration["DefaultConnection"];
+
+if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
+        options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;"));
+}
+else
+{
+    // Default to SQLite (file-based) unless overridden
+    builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
+        options.UseSqlite(connectionString ?? "Data Source=karamel.db"));
+}
+
+// Register repositories
+builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
 var app = builder.Build();
 
 // Register Swagger services so swagger JSON can be generated in development runs.
