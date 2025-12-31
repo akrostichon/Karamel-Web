@@ -311,11 +311,11 @@
 
 ## Phase 5: Testing & Polish
 
-### Step 5.1: Error Handling
-- File access denied scenarios
-- No CDG file found for MP3
-- Corrupt CDG files
-- Browser compatibility fallback message
+### Step 5.1: Error Handling ✅ COMPLETED
+- File access denied scenarios (tests added)
+- No CDG file found for MP3 (tests added)
+- Corrupt CDG files (tests pending)
+- Browser compatibility fallback message (implementation/tests pending)
 
 ### Step 5.2: Loading States
 - "Scanning library..." indicator
