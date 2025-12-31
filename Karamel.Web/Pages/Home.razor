@@ -133,6 +133,7 @@
 
 @code {
     private IJSObjectReference? _homeInteropModule;
+    private IJSObjectReference? _progressBridgeModule;
     private IJSObjectReference? _themeModule;
     private bool _isFileSystemAccessSupported = true;
     private bool _themeLocked = false;
@@ -194,6 +195,16 @@
                     // ignore module load errors
                 }
 
+                // Load progress bridge module (used to receive scan progress events)
+                try
+                {
+                    _progressBridgeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/progressBridge.js");
+                }
+                catch
+                {
+                    // ignore
+                }
+
                 StateHasChanged();
             }
             catch (Exception ex)
@@ -216,8 +227,38 @@
 
         try
         {
+            // Create DotNet reference and register JS callback to receive batched progress events
+            DotNetObjectReference<HomeProgressBridge>? progressRef = null;
+            try
+            {
+                progressRef = DotNetObjectReference.Create(new HomeProgressBridge(Dispatcher));
+                if (_progressBridgeModule != null)
+                {
+                    await _progressBridgeModule.InvokeVoidAsync("registerScanProgressCallback", progressRef);
+                }
+            }
+            catch
+            {
+                // ignore registration failures; progress will be unavailable
+            }
+
+            // Call selectLibrary and pass progressStep = 10 for batched updates
             var result = await _homeInteropModule.InvokeAsync<LibrarySelectionResult>(
-                "selectLibrary", _filenamePattern);
+                "selectLibrary", _filenamePattern, 10);
+
+            // Unregister JS callback
+            try
+            {
+                if (_progressBridgeModule != null)
+                {
+                    await _progressBridgeModule.InvokeVoidAsync("unregisterScanProgressCallback");
+                }
+                progressRef?.Dispose();
+            }
+            catch
+            {
+                // ignore
+            }
 
             if (result == null)
             {
@@ -365,6 +406,10 @@
         {
             await _themeModule.DisposeAsync();
         }
+        if (_progressBridgeModule != null)
+        {
+            await _progressBridgeModule.DisposeAsync();
+        }
     }
 
     // DTOs for JS interop
@@ -374,6 +419,24 @@
         public int SongCount { get; set; }
         public bool Success { get; set; }
         public string? Error { get; set; }
+    }
+
+    // Helper used for JS interop callbacks
+    public class HomeProgressBridge
+    {
+        private readonly IDispatcher _dispatcher;
+
+        public HomeProgressBridge(IDispatcher dispatcher)
+        {
+            _dispatcher = dispatcher;
+        }
+
+        [JSInvokable]
+        public Task OnScanProgress(int scanned, bool complete)
+        {
+            _dispatcher.Dispatch(new Karamel.Web.Store.Library.ScanProgressAction(scanned, complete));
+            return Task.CompletedTask;
+        }
     }
 
     private class SessionConfig

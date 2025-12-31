@@ -10,6 +10,10 @@ public record LibraryState
     public bool IsLoading { get; init; }
     public string? ErrorMessage { get; init; }
     public string SearchFilter { get; init; } = string.Empty;
+    // Number of song matches discovered so far during scan
+    public int ScannedCount { get; init; }
+    // Whether the scan completed
+    public bool ScanComplete { get; init; }
     
     public IReadOnlyList<Song> FilteredSongs
     {
