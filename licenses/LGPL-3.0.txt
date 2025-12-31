@@ -1,0 +1,21 @@
+GNU LESSER GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+Preamble
+
+The GNU Lesser General Public License is a free software license that allows
+developers and companies to use and integrate software released under the
+GNU LGPL into their own (even proprietary) software without being required
+to release the source code of their own components.
+
+The full license text is long. For complete terms, see:
+https://www.gnu.org/licenses/lgpl-3.0.en.html
+
+If you redistribute a copy of this project that includes the LGPL-3.0
+component (jsmediatags), ensure you provide an offer of source for the
+LGPL-covered code or include the source in the distribution as required
+by the license.
