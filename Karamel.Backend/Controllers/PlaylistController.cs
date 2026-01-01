@@ -62,6 +62,13 @@ namespace Karamel.Backend.Controllers
             return Ok(p);
         }
 
+        /// <summary>
+        /// Add an item to the playlist.
+        /// </summary>
+        /// <remarks>
+        /// OBSOLETE: Use SignalR PlaylistHub.AddItemAsync instead. This REST endpoint will be removed in a future version.
+        /// </remarks>
+        [Obsolete("Use SignalR PlaylistHub.AddItemAsync method instead. REST endpoint will be removed in future version.")]
         [HttpPost("{sessionId:guid}/{id:guid}/items")]
         public async Task<IActionResult> AddItem(Guid sessionId, Guid id, [FromBody] AddPlaylistItemRequest req)
         {
@@ -78,6 +85,13 @@ namespace Karamel.Backend.Controllers
             return CreatedAtAction(nameof(Get), new { sessionId = sessionId, id = playlist.Id }, item);
         }
 
+        /// <summary>
+        /// Remove an item from the playlist.
+        /// </summary>
+        /// <remarks>
+        /// OBSOLETE: Use SignalR PlaylistHub.RemoveItemAsync instead. This REST endpoint will be removed in a future version.
+        /// </remarks>
+        [Obsolete("Use SignalR PlaylistHub.RemoveItemAsync method instead. REST endpoint will be removed in future version.")]
         [HttpDelete("{sessionId:guid}/{id:guid}/items/{itemId:guid}")]
         public async Task<IActionResult> RemoveItem(Guid sessionId, Guid id, Guid itemId)
         {
@@ -96,6 +110,13 @@ namespace Karamel.Backend.Controllers
             return Ok();
         }
 
+        /// <summary>
+        /// Reorder items in the playlist.
+        /// </summary>
+        /// <remarks>
+        /// OBSOLETE: Use SignalR PlaylistHub.ReorderAsync instead. This REST endpoint will be removed in a future version.
+        /// </remarks>
+        [Obsolete("Use SignalR PlaylistHub.ReorderAsync method instead. REST endpoint will be removed in future version.")]
         [HttpPost("{sessionId:guid}/{id:guid}/reorder")]
         public async Task<IActionResult> Reorder(Guid sessionId, Guid id, [FromBody] ReorderRequest req)
         {

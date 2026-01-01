@@ -23,15 +23,25 @@ dotnet build
 ```
 
 ### Test Commands
-**C# Tests** (xUnit + bUnit):
+**C# Frontend Tests** (xUnit + bUnit):
 ```powershell
-dotnet test
-# Runs 104 tests (101 pass, 3 skipped by design)
+dotnet test Karamel.Web.Tests
+# Runs 104 tests in Karamel.Web.Tests (101 pass, 3 skipped by design)
 # Test time: ~8-10 seconds
 # Known skipped tests: 2 in PlaylistPageTests (async JSInterop mocking limitations), 1 in PlayerViewTests (session validation changes)
 ```
 
-**NOTE FOR COPILOT**: Do not use `dotnet test --no-build` when running tests. Always run `dotnet test` so the build step is included.
+**C# Backend Tests** (xUnit + Integration Tests):
+```powershell
+# MUST run MANUALLY - do not execute via run_in_terminal tool
+# Test time: ~35 seconds (SignalR WebSocket tests can cause VS Code freezes if run programmatically)
+# Command: dotnet test .\Karamel.Backend.Tests\ -v minimal
+```
+**CRITICAL FOR COPILOT**: 
+- **NEVER run backend tests using run_in_terminal tool** - they can freeze or crash VS Code due to SignalR WebSocket resource contention
+- Always ask the user to run `dotnet test .\Karamel.Backend.Tests\ -v minimal` manually
+- Wait for user to provide test output before proceeding
+- Do not use `dotnet test --no-build` - always run `dotnet test` to include the build step
 
 **JavaScript Tests** (Vitest):
 ```powershell
@@ -66,14 +76,15 @@ git push origin feature/your-feature-name
 ### Before Making Changes
 1. Verify current branch: `git branch` (should NOT be `main`)
 2. Run `dotnet build` to ensure clean starting state
-3. Run `dotnet test` to verify baseline test results
+3. Run `dotnet test Karamel.Web.Tests` to verify baseline test results
 
 ### After Making Changes
 1. Run `dotnet build` and resolve any errors
-2. Run `dotnet test` and ensure at least 101 tests pass
+2. Run `dotnet test Karamel.Web.Tests` and ensure at least 101 tests pass
 3. For JavaScript changes: `cd Karamel.Web\wwwroot; npm run test:run`
-4. Test the running application manually if UI changes were made
-5. If you are handling a step in an md file (e.g., DEVELOPMENT_PLAN.md), update the status accordingly
+4. **For backend changes**: Request user to manually run `dotnet test .\Karamel.Backend.Tests\ -v minimal`
+5. Test the running application manually if UI changes were made
+6. If you are handling a step in an md file (e.g., DEVELOPMENT_PLAN.md), update the status accordingly
 
 ## Project Architecture
 
@@ -118,9 +129,19 @@ Karamel-Web/                          # Solution root
 │       │   ├── qrcode.js             # QR code generation
 │       │   └── *.test.js             # Vitest test files
 │       └── css/                      # Styling files
-└── Karamel.Web.Tests/                # C# test project (xUnit + bUnit)
-    ├── *Tests.cs                     # Component and integration tests
-    └── TestHelpers/                  # Mock utilities
+├── Karamel.Web.Tests/                # C# frontend test project (xUnit + bUnit)
+│   ├── *Tests.cs                     # Component and integration tests
+│   └── TestHelpers/                  # Mock utilities
+├── Karamel.Backend/                  # ASP.NET Core backend (SignalR + REST API)
+│   ├── Program.cs                    # Backend entry point
+│   ├── Controllers/                  # REST API controllers
+│   ├── Hubs/                         # SignalR hubs (PlaylistHub)
+│   ├── Models/                       # Backend domain models
+│   ├── Repositories/                 # Data access layer (EF Core)
+│   └── Services/                     # Backend services (token management)
+└── Karamel.Backend.Tests/            # C# backend test project (xUnit + Integration)
+    ├── *Tests.cs                     # SignalR hub tests, REST API tests
+    └── TestServerFactory.cs          # WebApplicationFactory for integration tests
 ```
 
 ### State Management (Fluxor)

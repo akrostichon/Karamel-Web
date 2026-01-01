@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 // Configure EF Core DbContext with provider-agnostic options
@@ -26,8 +27,14 @@ builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Kar
 // Register TokenService with secret from configuration (fallback for dev)
 var tokenSecret = builder.Configuration["TokenSecret"] ?? Environment.GetEnvironmentVariable("TOKEN_SECRET") ?? "dev-secret-change-me";
 builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new Karamel.Backend.Services.TokenService(tokenSecret));
-// Add SignalR
-builder.Services.AddSignalR();
+// Add SignalR and register hub filter globally
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+}).AddHubOptions<Karamel.Backend.Hubs.PlaylistHub>(options =>
+{
+    options.AddFilter<Karamel.Backend.Filters.LinkTokenHubFilter>();
+});
 // Register controllers for API endpoints
 builder.Services.AddControllers();
 

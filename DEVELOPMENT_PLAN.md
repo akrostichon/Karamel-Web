@@ -386,51 +386,27 @@ Notes:
 - Estimate: 1 day. Risk: medium.
 - Acceptance: Sessions can be created and read; link token validates for protected endpoints.
 
-### Step 6.4 Real-time sync: `PlaylistHub` SignalR implementation (server-mode default)
+### Step 6.4 Real-time sync: `PlaylistHub` SignalR implementation (server-mode default) ✅ COMPLETED
 - Purpose: Implement `PlaylistHub` at `/hubs/playlist`, enforce link-token authorization for mutation methods, and make the hub the single source of truth for playlist state.
-- Files to add/update: `Karamel.Backend/Hubs/PlaylistHub.cs`, `Karamel.Backend/Contracts/*` (DTOs), update `Karamel.Backend/Program.cs` to add SignalR and hub endpoints.
-- Quick verification: Connect a test SignalR client to the hub, call `JoinSession` and receive `ReceivePlaylistUpdated` messages after mutations.
-- Estimate: 1–2 days. Risk: high (ordering, race conditions).
-- Acceptance: Clients connected to the hub receive canonical playlist updates after server-side mutations.
+- Files added/updated: `Karamel.Backend/Hubs/PlaylistHub.cs`, `Karamel.Backend/Filters/LinkTokenHubFilter.cs`, `Karamel.Backend/Program.cs`, `Karamel.Backend/Controllers/PlaylistController.cs` (marked obsolete), `Karamel.Backend.Tests/PlaylistHubTests.cs`
+- Quick verification: `dotnet test .\Karamel.Backend.Tests\` - all 12 tests pass including 8 new SignalR hub tests
+- Estimate: 1–2 days. Risk: high (ordering, race conditions). **COMPLETED**
+- Acceptance: ✅ Clients connected to the hub receive canonical playlist updates after server-side mutations. Hub methods enforce link-token authorization.
 
-#### Tests (added)
+**Implementation Summary:**
+1. ✅ Created `LinkTokenHubFilter` implementing `IHubFilter` with X-Link-Token validation from connection context
+2. ✅ Added hub mutation methods: `AddItemAsync`, `RemoveItemAsync`, `ReorderAsync` with repository DI
+3. ✅ Marked REST endpoints as `[Obsolete]` for future removal (kept for backward compatibility)
+4. ✅ Added 8 comprehensive SignalR integration tests (authorized/unauthorized mutations, broadcasts, cumulative state)
+5. ✅ All tests passing (12 backend tests, ~35s duration)
 
-- Purpose: Define unit and integration tests to validate `PlaylistHub` behavior and link-token authorization.
-- Tests to add:
-  - Unit tests using the SignalR testing utilities (Microsoft.AspNetCore.SignalR.Client) to connect to an in-memory TestServer-hosted hub and verify method invocation permissions.
+**Key Implementation Details:**
+- **Filter registration**: Must use `.AddSignalR().AddHubOptions<PlaylistHub>(opts => opts.AddFilter<LinkTokenHubFilter>())` for filters to work
+- **Token storage**: Stored in `Context.Items` during `OnConnectedAsync` override, validated per method invocation by filter
+- **Hub as source of truth**: Mutations performed directly in hub methods; REST endpoints deprecated but functional
+- **Test coverage**: Authorization (with/without/invalid token), mutations (add/remove/reorder), broadcast verification, cumulative state
 
-**Status**: ❌ INCOMPLETE
-
-Notes:
-- **Partial implementation present**: `PlaylistHub` is implemented and mapped at `/hubs/playlist` and the REST `PlaylistsController` broadcasts `ReceivePlaylistUpdated` messages using an injected `IHubContext` (see [Karamel.Backend/Hubs/PlaylistHub.cs](Karamel.Backend/Hubs/PlaylistHub.cs#L1-L200) and [Karamel.Backend/Controllers/PlaylistController.cs](Karamel.Backend/Controllers/PlaylistController.cs#L1-L250)).
-- **Missing acceptance criteria**: The plan required the hub to be the "single source of truth" with mutation methods enforcing link-token authorization. Current code performs mutations via REST endpoints (controllers) and uses the hub only for broadcasting updates; the hub itself does not expose or enforce protected mutation methods.
-- **Remaining work**:
-  - Move or mirror mutation entry points to `PlaylistHub` (e.g., `AddItem`, `RemoveItem`, `Reorder`) so clients can call the hub directly, or clearly document that REST endpoints are authoritative and hub is broadcast-only.
-  - Enforce link-token authorization on hub mutation methods (validate token on connect/each method or use an `IHubFilter`/authorization attribute).
-  - Add SignalR client tests that connect to the hub, attempt authorized/unauthorized mutations, and verify `ReceivePlaylistUpdated` messages are delivered as the canonical updates.
-
-Recommendation: Keep the existing controller-based mutations for compatibility, but implement hub mutation methods that perform the same repository updates and require a valid link token so the hub can become the canonical source of truth. Alternatively, update the plan text to accept the current hybrid model (REST mutations + hub broadcasts) and adjust acceptance criteria accordingly.
-  
-#### Step 6.4 Tests (new)
-
-- Add integration tests in `Karamel.Backend.Tests`:
-  - `PlaylistHubTests.cs`:
-    - Connect to `/hubs/playlist` using a TestServer-hosted SignalR client.
-    - Test `JoinSession` with and without `X-Link-Token` header yields appropriate authorization behavior.
-    - After calling REST endpoints that mutate the playlist (AddItem/RemoveItem/Reorder), assert connected clients receive `ReceivePlaylistUpdated` messages with canonical playlist state.
-  - Ensure tests use the in-memory SQLite TestServer configuration so EF Core migrations and cascade deletes behave like runtime.
-  - Add a test that `POST /api/sessions` still returns `linkToken` and that the token authorizes playlist mutation endpoints (already covered by `SessionApiTests`).
-
-Acceptance criteria:
-- Tests pass under `dotnet test` and reliably run in CI (no flakiness from external state).
-- Tests exercise both REST and SignalR update paths.
-  - Integration tests verifying: joining a session (`JoinSession`), receiving `ReceivePlaylistUpdated` after a server-side playlist mutation, and authorization rejection when `X-Link-Token` or token claim is missing/invalid.
-  - End-to-end test that runs against TestServer: create a session via REST API, obtain link token, connect SignalR client with token, perform a playlist mutation (POST to playlist endpoint), and assert hub clients receive update.
-  - Place tests in `Karamel.Backend.Tests/PlaylistHubTests.cs` and ensure they run with `dotnet test`.
-
- - Quick verification commands:
-   - `dotnet test Karamel.Backend.Tests` (should pass all backend tests including new hub tests)
-   - `dotnet build` (no build breaks)
+**Status**: ✅ COMPLETED (all acceptance criteria met)
 
 ### Step 6.5 Frontend migration: remove BroadcastChannel, add SignalR bridge
 - Purpose: Replace `sessionBridge.js` BroadcastChannel logic with `signalRBridge.js` and update `SessionService.cs` to use SignalR by default. Make server-mode default for the app.
