@@ -53,14 +53,21 @@ async function ensureSignalRLoaded() {
 	});
 }
 
-async function tryConnectSignalR(sessionId) {
+async function tryConnectSignalR(sessionId, linkToken) {
 	try {
 		const ok = await ensureSignalRLoaded();
 		if (!ok) return false;
 
-		// Build connection to hub (no auth header here). Server-side filter allows unauthenticated join.
+		// Build connection to hub. If a linkToken is provided, prefer accessTokenFactory
+		// and also include X-Link-Token header for transports that use headers.
+		const urlOptions = {};
+		if (linkToken) {
+			urlOptions.accessTokenFactory = () => linkToken;
+			urlOptions.headers = { 'X-Link-Token': linkToken };
+		}
+
 		hubConnection = new signalR.HubConnectionBuilder()
-			.withUrl('/hubs/playlist')
+			.withUrl('/hubs/playlist', urlOptions)
 			.withAutomaticReconnect()
 			.build();
 
@@ -109,7 +116,7 @@ async function tryConnectSignalR(sessionId) {
 /**
  * Initialize session bridge (SignalR preferred, BroadcastChannel fallback)
  */
-export function initializeSession(sessionId, asMainTab) {
+export function initializeSession(sessionId, asMainTab, linkToken) {
 	if (!sessionId) throw new Error('sessionId is required');
 
 	currentSessionId = sessionId;
@@ -155,7 +162,7 @@ export function initializeSession(sessionId, asMainTab) {
 	}
 
 	// Attempt SignalR connection in background; do not block initialization
-	tryConnectSignalR(sessionId).catch(() => {});
+	tryConnectSignalR(sessionId, linkToken).catch(() => {});
 
 	console.log(`Session bridge initialized as ${isMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId} (signalR=${usingSignalR})`);
 }
@@ -209,6 +216,63 @@ export function broadcastStateUpdate(type, data) {
 	if (broadcastChannel) {
 		broadcastChannel.postMessage(message);
 	}
+}
+
+// RPC helpers: call server hub methods when connected, otherwise persist locally and broadcast
+export async function addItemToPlaylist(item) {
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('AddItemAsync', item);
+			return true;
+		} catch (e) {
+			console.warn('AddItemAsync via SignalR failed, falling back to local broadcast:', e);
+		}
+	}
+
+	// Fallback: update local storage and broadcast
+	broadcastStateUpdate('playlist-updated', { queue: [item] });
+	return false;
+}
+
+export async function removeItemFromPlaylist(itemId) {
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('RemoveItemAsync', itemId);
+			return true;
+		} catch (e) {
+			console.warn('RemoveItemAsync via SignalR failed, falling back to local broadcast:', e);
+		}
+	}
+
+	// Fallback: remove locally and broadcast
+	const state = getSessionState();
+	if (state && state.playlist && Array.isArray(state.playlist.queue)) {
+		state.playlist.queue = state.playlist.queue.filter(i => i.id !== itemId);
+		sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(state));
+		broadcastStateUpdate('playlist-updated', state.playlist);
+	}
+	return false;
+}
+
+export async function reorderPlaylist(newOrder) {
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('ReorderAsync', newOrder);
+			return true;
+		} catch (e) {
+			console.warn('ReorderAsync via SignalR failed, falling back to local broadcast:', e);
+		}
+	}
+
+	// Fallback: persist new order and broadcast
+	const state = getSessionState();
+	if (state) {
+		state.playlist = state.playlist || { queue: [] };
+		state.playlist.queue = newOrder;
+		sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(state));
+		broadcastStateUpdate('playlist-updated', state.playlist);
+	}
+	return false;
 }
 
 export function saveLibraryToSessionStorage(sessionId, libraryData) {
