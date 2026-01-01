@@ -56,6 +56,9 @@
     position: absolute;
     bottom: 2rem;
     left: 2rem;
+    z-index: 20;
+    display: flex;
+    align-items: center;
 }
 
 .qrcode-content {
@@ -64,6 +67,16 @@
     border-radius: 1rem;
     color: var(--color-accent);
     text-align: center;
+}
+
+.microphone-icon.small {
+    width: 4.8rem;
+    height: 4.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.microphone-icon.small .karamel-icon {
+    border-radius: 8px;
 }
 
 .qrcode-label {
