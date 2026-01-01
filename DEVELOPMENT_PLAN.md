@@ -438,6 +438,14 @@ Notes:
 - Estimate: 1 day. Risk: medium.
 - Acceptance: Sessions expire as configured and clients are notified.
 
+**Status**: ✅ COMPLETED (backend cleanup service implemented, heartbeat endpoints used by client, and `SessionCleanupTests` passing locally)
+
+#### Tests (added)
+- Add `Karamel.Backend.Tests/SessionCleanupTests.cs` to verify `SessionCleanupService.CleanupOnceAsync` deletes expired sessions.
+- Expose `CleanupOnceAsync` on the background service so tests can run a single cleanup pass deterministically.
+- Test should create an expired session in the test DB, call `CleanupOnceAsync`, and assert the session was removed.
+- Integration test will run against the in-memory SQLite TestServer (TestServerFactory) as per existing test patterns.
+
 ### Step 6.7 Deployment prep (Azure)
 - Purpose: Add `appsettings.Production.json` with Azure SQL connection placeholders, a short `DEPLOYMENT.md` describing Azure App Service steps, and ensure WebSockets are enabled in deployment guidance.
 - Files to add: `Karamel.Backend/appsettings.Production.json` (template), `DEPLOYMENT.md` (short Azure checklist), `Karamel.Backend/Dockerfile` (optional, recommended for container deployments).
