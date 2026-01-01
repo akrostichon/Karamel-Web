@@ -39,13 +39,6 @@ SignalR hub route: `/hubs/playlist`
   - Purpose: Explicitly end a session (invalidate token, notify clients).
   - Response (204)
 
-### Playlist
-- GET `/api/sessions/{sessionId}/playlist`
-  - Purpose: Retrieve the ordered playlist.
-  - Response (200): `Playlist` DTO.
-
-Note: Mutating operations on the playlist (add/remove/reorder/nowplaying) are performed via the SignalR `PlaylistHub` methods rather than REST endpoints. Use the hub methods described in the SignalR section below for real-time mutations and canonical state broadcasts. The REST surface retains read-only playlist retrieval.
-
 ---
 
 ## SignalR Hub: `PlaylistHub` (route `/hubs/playlist`)
@@ -146,13 +139,6 @@ Note: Mutating operations on the playlist (add/remove/reorder/nowplaying) are pe
   - `KARAMEL_SESSION_TTL_MINUTES` = `30` (or configured value)
 - Run EF migrations during deployment or as a pipeline step.
 - Ensure CORS allows the Blazor frontend origin and that WebSocket traffic is permitted.
-
----
-
-## Next steps
-1. Review this summary and request any model or endpoint adjustments.
-2. After approval, scaffold `Karamel.Backend` project and add minimal Program.cs, controllers and hub stubs per this contract.
-3. Implement DB layer and SignalR hub, then update frontend session bridge to use SignalR.
 
 ---
 
