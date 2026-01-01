@@ -453,6 +453,8 @@ Notes:
 - Estimate: 4–8 hours. Risk: low–medium.
 - Acceptance: Deployment doc present and connection settings documented for Azure App Service + Azure SQL.
 
+- Status: ✅ COMPLETED (appsettings.Production.json, DEPLOYMENT.md, and Dockerfile added; no additional tests required per decision)
+
 ---
 
 ### Notes & Constraints
