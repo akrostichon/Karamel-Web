@@ -31,15 +31,36 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     [EffectMethod]
     public async Task HandleAddToPlaylistSuccessAction(AddToPlaylistSuccessAction action, IDispatcher dispatcher)
     {
-        // Broadcast playlist update to other tabs
-        await sessionService.BroadcastPlaylistUpdatedAsync();
+        // Try to use server-side RPC via SignalR; fallback to local broadcast if unavailable
+        try
+        {
+            var sent = await sessionService.AddItemToPlaylistAsync(action.Song);
+            if (!sent)
+            {
+                await sessionService.BroadcastPlaylistUpdatedAsync();
+            }
+        }
+        catch
+        {
+            await sessionService.BroadcastPlaylistUpdatedAsync();
+        }
     }
 
     [EffectMethod]
     public async Task HandleRemoveSongAction(RemoveSongAction action, IDispatcher dispatcher)
     {
-        // Broadcast playlist update after removal
-        await sessionService.BroadcastPlaylistUpdatedAsync();
+        try
+        {
+            var sent = await sessionService.RemoveItemFromPlaylistAsync(action.SongId);
+            if (!sent)
+            {
+                await sessionService.BroadcastPlaylistUpdatedAsync();
+            }
+        }
+        catch
+        {
+            await sessionService.BroadcastPlaylistUpdatedAsync();
+        }
     }
 
     [EffectMethod]
@@ -59,7 +80,19 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     [EffectMethod]
     public async Task HandleReorderPlaylistAction(ReorderPlaylistAction action, IDispatcher dispatcher)
     {
-        // Broadcast playlist update after reordering
-        await sessionService.BroadcastPlaylistUpdatedAsync();
+        try
+        {
+            // Use current playlist order from state as the new order
+            var currentQueue = playlistState.Value.Queue;
+            var sent = await sessionService.ReorderPlaylistAsync(currentQueue);
+            if (!sent)
+            {
+                await sessionService.BroadcastPlaylistUpdatedAsync();
+            }
+        }
+        catch
+        {
+            await sessionService.BroadcastPlaylistUpdatedAsync();
+        }
     }
 }

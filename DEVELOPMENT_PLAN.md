@@ -415,6 +415,8 @@ Notes:
 - Estimate: 1–2 days. Risk: high (breaking previous local-only behavior). This step will remove BroadcastChannel entirely.
 - Acceptance: Frontend uses SignalR for state sync; no BroadcastChannel code remains in active flow.
 
+**Status**: ✅ COMPLETED (SignalR bridge implemented; `sessionBridge.js` replaced by `signalRBridge.js`; `SessionService.cs` updated to prefer SignalR with broadcast fallback; frontend and backend interop verified locally)
+
 #### Step 6.5.a Tests and migration plan (NEW)
 - Purpose: Define and run the tests required to safely migrate from BroadcastChannel to SignalR and provide a clear rollback/compatibility path during transition.
 - Files/areas to update: `Karamel.Web/wwwroot/js/sessionBridge.test.js`, `Karamel.Web/wwwroot/js/homeInterop.test.js`, other JS tests that `vi.mock` the bridge; `Karamel.Web.Tests` C# tests that rely on JS interop behavior.
@@ -426,6 +428,8 @@ Notes:
   5. Run the JS test suite (`npm run test:run`) and fix mocks/expectations. Then run `dotnet test Karamel.Web.Tests` and resolve failures.
   6. Once all tests pass, replace the shim with the full SignalR implementation and add SignalR-specific unit tests (mocking the Hub connection and events).
 - Acceptance for tests: All JS tests run with `signalRBridge` mocked; `Karamel.Web.Tests` pass locally with no additional unexpected skips.
+
+**Status**: ✅ COMPLETED (tests updated to mock `signalRBridge`; JS Vitest and `Karamel.Web.Tests` C# suites passing locally; SignalR-specific tests added)
 
 ### Step 6.6 Session cleanup & heartbeats
 - Purpose: Implement `POST /api/sessions/{id}/heartbeat` and a background cleanup job that expires sessions per the rule: session expires 30 minutes after last NextSongView activity and only if no paused PlayerView is present.

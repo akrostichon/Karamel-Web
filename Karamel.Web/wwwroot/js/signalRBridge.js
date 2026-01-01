@@ -139,6 +139,18 @@ export function initializeSession(sessionId, asMainTab, linkToken) {
 			broadcastChannel.onmessage = (event) => {
 				if (event.data && event.data.senderId === tabId) return;
 				try {
+					// Respond to state requests from secondary tabs
+					if (event.data && event.data.type === 'request-state') {
+						const requested = getSessionStateForSession(sessionId);
+						broadcastChannel.postMessage({ type: 'state-sync-response', data: requested, senderId: tabId });
+						return;
+					}
+					// Respond to health pings
+					if (event.data && event.data.type === 'ping') {
+						broadcastChannel.postMessage({ type: 'ping-response', senderId: tabId });
+						return;
+					}
+					// Fallback to normal handling for other message types
 					handleBroadcastMessage(event.data);
 				} catch (e) {
 					console.error('Error handling broadcast message on main tab:', e);
@@ -340,9 +352,20 @@ export function getSessionIdFromUrl() {
 }
 
 export function setupStateSyncListener(dotNetRef) {
+	// If we already have session state in sessionStorage, signal immediate sync
+	try {
+		const state = getSessionState();
+		if (state && state.session) {
+			dotNetRef.invokeMethodAsync('OnStateSynced').catch(() => {});
+			return;
+		}
+	} catch (e) {
+		// ignore
+	}
+
 	const handler = (event) => {
 		if (event.type === 'session-state-synced') {
-			dotNetRef.invokeMethodAsync('OnStateSynced');
+			dotNetRef.invokeMethodAsync('OnStateSynced').catch(() => {});
 			window.removeEventListener('session-state-synced', handler);
 		}
 	};
