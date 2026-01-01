@@ -521,6 +521,84 @@ public class SessionService : ISessionService
         await _sessionBridgeModule.InvokeVoidAsync("clearSessionState");
     }
 
+    /// <summary>
+    /// Add an item to the playlist using SignalR if available, fallback to local broadcast.
+    /// Returns true if the server-side RPC was invoked successfully.
+    /// </summary>
+    public async Task<bool> AddItemToPlaylistAsync(Song song)
+    {
+        if (_sessionBridgeModule == null) return false;
+
+        var item = new
+        {
+            id = song.Id.ToString(),
+            artist = song.Artist,
+            title = song.Title,
+            mp3FileName = song.Mp3FileName,
+            cdgFileName = song.CdgFileName,
+            addedBySinger = song.AddedBySinger
+        };
+
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("addItemToPlaylist", item);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: addItemToPlaylist JS invoke failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Remove an item from the playlist using SignalR if available, fallback to local broadcast.
+    /// Returns true if the server-side RPC was invoked successfully.
+    /// </summary>
+    public async Task<bool> RemoveItemFromPlaylistAsync(Guid itemId)
+    {
+        if (_sessionBridgeModule == null) return false;
+
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("removeItemFromPlaylist", itemId.ToString());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: removeItemFromPlaylist JS invoke failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reorder the playlist using SignalR if available, fallback to local broadcast.
+    /// newOrder should be an IEnumerable of Song representing the desired queue order.
+    /// Returns true if the server-side RPC was invoked successfully.
+    /// </summary>
+    public async Task<bool> ReorderPlaylistAsync(IEnumerable<Song> newOrder)
+    {
+        if (_sessionBridgeModule == null) return false;
+
+        var items = newOrder.Select(s => new
+        {
+            id = s.Id.ToString(),
+            artist = s.Artist,
+            title = s.Title,
+            mp3FileName = s.Mp3FileName,
+            cdgFileName = s.CdgFileName,
+            addedBySinger = s.AddedBySinger
+        }).ToArray();
+
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("reorderPlaylist", items);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: reorderPlaylist JS invoke failed: {ex.Message}");
+            return false;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_sessionBridgeModule != null)
