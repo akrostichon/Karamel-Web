@@ -1,5 +1,3 @@
-using System;
-
 namespace Karamel.Backend.Services
 {
     public interface ITokenService

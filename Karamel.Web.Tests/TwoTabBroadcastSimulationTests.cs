@@ -8,8 +8,6 @@ using Karamel.Web.Tests.TestHelpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
-using Moq;
-using Xunit;
 
 namespace Karamel.Web.Tests
 {

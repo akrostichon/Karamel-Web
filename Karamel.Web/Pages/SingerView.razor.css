@@ -150,3 +150,71 @@ div[id$="-qrcode"] img {
         min-height: 56px;
     }
 }
+
+/* Toast styling (component-scoped) - follows STYLING_GUIDE amber accent */
+.k-singer-toast {
+    background: linear-gradient(90deg, rgba(255,167,51,0.98) 0%, rgba(219,95,38,0.98) 100%);
+    color: var(--color-surface-contrast, #FFFFFF);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(42, 5, 0, 0.35);
+    border: 1px solid rgba(0,0,0,0.08);
+    min-width: 260px;
+    max-width: 420px;
+    overflow: hidden;
+    pointer-events: auto; /* allow interaction with toast */
+}
+
+.k-singer-toast .toast-header {
+    background: transparent;
+    color: inherit;
+    border-bottom: none;
+    padding: 12px 14px;
+}
+
+.k-singer-toast .toast-body {
+    background: rgba(255,255,255,0.03);
+    color: inherit;
+    padding: 10px 14px 14px 14px;
+    font-weight: 600;
+}
+
+/* Variants for header tinting; keep readable contrast */
+.toast-success {
+    background: linear-gradient(90deg, rgba(255,183,71,0.95) 0%, rgba(255,148,71,0.95) 100%);
+}
+
+.toast-error {
+    background: linear-gradient(90deg, rgba(230,72,72,0.98) 0%, rgba(255,110,110,0.98) 100%);
+}
+
+/* Focus styles (Highlight Glow per styling guide) */
+.k-singer-toast:focus {
+    outline: 3px solid rgba(255,210,95,0.95);
+    outline-offset: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .k-singer-toast {
+        box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .k-singer-toast .toast-body {
+        background: rgba(0,0,0,0.12);
+        color: var(--color-text, #F3F1ED);
+    }
+}
+
+/* Small-screen layout adjustments */
+@media (max-width: 576px) {
+    .toast-container.position-fixed.bottom-0.end-0 {
+        right: 8px;
+        left: 8px;
+        bottom: 12px;
+    }
+
+    .k-singer-toast {
+        width: auto;
+        max-width: calc(100% - 32px);
+    }
+}

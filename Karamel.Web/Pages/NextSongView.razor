@@ -41,8 +41,12 @@
                     }
                 </div>
 
-                <div class="qrcode-section">
+                <!-- Lower-left area for microphone icon + QR code when there is a next song -->
+                <div class="qrcode-area qrcode-section">
                     <div class="qrcode-content">
+                        <div class="microphone-icon small">
+                            <img src="/Karamel-icon.jpeg" alt="Karamel" class="karamel-icon" />
+                        </div>
                         <p class="qrcode-label">Sing a song</p>
                         @if (isLocalhost)
                         {

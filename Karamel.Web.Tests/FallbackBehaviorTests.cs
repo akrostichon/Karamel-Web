@@ -1,14 +1,10 @@
 using Bunit;
 using Karamel.Web.Pages;
-using Karamel.Web.Models;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Moq;
-using Xunit;
-using System.Threading.Tasks;
-using System.Linq;
 
 namespace Karamel.Web.Tests;
 

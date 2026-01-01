@@ -1,7 +1,5 @@
-using System.Threading.Tasks;
 using Bunit;
 using Karamel.Web.Pages;
-using Xunit;
 
 namespace Karamel.Web.Tests
 {

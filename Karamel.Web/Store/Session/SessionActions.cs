@@ -1,5 +1,3 @@
-using Karamel.Web.Models;
-
 namespace Karamel.Web.Store.Session;
 
 // Actions

@@ -1,5 +1,3 @@
-using System;
-
 namespace Karamel.Backend.Models
 {
     public class Session

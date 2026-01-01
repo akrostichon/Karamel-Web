@@ -1,5 +1,4 @@
 using Bunit;
-using Karamel.Web.Layout;
 using Karamel.Web.Pages;
 using Karamel.Web.Models;
 using Karamel.Web.Store.Session;

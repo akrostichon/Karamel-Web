@@ -1,6 +1,4 @@
-using System.Net;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace Karamel.Backend.Tests;

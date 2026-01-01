@@ -1,7 +1,6 @@
 using System.Reflection;
 using Fluxor;
 using Karamel.Web.Store.Session;
-using Xunit;
 
 namespace Karamel.Web.Tests;
 

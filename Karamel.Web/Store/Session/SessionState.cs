@@ -1,5 +1,4 @@
 using Fluxor;
-using Karamel.Web.Models;
 
 namespace Karamel.Web.Store.Session;
 

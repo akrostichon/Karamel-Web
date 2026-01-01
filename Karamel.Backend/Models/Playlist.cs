@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Karamel.Backend.Models
 {
     public class Playlist
