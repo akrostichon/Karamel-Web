@@ -44,28 +44,7 @@ SignalR hub route: `/hubs/playlist`
   - Purpose: Retrieve the ordered playlist.
   - Response (200): `Playlist` DTO.
 
-- POST `/api/sessions/{sessionId}/playlist/items`
-  - Purpose: Add a `PlaylistItem` to the queue.
-  - Request body: `PlaylistItem` DTO (partial allowed; server assigns ids if missing).
-  - Requires Authorization: `Bearer <linkToken>`
-  - Response (201): Added item with assigned `itemId`.
-
-- DELETE `/api/sessions/{sessionId}/playlist/items/{itemId}`
-  - Purpose: Remove an item from the playlist.
-  - Requires Authorization: `Bearer <linkToken>`
-  - Response (204)
-
-- PUT `/api/sessions/{sessionId}/playlist/reorder`
-  - Purpose: Reorder playlist according to client-sent ordered IDs.
-  - Request body: `{ "order": [ "itemId1", "itemId2", ... ] }`
-  - Requires Authorization: `Bearer <linkToken>`
-  - Response (200): Updated `Playlist` DTO
-
-- POST `/api/sessions/{sessionId}/playlist/nowplaying`
-  - Purpose: Set the now-playing item and optional playback position.
-  - Request body: `{ "itemId": "GUID", "positionMs": 12345 }`
-  - Requires Authorization: `Bearer <linkToken>`
-  - Response (204)
+Note: Mutating operations on the playlist (add/remove/reorder/nowplaying) are performed via the SignalR `PlaylistHub` methods rather than REST endpoints. Use the hub methods described in the SignalR section below for real-time mutations and canonical state broadcasts. The REST surface retains read-only playlist retrieval.
 
 ---
 

@@ -2,6 +2,7 @@
 
 ## Project Overview
 Karamel-Web is a modern karaoke system consisting of a Blazor WebAssembly frontend and an ASP.NET Core backend. The frontend (Karamel.Web) runs in the browser and provides the UI and playback features; the backend (Karamel.Backend) exposes REST endpoints and a SignalR hub used for session coordination and multi-user scenarios. The app uses the **File System Access API** (Chrome/Edge only) for local media file access and the **Broadcast Channel API** for cross-tab state synchronization. Key features include singer management, playlist control, CDG+MP3 playback, and session sharing via QR codes.
+Karamel-Web is a modern karaoke system consisting of a Blazor WebAssembly frontend and an ASP.NET Core backend. The frontend (Karamel.Web) runs in the browser and provides the UI and playback features; the backend (Karamel.Backend) exposes REST endpoints and a SignalR hub used for session coordination and multi-user scenarios. The app uses the **File System Access API** (Chrome/Edge only) for local media file access and a **SignalR-based session synchronization** mechanism for cross-tab state synchronization. Key features include singer management, playlist control, CDG+MP3 playback, and session sharing via QR codes.
 
 **Repository size**: Small (≈30–100 source files)  
 **Languages**: C# (Blazor frontend + ASP.NET Core backend), JavaScript (ES modules), CSS  
@@ -111,7 +112,7 @@ Karamel-Web/                          # Solution root
 │   │   └── SingerView.razor          # Singer song selection
 │   ├── Services/                     # Application services
 │   │   ├── ISessionService.cs        # Interface for session management
-│   │   └── SessionService.cs         # Broadcast Channel API & sessionStorage wrapper
+│   │   └── SessionService.cs         # SignalR session bridge & sessionStorage wrapper
 │   ├── Store/                        # Fluxor state management
 │   │   ├── Library/                  # Library state (song collection)
 │   │   ├── Playlist/                 # Playlist state (queue, current song)
@@ -158,11 +159,11 @@ Karamel-Web/                          # Solution root
 #### Multi-Session Architecture
 **CRITICAL**: The app supports **multiple independent karaoke sessions** in different browser tabs/windows simultaneously. Each session:
 - Has a unique `SessionId` GUID (passed via `?session={guid}` query parameter)
-- Uses session-specific Broadcast Channel (`karamel-session-{guid}`)
-- Uses session-specific sessionStorage keys (`karamel-session-{guid}`)
-- Has its own directory handle (kept in JavaScript module scope)
+- Uses SignalR session groups (server-backed) for real-time synchronization
+- Uses session-specific sessionStorage keys (`karamel-session-{guid}`) for persisted snapshot exchange
+- Has its own directory handle (kept in JavaScript module scope in the main tab)
 
-**Main tab** (Home page with directory access) broadcasts state. **Secondary tabs** (Playlist, SingerView, NextSongView, PlayerView) listen and update.
+**Main tab** (Home page with directory access) remains the authoritative source of local file handles; other tabs use SignalR to receive live updates and sessionStorage for initial snapshots when necessary.
 
 #### File System Access API
 - **Main tab only** retains directory handle in JavaScript module scope (`fileAccess.js`)
@@ -334,8 +335,8 @@ describe('moduleName', () => {
 - `Store/Session/SessionState.cs`, `SessionActions.cs`, `SessionReducers.cs`
 
 **JavaScript modules**:
-- `wwwroot/js/fileAccess.js`: Directory scanning, file loading (File System Access API)
-- `wwwroot/js/sessionBridge.js`: Cross-tab communication (Broadcast Channel API + sessionStorage)
+-- `wwwroot/js/fileAccess.js`: Directory scanning, file loading (File System Access API)
+-- `wwwroot/js/signalRBridge.js`: SignalR bridge
 - `wwwroot/js/metadata.js`: ID3 tag extraction (jsmediatags from CDN)
 - `wwwroot/js/player.js`: CDG+MP3 playback (cdgraphics.js integration)
 
