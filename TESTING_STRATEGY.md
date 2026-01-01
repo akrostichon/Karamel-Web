@@ -123,8 +123,8 @@ const mockDirectoryHandle = {
 // Mock window.open
 global.window.open = vi.fn();
 
-// Mock sessionBridge module
-vi.mock('./sessionBridge.js', () => ({
+// Mock signalRBridge shim (re-exports sessionBridge during migration)
+vi.mock('./signalRBridge.js', () => ({
   initializeSession: vi.fn(),
   saveLibraryToSessionStorage: vi.fn(),
   broadcastStateUpdate: vi.fn()

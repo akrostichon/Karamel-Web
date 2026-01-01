@@ -4,7 +4,7 @@
  */
 
 import { pickLibraryDirectory } from './fileAccess.js';
-import { initializeSession, saveLibraryToSessionStorage, broadcastStateUpdate } from './sessionBridge.js';
+import { initializeSession, saveLibraryToSessionStorage, broadcastStateUpdate } from './signalRBridge.js';
 import { validatePattern } from './metadata.js';
 
 /**

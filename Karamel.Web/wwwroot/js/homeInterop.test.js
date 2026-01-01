@@ -16,7 +16,7 @@ vi.mock('./fileAccess.js', () => ({
     pickLibraryDirectory: vi.fn()
 }));
 
-vi.mock('./sessionBridge.js', () => ({
+vi.mock('./signalRBridge.js', () => ({
     initializeSession: vi.fn(),
     saveLibraryToSessionStorage: vi.fn(),
     broadcastStateUpdate: vi.fn()
@@ -34,7 +34,7 @@ vi.mock('./metadata.js', () => ({
 
 // Import mocked modules
 import { pickLibraryDirectory } from './fileAccess.js';
-import { initializeSession, saveLibraryToSessionStorage, broadcastStateUpdate } from './sessionBridge.js';
+import { initializeSession, saveLibraryToSessionStorage, broadcastStateUpdate } from './signalRBridge.js';
 import { validatePattern } from './metadata.js';
 
 describe('File System Access Support', () => {

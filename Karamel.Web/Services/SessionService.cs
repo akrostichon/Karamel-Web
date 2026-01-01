@@ -49,7 +49,7 @@ public class SessionService : ISessionService
 
         _isMainTab = asMainTab;
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
-            "import", "./js/sessionBridge.js");
+            "import", "./js/signalRBridge.js");
 
         await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab);
 

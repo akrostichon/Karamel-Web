@@ -415,6 +415,18 @@ Notes:
 - Estimate: 1–2 days. Risk: high (breaking previous local-only behavior). This step will remove BroadcastChannel entirely.
 - Acceptance: Frontend uses SignalR for state sync; no BroadcastChannel code remains in active flow.
 
+#### Step 6.5.a Tests and migration plan (NEW)
+- Purpose: Define and run the tests required to safely migrate from BroadcastChannel to SignalR and provide a clear rollback/compatibility path during transition.
+- Files/areas to update: `Karamel.Web/wwwroot/js/sessionBridge.test.js`, `Karamel.Web/wwwroot/js/homeInterop.test.js`, other JS tests that `vi.mock` the bridge; `Karamel.Web.Tests` C# tests that rely on JS interop behavior.
+- Substeps:
+  1. Add `signalRBridge.test.js` and update existing tests to `vi.mock('./signalRBridge.js')` instead of `sessionBridge.js`.
+  2. Implement `signalRBridge.js` as a compatibility shim that re-exports the `sessionBridge.js` API during initial rollout. This lets tests and local dev continue to run while the full SignalR implementation is built.
+  3. Update `SessionService.cs` to import `./js/signalRBridge.js` by default. Keep detection/fallback logic so `sessionBridge.js` can be used if server is not available (preserve offline/local dev flow).
+  4. Update C# tests that use `IJSRuntime` mocks to reference the `signalRBridge` exports where needed.
+  5. Run the JS test suite (`npm run test:run`) and fix mocks/expectations. Then run `dotnet test Karamel.Web.Tests` and resolve failures.
+  6. Once all tests pass, replace the shim with the full SignalR implementation and add SignalR-specific unit tests (mocking the Hub connection and events).
+- Acceptance for tests: All JS tests run with `signalRBridge` mocked; `Karamel.Web.Tests` pass locally with no additional unexpected skips.
+
 ### Step 6.6 Session cleanup & heartbeats
 - Purpose: Implement `POST /api/sessions/{id}/heartbeat` and a background cleanup job that expires sessions per the rule: session expires 30 minutes after last NextSongView activity and only if no paused PlayerView is present.
 - Files to add/update: `Karamel.Backend/Services/SessionCleanupService.cs`, `Karamel.Backend/Controllers/SessionController.cs` (heartbeat), update `Karamel.Web/Pages/NextSongView.razor` and `Karamel.Web/Pages/PlayerView.razor` to call heartbeat endpoints.

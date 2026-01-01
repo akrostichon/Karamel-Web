@@ -123,7 +123,7 @@ Karamel-Web/                          # Solution root
 │       ├── js/                       # JavaScript modules
 │       │   ├── fileAccess.js         # File System Access API wrapper
 │       │   ├── metadata.js           # ID3 tag extraction (jsmediatags)
-│       │   ├── sessionBridge.js      # Broadcast Channel API + sessionStorage
+│       │   ├── signalRBridge.js      # SignalR bridge (shim currently re-exports sessionBridge)
 │       │   ├── homeInterop.js        # Home page JS interop
 │       │   ├── player.js             # CDGraphics.js integration
 │       │   ├── qrcode.js             # QR code generation
