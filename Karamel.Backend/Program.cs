@@ -26,6 +26,11 @@ builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Kar
 // Register TokenService with secret from configuration (fallback for dev)
 var tokenSecret = builder.Configuration["TokenSecret"] ?? Environment.GetEnvironmentVariable("TOKEN_SECRET") ?? "dev-secret-change-me";
 builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new Karamel.Backend.Services.TokenService(tokenSecret));
+// Add SignalR
+builder.Services.AddSignalR();
+// Register controllers for API endpoints
+builder.Services.AddControllers();
+
 var app = builder.Build();
 
 // Register Swagger services so swagger JSON can be generated in development runs.
@@ -50,6 +55,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/health", () => Results.Text("Healthy", "text/plain"))
     .WithName("Health");
+
+// Map controller routes (API endpoints)
+app.MapControllers();
+
+// Map SignalR hubs
+app.MapHub<Karamel.Backend.Hubs.PlaylistHub>("/hubs/playlist");
 
 // Root redirect removed to keep test server requests focused on /health
 

@@ -24,7 +24,27 @@ namespace Karamel.Backend.Repositories
 
         public async Task UpdateAsync(Playlist playlist)
         {
-            _db.Playlists.Update(playlist);
+            // Attach playlist if not tracked
+            var tracked = _db.Playlists.Local.FirstOrDefault(p => p.Id == playlist.Id);
+            if (tracked == null)
+            {
+                _db.Playlists.Attach(playlist);
+            }
+
+            // For each item, ensure new items are added to the context so EF issues INSERTs
+            foreach (var item in playlist.Items)
+            {
+                var exists = await _db.PlaylistItems.AnyAsync(p => p.Id == item.Id);
+                if (!exists)
+                {
+                    await _db.PlaylistItems.AddAsync(item);
+                }
+                else
+                {
+                    _db.PlaylistItems.Update(item);
+                }
+            }
+
             await _db.SaveChangesAsync();
         }
 

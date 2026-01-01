@@ -15,12 +15,15 @@ namespace Karamel.Backend.Controllers
         private readonly ISessionRepository _sessionRepo;
         private readonly IPlaylistRepository _playlistRepo;
         private readonly ITokenService _tokenService;
+        private readonly Microsoft.AspNetCore.SignalR.IHubContext<Karamel.Backend.Hubs.PlaylistHub> _hubContext;
 
-        public PlaylistsController(ISessionRepository sessionRepo, IPlaylistRepository playlistRepo, ITokenService tokenService)
+        public PlaylistsController(ISessionRepository sessionRepo, IPlaylistRepository playlistRepo, ITokenService tokenService,
+            Microsoft.AspNetCore.SignalR.IHubContext<Karamel.Backend.Hubs.PlaylistHub> hubContext)
         {
             _sessionRepo = sessionRepo;
             _playlistRepo = playlistRepo;
             _tokenService = tokenService;
+            _hubContext = hubContext;
         }
 
         private bool ValidateToken(Guid sessionId, out IActionResult? failure)
@@ -68,6 +71,10 @@ namespace Karamel.Backend.Controllers
             var item = new PlaylistItem { Id = Guid.NewGuid(), PlaylistId = playlist.Id, Position = playlist.Items.Count, Artist = req.Artist, Title = req.Title, SingerName = req.SingerName };
             playlist.Items.Add(item);
             await _playlistRepo.UpdateAsync(playlist);
+            // Broadcast the updated playlist to connected clients in the session group
+            var groupName = Karamel.Backend.Hubs.PlaylistHub.GetSessionGroupName(sessionId.ToString());
+            var dto = new PlaylistUpdatedDto(playlist.Id, playlist.SessionId, playlist.Items.Select(i => new PlaylistItemDto(i.Id, i.Artist, i.Title, i.SingerName, i.Position)).ToList());
+            await _hubContext.Clients.Group(groupName).SendCoreAsync("ReceivePlaylistUpdated", new object[] { dto });
             return CreatedAtAction(nameof(Get), new { sessionId = sessionId, id = playlist.Id }, item);
         }
 
@@ -83,6 +90,9 @@ namespace Karamel.Backend.Controllers
             // reindex positions
             for (int i = 0; i < playlist.Items.Count; i++) playlist.Items[i].Position = i;
             await _playlistRepo.UpdateAsync(playlist);
+            var groupName = Karamel.Backend.Hubs.PlaylistHub.GetSessionGroupName(sessionId.ToString());
+            var dto = new PlaylistUpdatedDto(playlist.Id, playlist.SessionId, playlist.Items.Select(i => new PlaylistItemDto(i.Id, i.Artist, i.Title, i.SingerName, i.Position)).ToList());
+            await _hubContext.Clients.Group(groupName).SendCoreAsync("ReceivePlaylistUpdated", new object[] { dto });
             return Ok();
         }
 
@@ -101,10 +111,17 @@ namespace Karamel.Backend.Controllers
             playlist.Items.Insert(req.To, item);
             for (int i = 0; i < playlist.Items.Count; i++) playlist.Items[i].Position = i;
             await _playlistRepo.UpdateAsync(playlist);
+            var groupName = Karamel.Backend.Hubs.PlaylistHub.GetSessionGroupName(sessionId.ToString());
+            var dto = new PlaylistUpdatedDto(playlist.Id, playlist.SessionId, playlist.Items.Select(i => new PlaylistItemDto(i.Id, i.Artist, i.Title, i.SingerName, i.Position)).ToList());
+            await _hubContext.Clients.Group(groupName).SendCoreAsync("ReceivePlaylistUpdated", new object[] { dto });
             return Ok(playlist);
         }
     }
 
     public record AddPlaylistItemRequest(string Artist, string Title, string? SingerName);
     public record ReorderRequest(int From, int To);
+
+    // DTOs for hub payloads
+    public record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position);
+    public record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, System.Collections.Generic.List<PlaylistItemDto> Items);
 }
