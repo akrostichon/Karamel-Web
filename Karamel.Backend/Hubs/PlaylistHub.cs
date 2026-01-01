@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
@@ -33,6 +30,10 @@ namespace Karamel.Backend.Hubs
             if (httpContext != null)
             {
                 var token = httpContext.Request.Headers["X-Link-Token"].FirstOrDefault();
+                if (string.IsNullOrEmpty(token))
+                {
+                    token = httpContext.Request.Query["access_token"].FirstOrDefault();
+                }
                 if (!string.IsNullOrEmpty(token))
                 {
                     Context.Items["X-Link-Token"] = token;
