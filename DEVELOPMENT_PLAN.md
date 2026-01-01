@@ -492,14 +492,52 @@ Schema additions and considerations:
   - Keep DTOs provider-agnostic and use repository interfaces so switching SQLite ↔ SQL Server is straightforward.
   - Migrations: generate against SQLite dev, but validate against SQL Server in staging before production deployment.
 
+---
 
+## Phase 7: Azure provisioning & Deployment (new)
 
-### Phase 7: Multi-Device Support
-- WebSocket connections for playlist sync - see phase 6. Currently using broadcast api.
-- Admin controls: volume
+Goal: Prepare a minimal, low-friction Azure hosting setup for Karamel so the backend and frontend can be deployed and tested with low cost and simple operations.
+
+Chosen approach (easiest / low-cost initial deployment):
+- **Resource Group:** single resource group per environment (`rg-karamel-<env>`).
+- **Key Vault:** `kv-karamel-<env>` to store `KARAMEL_TOKEN_SECRET` and any other secrets; use Key Vault references from App Service.
+- **Backend hosting:** Azure App Service (Linux) hosting the ASP.NET Core backend. SignalR will run in-app for the initial deployment (no Azure SignalR Service yet). Enable WebSockets on the App Service.
+- **Frontend hosting:** Azure Static Web Apps `staticweb-<env>-karamel` for Blazor WASM with built-in GitHub Actions deployment.
+- **Database:** Azure SQL Database using **Serverless (vCore) with auto-pause** for cheapest dev/runtime profile. Note: platform backups are mandatory and cannot be fully disabled; choose minimal retention while using serverless to reduce compute costs.
+- **Monitoring:** Application Insights for backend telemetry and basic alerts.
+- **Region:** westeurope
+
+Actionable tasks (high-level):
+1. Create resource group `rg-karamel-dev` (or `-prod` for production).
+2. Provision Key Vault `kv-karamel-<env>`; add secret `KARAMEL_TOKEN_SECRET`. Enable RBAC and grant the App Service system-assigned Managed Identity `Key Vault Secrets User` role.
+3. Provision Azure SQL Server and Database `sql-karamel-<env>` using Serverless vCore with auto-pause enabled. Configure minimal backup retention if desired (platform backups remain enabled).
+4. Create an App Service Plan (Linux, Basic/Standard) and Web App `app-karamel-api-<env>`; enable system-assigned Managed Identity; configure app settings:
+  - `ASPNETCORE_ENVIRONMENT` = `Development`/`Production`
+  - `DB_PROVIDER` = `SqlServer`
+  - `ConnectionStrings__DefaultConnection` (use Key Vault or App Service setting)
+  - `KARAMEL_TOKEN_SECRET` via Key Vault reference
+  - `WEBSITES_ENABLE_WEBSOCKETS` = `1` (SignalR in-app)
+5. Create Azure Static Web App `staticweb-<env>-karamel` and connect it to the repo branch for automatic builds/publish of the Blazor `wwwroot` assets.
+6. Setup GitHub Actions:
+  - Frontend: build Blazor WASM and deploy to Static Web Apps
+  - Backend: build, run tests, deploy to App Service (ZIP or container)
+  - Migrations: a gated job to run EF Core migrations (`dotnet ef database update`) using secrets from Key Vault (run as a separate step, with a manual approval for production)
+7. Configure Application Insights and add basic alert rules (failed requests, high CPU, App Service restarts).
+8. (Optional) Add Private Endpoint for Azure SQL and restrict Key Vault access to only the App Service identity and authorized users.
+
+Notes and caveats:
+- - Hosting SignalR in-app is easiest initially — move to Azure SignalR Service later when scale or reliability requires it.
+- Static Web Apps provides free TLS, easy CI/CD, and global distribution for Blazor WASM static assets; Storage+CDN is an alternative if you want tighter control.
+
+Acceptance criteria for Phase 7:
+- `rg-karamel-dev` exists with tagged resources.
+- `kv-karamel-dev` contains `KARAMEL_TOKEN_SECRET` accessible to App Service via Managed Identity.
+- Azure SQL serverless database is reachable from the backend and EF migrations can be applied from CI.
+- Backend deployed to App Service and frontend deployed to Static Web Apps with successful end-to-end test deployment.
+
+Link to deployment checklist: see `DEPLOYMENT.md` for App Service settings and production-only steps.
 
 ### Phase 8: Production Deployment
-- Azure App Service hosting
 - CI/CD pipeline
 - Monitoring & logging
 - Performance optimization
@@ -544,47 +582,6 @@ Schema additions and considerations:
 - JavaScript in wwwroot: Requires browser refresh
 - Disable cache in DevTools for JS changes
 - CSS: Usually hot reloads
-
----
-
-## Open Questions (ANSWERED)
-
-1. **Sorting**: ✅ Library defaults to alphabetical by Artist, then Title (ascending)
-2. **Duplicates**: ✅ Only first song with same Artist and title will be added to library..
-3. **Singer names**: ✅ App stores current singer name in session state. Name persists for all songs added by that singer until they change it. No history tracking in Phase 2.
-4. **Playlist limit**: ✅ Max 10 songs per singer to prevent spam
-5. **Audio controls**: ✅ Singer view shows library search only. "Now Playing" info remains on main tab (NextSongView/PlayerView) and Playlist view.
-
----
-
-## Success Criteria
-
-### Phase 1 Complete When:
-- ✅ Counter.razor and Weather.razor deleted
-- ✅ NavMenu.razor updated with no template links
-- ✅ Clean workspace ready for feature development
-
-### Phase 2 Complete When:
-- ✅ Admin can select folder and scan 100+ song library in <5 seconds
-- ✅ Library displays with accurate artist/title from ID3 tags or filename parsing
-- ✅ Playlist supports add/remove/reorder operations with Broadcast Channel sync
-- ✅ Singer view works on mobile with QR code access, no folder permissions needed
-- ✅ NextSongView displays upcoming song with QR code for 5 seconds
-- ✅ PlayerView (refactored KaraokePlayer) plays MP3+CDG with auto-advance
-- ✅ Session state syncs across all tabs via Broadcast Channel API
-- ✅ Main tab retains folder access throughout Home → NextSong → Player flow
-
-### Phase 3 Complete When:
-- ✅ User approves design direction and mockups
-- ✅ Consistent styling across all views (colors, typography, spacing)
-- ✅ Responsive layout on desktop, tablet, and mobile
-- ✅ Drag-drop has clear visual feedback
-- ✅ Touch-friendly buttons on singer view
-
-### Phase 4 Complete When:
-- ✅ All licenses verified compatible (cdgraphics, jsmediatags, QRCode.js, Fluxor)
-- ✅ Attribution added to About page or README
-- ✅ THIRD-PARTY-NOTICES.md created with all dependency licenses
 
 ---
 
