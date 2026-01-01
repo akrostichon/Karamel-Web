@@ -6,6 +6,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
+using Karamel.Backend.Repositories;
+using Karamel.Backend.Models;
 using Xunit;
 
 namespace Karamel.Backend.Tests
@@ -33,16 +36,18 @@ namespace Karamel.Backend.Tests
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
             Assert.NotNull(created);
 
-            // create playlist
-            var createPlaylistResp = await _client.PostAsync($"/api/playlists/{created.Id}", null);
-            createPlaylistResp.EnsureSuccessStatusCode();
-            var playlist = await createPlaylistResp.Content.ReadFromJsonAsync<PlaylistDto>();
+            // create playlist (repository-backed helper)
+            var playlist = await CreatePlaylistAsync(created.Id, created.linkToken);
             Assert.NotNull(playlist);
 
             // start a SignalR client and join the session group
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
             _connection = new HubConnectionBuilder()
-                .WithUrl(baseUrl + "/hubs/playlist", options => { options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler(); })
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", created.linkToken);
+                })
                 .Build();
 
             var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
@@ -51,13 +56,8 @@ namespace Karamel.Backend.Tests
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", created.Id.ToString());
 
-            // Add an item with token header
-            var addItem = new { Artist = "X", Title = "Y", SingerName = "Z" };
-            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/playlists/{created.Id}/{playlist!.id}/items");
-            request.Headers.Add("X-Link-Token", created.linkToken);
-            request.Content = JsonContent.Create(addItem);
-            var addResp = await _client.SendAsync(request);
-            addResp.EnsureSuccessStatusCode();
+            // Add an item via the hub mutation (with token provided on connection)
+            await _connection.InvokeAsync("AddItemAsync", created.Id, playlist!.id, "X", "Y", "Z");
 
             // Expect a broadcast
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -185,7 +185,7 @@ namespace Karamel.Backend.Tests
             // Create session and playlist, add one item via REST
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
-            var itemId = await AddItemViaRestAsync(session.Id, playlist.id, session.linkToken, "Artist1", "Title1", "Singer1");
+            var itemId = await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, "Artist1", "Title1", "Singer1");
 
             // Connect to hub with token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
@@ -219,8 +219,8 @@ namespace Karamel.Backend.Tests
             // Create session and playlist, add two items
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
-            await AddItemViaRestAsync(session.Id, playlist.id, session.linkToken, "Artist1", "Title1", "Singer1");
-            await AddItemViaRestAsync(session.Id, playlist.id, session.linkToken, "Artist2", "Title2", "Singer2");
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, "Artist1", "Title1", "Singer1");
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, "Artist2", "Title2", "Singer2");
 
             // Connect to hub with token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
@@ -302,24 +302,33 @@ namespace Karamel.Backend.Tests
 
         private async Task<PlaylistDto> CreatePlaylistAsync(Guid sessionId, string token)
         {
-            var createPlaylistResp = await _client.PostAsync($"/api/playlists/{sessionId}", null);
-            createPlaylistResp.EnsureSuccessStatusCode();
-            var playlist = await createPlaylistResp.Content.ReadFromJsonAsync<PlaylistDto>();
-            Assert.NotNull(playlist);
-            return playlist!;
+            // Create playlist directly in the test database via repository (controller removed in product)
+            using var scope = _factory.Services.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IPlaylistRepository>();
+            var playlist = new Playlist { Id = Guid.NewGuid(), SessionId = sessionId };
+            await repo.AddAsync(playlist);
+            return new PlaylistDto(playlist.Id, playlist.SessionId);
         }
 
-        private async Task<Guid> AddItemViaRestAsync(Guid sessionId, Guid playlistId, string token, string artist, string title, string? singerName)
+        private async Task<Guid> AddPlaylistItemAsync(Guid sessionId, Guid playlistId, string token, string artist, string title, string? singerName)
         {
-            var addItem = new { Artist = artist, Title = title, SingerName = singerName };
-            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/playlists/{sessionId}/{playlistId}/items");
-            request.Headers.Add("X-Link-Token", token);
-            request.Content = JsonContent.Create(addItem);
-            var addResp = await _client.SendAsync(request);
-            addResp.EnsureSuccessStatusCode();
-            var item = await addResp.Content.ReadFromJsonAsync<PlaylistItemDto>();
-            Assert.NotNull(item);
-            return item!.Id;
+            // Add item directly using repository (simulates an external actor adding an item)
+            using var scope = _factory.Services.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IPlaylistRepository>();
+            var playlist = await repo.GetAsync(playlistId);
+            Assert.NotNull(playlist);
+            var item = new PlaylistItem
+            {
+                Id = Guid.NewGuid(),
+                PlaylistId = playlistId,
+                Position = playlist!.Items.Count,
+                Artist = artist,
+                Title = title,
+                SingerName = singerName
+            };
+            playlist.Items.Add(item);
+            await repo.UpdateAsync(playlist!);
+            return item.Id;
         }
 
         public async ValueTask DisposeAsync()
