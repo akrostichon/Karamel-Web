@@ -1,11 +1,11 @@
 # Karamel-Web Copilot Instructions
 
 ## Project Overview
-Karamel-Web is a modern karaoke player built with **Blazor WebAssembly (.NET 10.0)** that enables multi-device karaoke sessions. The app uses the **File System Access API** (Chrome/Edge only) for local media file access and the **Broadcast Channel API** for cross-tab state synchronization. Key features include singer management, playlist control, CDG+MP3 playback, and session sharing via QR codes.
+Karamel-Web is a modern karaoke system consisting of a Blazor WebAssembly frontend and an ASP.NET Core backend. The frontend (Karamel.Web) runs in the browser and provides the UI and playback features; the backend (Karamel.Backend) exposes REST endpoints and a SignalR hub used for session coordination and multi-user scenarios. The app uses the **File System Access API** (Chrome/Edge only) for local media file access and the **Broadcast Channel API** for cross-tab state synchronization. Key features include singer management, playlist control, CDG+MP3 playback, and session sharing via QR codes.
 
-**Repository size**: Small (~30 source files)  
-**Languages**: C# (Blazor), JavaScript (ES modules), CSS  
-**Target runtime**: Browser (WebAssembly)  
+**Repository size**: Small (≈30–100 source files)  
+**Languages**: C# (Blazor frontend + ASP.NET Core backend), JavaScript (ES modules), CSS  
+**Target runtime**: Browser (WebAssembly) for frontend, .NET 10.0 / ASP.NET Core for backend  
 **State management**: Fluxor (Redux pattern)  
 
 ## Critical Build & Test Commands
@@ -19,7 +19,7 @@ dotnet clean
 dotnet build
 
 # Expected warnings: 1 warning (CS8602 in SingerView.razor line 40) is known and acceptable
-# Build time: ~6-7 seconds on first build, ~2-3 seconds incremental
+# Build time: ~6-7 seconds on first build, ~2-3 seconds incremental for frontend; backend build can add a few seconds on first run
 ```
 
 ### Test Commands
