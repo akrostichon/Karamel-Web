@@ -386,12 +386,27 @@ Notes:
 - Estimate: 1 day. Risk: medium.
 - Acceptance: Sessions can be created and read; link token validates for protected endpoints.
 
-### Step 6.4 Real-time sync: `PlaylistHub` SignalR implementation (server-mode default)
+### Step 6.4 Real-time sync: `PlaylistHub` SignalR implementation (server-mode default) ✅ COMPLETED
 - Purpose: Implement `PlaylistHub` at `/hubs/playlist`, enforce link-token authorization for mutation methods, and make the hub the single source of truth for playlist state.
-- Files to add/update: `Karamel.Backend/Hubs/PlaylistHub.cs`, `Karamel.Backend/Contracts/*` (DTOs), update `Karamel.Backend/Program.cs` to add SignalR and hub endpoints.
-- Quick verification: Connect a test SignalR client to the hub, call `JoinSession` and receive `ReceivePlaylistUpdated` messages after mutations.
-- Estimate: 1–2 days. Risk: high (ordering, race conditions).
-- Acceptance: Clients connected to the hub receive canonical playlist updates after server-side mutations.
+- Files added/updated: `Karamel.Backend/Hubs/PlaylistHub.cs`, `Karamel.Backend/Filters/LinkTokenHubFilter.cs`, `Karamel.Backend/Program.cs`, `Karamel.Backend/Controllers/PlaylistController.cs` (marked obsolete), `Karamel.Backend.Tests/PlaylistHubTests.cs`
+- Quick verification: `dotnet test .\Karamel.Backend.Tests\` - all 12 tests pass including 8 new SignalR hub tests
+- Estimate: 1–2 days. Risk: high (ordering, race conditions). **COMPLETED**
+- Acceptance: ✅ Clients connected to the hub receive canonical playlist updates after server-side mutations. Hub methods enforce link-token authorization.
+
+**Implementation Summary:**
+1. ✅ Created `LinkTokenHubFilter` implementing `IHubFilter` with X-Link-Token validation from connection context
+2. ✅ Added hub mutation methods: `AddItemAsync`, `RemoveItemAsync`, `ReorderAsync` with repository DI
+3. ✅ Marked REST endpoints as `[Obsolete]` for future removal (kept for backward compatibility)
+4. ✅ Added 8 comprehensive SignalR integration tests (authorized/unauthorized mutations, broadcasts, cumulative state)
+5. ✅ All tests passing (12 backend tests, ~35s duration)
+
+**Key Implementation Details:**
+- **Filter registration**: Must use `.AddSignalR().AddHubOptions<PlaylistHub>(opts => opts.AddFilter<LinkTokenHubFilter>())` for filters to work
+- **Token storage**: Stored in `Context.Items` during `OnConnectedAsync` override, validated per method invocation by filter
+- **Hub as source of truth**: Mutations performed directly in hub methods; REST endpoints deprecated but functional
+- **Test coverage**: Authorization (with/without/invalid token), mutations (add/remove/reorder), broadcast verification, cumulative state
+
+**Status**: ✅ COMPLETED (all acceptance criteria met)
 
 ### Step 6.5 Frontend migration: remove BroadcastChannel, add SignalR bridge
 - Purpose: Replace `sessionBridge.js` BroadcastChannel logic with `signalRBridge.js` and update `SessionService.cs` to use SignalR by default. Make server-mode default for the app.

@@ -23,7 +23,15 @@ namespace Karamel.Backend.Tests
 
             var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5 };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                resp.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"Session creation failed. Error : {ex}");
+            }
+
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
             Assert.NotNull(created);
             Assert.NotEqual(Guid.Empty, created!.Id);
@@ -32,15 +40,15 @@ namespace Karamel.Backend.Tests
             // create a playlist for this session
             var createPlaylistResp = await client.PostAsync($"/api/playlists/{created.Id}", null);
             createPlaylistResp.EnsureSuccessStatusCode();
-            var playlist = await createPlaylistResp.Content.ReadFromJsonAsync<object>();
+            var playlist = await createPlaylistResp.Content.ReadFromJsonAsync<PlaylistDto>();
 
             // Try to add item without token - should be Unauthorized
             var addItem = new { Artist = "A", Title = "B", SingerName = "S" };
-            var addRespNoToken = await client.PostAsJsonAsync($"/api/playlists/{created.Id}/{((dynamic)playlist).id}/items", addItem);
+            var addRespNoToken = await client.PostAsJsonAsync($"/api/playlists/{created.Id}/{playlist!.id}/items", addItem);
             Assert.Equal(System.Net.HttpStatusCode.Unauthorized, addRespNoToken.StatusCode);
 
             // Add with token in header
-            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/playlists/{created.Id}/{((dynamic)playlist).id}/items");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/playlists/{created.Id}/{playlist!.id}/items");
             request.Headers.Add("X-Link-Token", created.linkToken);
             request.Content = JsonContent.Create(addItem);
             var addResp = await client.SendAsync(request);
@@ -48,5 +56,6 @@ namespace Karamel.Backend.Tests
         }
 
         private record CreateResponse(Guid Id, string linkToken);
+        private record PlaylistDto(Guid id, Guid sessionId);
     }
 }
