@@ -9,7 +9,7 @@ import {
     generateSessionUrl,
     getSessionIdFromUrl,
     checkMainTabAlive
-} from './sessionBridge.js';
+} from './signalRBridge.js';
 
 // Test session ID
 const TEST_SESSION_ID = 'test-session-123';
@@ -114,7 +114,7 @@ const mockWindow = {
     location: mockLocation
 };
 
-describe('sessionBridge', () => {
+describe('signalRBridge', () => {
     beforeEach(() => {
         // Reset mocks
         MockBroadcastChannel.reset();

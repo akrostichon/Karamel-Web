@@ -134,6 +134,17 @@
         // Subscribe to playlist actions for feedback
         ActionSubscriber.SubscribeToAction<AddToPlaylistSuccessAction>(this, HandleAddToPlaylistSuccess);
         ActionSubscriber.SubscribeToAction<AddToPlaylistFailureAction>(this, HandleAddToPlaylistFailure);
+        
+        // Subscribe to session state changes so we can update UI when session is restored
+        var _session = SessionState;
+        if (_session != null)
+        {
+            _session.StateChanged += (s, e) =>
+            {
+                isSessionValid = ValidateSession();
+                InvokeAsync(StateHasChanged);
+            };
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -143,12 +154,13 @@
         if (firstRender && !string.IsNullOrWhiteSpace(SessionParam) && Guid.TryParse(SessionParam, out var sessionGuid))
         {
             Console.WriteLine($"SingerView: Initializing session for GUID: {sessionGuid}");
-            Console.WriteLine($"SingerView: Current session state before init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")}");
+            Console.WriteLine($"SingerView: Current session state before init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
             
             // Initialize session as secondary tab and load state from sessionStorage
+            isInitializing = true;
             await SessionService.InitializeAsync(sessionGuid, false);
             
-            Console.WriteLine($"SingerView: Current session state after init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")}");
+            Console.WriteLine($"SingerView: Current session state after init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
             if (SessionState.Value.CurrentSession != null)
             {
                 Console.WriteLine($"SingerView: Session ID in state: {SessionState.Value.CurrentSession.SessionId}");

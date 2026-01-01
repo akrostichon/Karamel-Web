@@ -58,6 +58,24 @@ public interface ISessionService : IAsyncDisposable
     Task ClearSessionAsync();
 
     /// <summary>
+    /// Add an item to the playlist via SignalR if available, fallback to broadcast.
+    /// Returns true if server RPC was invoked.
+    /// </summary>
+    Task<bool> AddItemToPlaylistAsync(Song song);
+
+    /// <summary>
+    /// Remove an item from the playlist via SignalR if available, fallback to broadcast.
+    /// Returns true if server RPC was invoked.
+    /// </summary>
+    Task<bool> RemoveItemFromPlaylistAsync(Guid itemId);
+
+    /// <summary>
+    /// Reorder the playlist via SignalR if available, fallback to broadcast.
+    /// Returns true if server RPC was invoked.
+    /// </summary>
+    Task<bool> ReorderPlaylistAsync(IEnumerable<Song> newOrder);
+
+    /// <summary>
     /// Handle state update from broadcast (called by JavaScript)
     /// </summary>
     [JSInvokable]

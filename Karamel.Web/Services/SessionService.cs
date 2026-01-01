@@ -22,6 +22,7 @@ public class SessionService : ISessionService
     private IJSObjectReference? _sessionBridgeModule;
     private bool _isInitialized;
     private bool _isMainTab;
+    private DotNetObjectReference<SessionService>? _stateUpdateDotNetRef;
 
     public SessionService(
         IJSRuntime jsRuntime,
@@ -49,7 +50,7 @@ public class SessionService : ISessionService
 
         _isMainTab = asMainTab;
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
-            "import", "./js/sessionBridge.js");
+            "import", "./js/signalRBridge.js");
 
         await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab);
 
@@ -57,13 +58,10 @@ public class SessionService : ISessionService
         if (!asMainTab)
         {
             await RestoreSessionStateAsync(sessionId);
-            
-            // Set up listener for ongoing state updates from main tab
-            await SetupStateUpdateListenerAsync();
         }
 
-        // Ensure state update listener is registered even for main tab so
-        // it receives session-state-updated events and can invoke OnStateUpdated.
+        // Ensure state update listener is registered for all tabs so
+        // they receive session-state-updated events and can invoke OnStateUpdated.
         await SetupStateUpdateListenerAsync();
 
         _isInitialized = true;
@@ -207,21 +205,22 @@ public class SessionService : ISessionService
         if (_sessionBridgeModule == null)
             return;
 
+        DotNetObjectReference<StateSync>? dotNetRef = null;
         try
         {
             Console.WriteLine($"SessionService: Starting to restore session {sessionId}");
             
             // Wait for state sync response (with timeout)
             var syncCompletionSource = new TaskCompletionSource<bool>();
-            var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             
             // Set up event listener for state sync
-            var dotNetRef = DotNetObjectReference.Create(new StateSync(syncCompletionSource));
+            dotNetRef = DotNetObjectReference.Create(new StateSync(syncCompletionSource));
             await _sessionBridgeModule.InvokeVoidAsync("setupStateSyncListener", dotNetRef);
             
             // Wait for sync or timeout
             var syncTask = syncCompletionSource.Task;
-            var timeoutTask = Task.Delay(2000, timeoutCts.Token);
+            var timeoutTask = Task.Delay(5000, timeoutCts.Token);
             var completedTask = await Task.WhenAny(syncTask, timeoutTask);
             
             if (completedTask == syncTask)
@@ -333,6 +332,14 @@ public class SessionService : ISessionService
             Console.WriteLine($"Failed to restore session state: {ex.Message}");
             Console.WriteLine($"Exception details: {ex}");
         }
+        finally
+        {
+            try
+            {
+                dotNetRef?.Dispose();
+            }
+            catch { }
+        }
     }
     
     /// <summary>
@@ -343,9 +350,13 @@ public class SessionService : ISessionService
         if (_sessionBridgeModule == null)
             return;
 
-        var dotNetRef = DotNetObjectReference.Create(this);
+        if (_stateUpdateDotNetRef == null)
+        {
+            _stateUpdateDotNetRef = DotNetObjectReference.Create(this);
+        }
+
         Console.WriteLine($"SessionService: Registering state update listener (isMainTab={_isMainTab})");
-        await _sessionBridgeModule.InvokeVoidAsync("setupStateUpdateListener", dotNetRef);
+        await _sessionBridgeModule.InvokeVoidAsync("setupStateUpdateListener", _stateUpdateDotNetRef);
     }
 
     /// <summary>
@@ -521,11 +532,95 @@ public class SessionService : ISessionService
         await _sessionBridgeModule.InvokeVoidAsync("clearSessionState");
     }
 
+    /// <summary>
+    /// Add an item to the playlist using SignalR if available, fallback to local broadcast.
+    /// Returns true if the server-side RPC was invoked successfully.
+    /// </summary>
+    public async Task<bool> AddItemToPlaylistAsync(Song song)
+    {
+        if (_sessionBridgeModule == null) return false;
+
+        var item = new
+        {
+            id = song.Id.ToString(),
+            artist = song.Artist,
+            title = song.Title,
+            mp3FileName = song.Mp3FileName,
+            cdgFileName = song.CdgFileName,
+            addedBySinger = song.AddedBySinger
+        };
+
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("addItemToPlaylist", item);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: addItemToPlaylist JS invoke failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Remove an item from the playlist using SignalR if available, fallback to local broadcast.
+    /// Returns true if the server-side RPC was invoked successfully.
+    /// </summary>
+    public async Task<bool> RemoveItemFromPlaylistAsync(Guid itemId)
+    {
+        if (_sessionBridgeModule == null) return false;
+
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("removeItemFromPlaylist", itemId.ToString());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: removeItemFromPlaylist JS invoke failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reorder the playlist using SignalR if available, fallback to local broadcast.
+    /// newOrder should be an IEnumerable of Song representing the desired queue order.
+    /// Returns true if the server-side RPC was invoked successfully.
+    /// </summary>
+    public async Task<bool> ReorderPlaylistAsync(IEnumerable<Song> newOrder)
+    {
+        if (_sessionBridgeModule == null) return false;
+
+        var items = newOrder.Select(s => new
+        {
+            id = s.Id.ToString(),
+            artist = s.Artist,
+            title = s.Title,
+            mp3FileName = s.Mp3FileName,
+            cdgFileName = s.CdgFileName,
+            addedBySinger = s.AddedBySinger
+        }).ToArray();
+
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("reorderPlaylist", items);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: reorderPlaylist JS invoke failed: {ex.Message}");
+            return false;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_sessionBridgeModule != null)
         {
             await _sessionBridgeModule.DisposeAsync();
+        }
+
+        if (_stateUpdateDotNetRef != null)
+        {
+            _stateUpdateDotNetRef.Dispose();
+            _stateUpdateDotNetRef = null;
         }
     }
 }
