@@ -35,6 +35,10 @@ builder.Services.AddSignalR(options =>
 // Register controllers for API endpoints
 builder.Services.AddControllers();
 
+// Register the session cleanup background service and the concrete instance so tests can resolve it
+builder.Services.AddSingleton<Karamel.Backend.Services.SessionCleanupService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<Karamel.Backend.Services.SessionCleanupService>());
+
 var app = builder.Build();
 
 // Register Swagger services so swagger JSON can be generated in development runs.

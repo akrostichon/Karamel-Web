@@ -16,6 +16,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject IServiceProvider ServiceProvider
+@inject System.Net.Http.HttpClient Http
 
 <PageTitle>Next Song - Karamel Karaoke</PageTitle>
 
@@ -98,6 +99,7 @@
     private IJSObjectReference? qrcodeModule;
     private Song? nextSong;
     private Timer? autoAdvanceTimer;
+    private Timer? heartbeatTimer;
     private bool isDisposed = false;
     private Queue<Song>? previousQueue;
     private bool isSessionValid = false;
@@ -124,6 +126,9 @@
         {
             // Initialize next song
             UpdateNextSong();
+            // Start heartbeat immediately for NextSongView presence
+            await SendHeartbeatAsync();
+            StartHeartbeatTimer();
         }
     }
 
@@ -257,6 +262,39 @@
 
         // Start timer if appropriate
         StartAutoAdvanceTimer();
+        // Ensure heartbeat timer is running while NextSongView is shown
+        StartHeartbeatTimer();
+    }
+
+    private async Task SendHeartbeatAsync()
+    {
+        try
+        {
+            var session = SessionState.Value.CurrentSession;
+            if (session == null) return;
+            var url = $"/api/sessions/{session.SessionId}/heartbeat";
+            var req = new { ExtendMinutes = 30 };
+            var res = await Http.PostAsJsonAsync(url, req);
+            // ignore result; logging for diagnostics
+            if (!res.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"NextSongView: Heartbeat failed with {(int)res.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NextSongView: Heartbeat error: {ex.Message}");
+        }
+    }
+
+    private void StartHeartbeatTimer()
+    {
+        heartbeatTimer?.Dispose();
+        // send heartbeat every 5 minutes while NextSongView is active
+        heartbeatTimer = new Timer(async _ =>
+        {
+            await SendHeartbeatAsync();
+        }, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
     }
 
     private void UpdateNextSong()
