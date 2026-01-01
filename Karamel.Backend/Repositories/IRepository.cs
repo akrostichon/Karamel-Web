@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
 namespace Karamel.Backend.Repositories
 {
     public interface IRepository<T> where T : class

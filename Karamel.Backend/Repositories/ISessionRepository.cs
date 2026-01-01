@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using Karamel.Backend.Models;
 
 namespace Karamel.Backend.Repositories

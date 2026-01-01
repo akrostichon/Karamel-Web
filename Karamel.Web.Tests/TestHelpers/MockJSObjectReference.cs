@@ -1,5 +1,4 @@
 using Microsoft.JSInterop;
-using System.Text.Json;
 
 namespace Karamel.Web.Tests.TestHelpers;
 

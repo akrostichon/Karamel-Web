@@ -1,5 +1,4 @@
 using Bunit;
-using Fluxor;
 using Karamel.Web.Models;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;

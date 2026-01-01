@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;

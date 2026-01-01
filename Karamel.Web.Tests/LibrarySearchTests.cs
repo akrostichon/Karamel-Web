@@ -6,7 +6,6 @@ using Karamel.Web.Store.Library;
 using Karamel.Web.Store.Playlist;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
-using Xunit;
 
 namespace Karamel.Web.Tests;
 
