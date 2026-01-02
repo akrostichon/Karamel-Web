@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Karamel.Backend.Migrations
 {
-    public partial class InitialCreate : Migration
+    public partial class InitialCreateMigration : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

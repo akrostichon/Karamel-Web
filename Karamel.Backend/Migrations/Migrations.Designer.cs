@@ -6,7 +6,7 @@ namespace Karamel.Backend.Migrations
     {
         public static readonly (string Id, string Name)[] List = new[]
         {
-            ("20260102_InitialCreate", "InitialCreate")
+            ("20260102_InitialCreate", "InitialCreateMigration")
         };
     }
 }
