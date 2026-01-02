@@ -30,7 +30,7 @@ var tokenSecret = builder.Configuration["Karamel:TokenSecret"]
 
 if (string.IsNullOrWhiteSpace(tokenSecret))
 {
-    if (!builder.Environment.IsDevelopment())
+    if (!(builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")))
     {
         throw new InvalidOperationException("KARAMEL_TOKEN_SECRET (Karamel:TokenSecret) must be provided in non-development environments");
     }
@@ -39,7 +39,7 @@ if (string.IsNullOrWhiteSpace(tokenSecret))
 
 if (tokenSecret.Length < 32)
 {
-    if (!builder.Environment.IsDevelopment())
+    if (!(builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")))
     {
         throw new InvalidOperationException("KARAMEL_TOKEN_SECRET must be at least 32 characters long in non-development environments");
     }
