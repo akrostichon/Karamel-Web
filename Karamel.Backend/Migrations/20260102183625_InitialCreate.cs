@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Karamel.Backend.Karamel.Backend.Migrations
+namespace Karamel.Backend.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration

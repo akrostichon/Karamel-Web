@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Karamel.Backend.Karamel.Backend.Migrations
+namespace Karamel.Backend.Migrations
 {
     [DbContext(typeof(BackendDbContext))]
     partial class BackendDbContextModelSnapshot : ModelSnapshot
