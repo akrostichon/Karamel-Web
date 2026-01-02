@@ -1,0 +1,37 @@
+name: Run EF Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      resource_group:
+        description: 'Resource Group'
+        required: true
+        default: 'rg-karamel-dev'
+      deployment_name:
+        description: 'Deployment name'
+        required: true
+        default: 'main'
+      project_path:
+        description: 'Path to the backend project'
+        required: true
+        default: 'Karamel.Backend'
+
+jobs:
+  run-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install dotnet SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run migration script
+        run: |
+          pwsh -NoProfile -Command "./infra/run_migrations.ps1 -ResourceGroup '${{ github.event.inputs.resource_group }}' -DeploymentName '${{ github.event.inputs.deployment_name }}' -ProjectPath '${{ github.event.inputs.project_path }}'"
