@@ -1,3 +1,4 @@
+
 @description('Name prefix for deployed resources (e.g. karamel-dev)')
 param namePrefix string
 param location string = resourceGroup().location
@@ -12,98 +13,53 @@ var webAppName = '${namePrefix}-api'
 var staticSiteName = '${namePrefix}-static'
 var appInsightsName = '${namePrefix}-ai'
 
-resource kv 'Microsoft.KeyVault/vaults@2022-11-01' = {
-  name: kvName
-  location: location
-  properties: {
-    tenantId: subscription().tenantId
-    sku: {
-      family: 'A'
-      name: 'standard'
-    }
-    accessPolicies: []
-    enablePurgeProtection: false
-    enableSoftDelete: true
+module kvModule 'modules/keyvault.bicep' = {
+  name: 'keyvaultModule'
+  params: {
+    name: kvName
+    location: location
   }
 }
 
-resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: appInsightsName
-  location: location
-  properties: {
-    Application_Type: 'web'
+module aiModule 'modules/appinsights.bicep' = {
+  name: 'appInsightsModule'
+  params: {
+    name: appInsightsName
+    location: location
   }
 }
 
-resource sqlServer 'Microsoft.Sql/servers@2022-02-01-preview' = {
-  name: sqlServerName
-  location: location
-  properties: {
+module sqlModule 'modules/sqlserver.bicep' = {
+  name: 'sqlModule'
+  params: {
+    serverName: sqlServerName
+    dbName: sqlDbName
+    location: location
     administratorLogin: sqlAdminUser
-    administratorLoginPassword: sqlAdminPassword
-    minimalTlsVersion: '1.2'
-  }
-  sku: {
-    name: 'GP_S_Gen5_1'
-    tier: 'GeneralPurpose'
+    administratorPassword: sqlAdminPassword
   }
 }
 
-resource sqlDb 'Microsoft.Sql/servers/databases@2021-02-01-preview' = {
-  name: '${sqlServer.name}/${sqlDbName}'
-  location: location
-  properties: {
-    sku: {
-      name: 'GP_S_Gen5_1'
-      tier: 'GeneralPurpose'
-    }
-    zoneRedundant: false
+module webModule 'modules/webapp.bicep' = {
+  name: 'webModule'
+  params: {
+    name: webAppName
+    planName: appServicePlanName
+    location: location
   }
 }
 
-resource plan 'Microsoft.Web/serverfarms@2022-03-01' = {
-  name: appServicePlanName
-  location: location
-  sku: {
-    name: 'B1'
-    tier: 'Basic'
-    capacity: 1
-  }
-  properties: {
-    reserved: true
+module staticModule 'modules/staticweb.bicep' = {
+  name: 'staticModule'
+  params: {
+    name: staticSiteName
+    location: location
   }
 }
 
-resource webApp 'Microsoft.Web/sites@2022-03-01' = {
-  name: webAppName
-  location: location
-  properties: {
-    serverFarmId: plan.id
-    siteConfig: {
-      appSettings: [
-        {
-          name: 'WEBSITES_ENABLE_WEBSOCKETS'
-          value: '1'
-        }
-      ]
-    }
-  }
-  dependsOn: [ plan ]
-}
-
-resource staticSite 'Microsoft.Web/staticSites@2022-03-01' = {
-  name: staticSiteName
-  location: location
-  properties: {
-    sku: {
-      name: 'Free'
-    }
-  }
-}
-
-output keyVaultName string = kv.name
-output sqlServer string = sqlServer.name
-output sqlDatabase string = sqlDb.name
-output webAppName string = webApp.name
-output staticSiteName string = staticSite.name
-output appInsights string = appInsights.name
+output keyVaultName string = kvModule.outputs.keyVaultName
+output sqlServer string = sqlModule.outputs.sqlServerName
+output sqlDatabase string = sqlModule.outputs.sqlDatabaseName
+output webAppName string = webModule.outputs.webAppName
+output staticSiteName string = staticModule.outputs.staticSiteName
+output appInsights string = aiModule.outputs.appInsightsName
