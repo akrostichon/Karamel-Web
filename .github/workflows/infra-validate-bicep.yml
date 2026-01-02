@@ -1,0 +1,36 @@
+name: Validate Bicep
+
+on:
+  pull_request:
+    paths:
+      - 'infra/azure/**'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate Bicep templates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Bicep build (install & validate)
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            set -euo pipefail
+            echo "Azure CLI version:"
+            az --version
+            echo "Ensure Bicep is installed..."
+            az bicep install
+            echo "Bicep version:"
+            az bicep version
+            echo "Building infra/azure/main.bicep ..."
+            az bicep build --file infra/azure/main.bicep --outdir infra/azure/_gen
+
+      - name: Upload generated ARM templates (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bicep-arm
+          path: infra/azure/_gen
