@@ -5,11 +5,24 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure EF Core DbContext with provider-agnostic options
 var dbProvider = builder.Configuration["DB_PROVIDER"] ?? System.Environment.GetEnvironmentVariable("DB_PROVIDER") ?? "Sqlite";
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? builder.Configuration["DefaultConnection"];
+var useAad = (builder.Configuration["DB_USE_AAD"] ?? Environment.GetEnvironmentVariable("DB_USE_AAD")) == "true";
 
 if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
-        options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;"));
+    if (useAad && !string.IsNullOrWhiteSpace(connectionString))
+    {
+        // Use managed identity access token via a custom DbConnection
+        builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>((serviceProvider, options) =>
+        {
+            var conn = Karamel.Backend.Services.ManagedIdentitySqlConnectionFactory.Create(connectionString);
+            options.UseSqlServer(conn);
+        });
+    }
+    else
+    {
+        builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
+            options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;"));
+    }
 }
 else
 {
@@ -22,7 +35,29 @@ else
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
 builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Karamel.Backend.Repositories.PlaylistRepository>();
 // Register TokenService with secret from configuration (fallback for dev)
-var tokenSecret = builder.Configuration["TokenSecret"] ?? Environment.GetEnvironmentVariable("TOKEN_SECRET") ?? "dev-secret-change-me";
+// Priority: Karamel:TokenSecret -> KARAMEL_TOKEN_SECRET environment var -> TokenSecret
+var tokenSecret = builder.Configuration["Karamel:TokenSecret"]
+                  ?? Environment.GetEnvironmentVariable("KARAMEL_TOKEN_SECRET")
+                  ?? builder.Configuration["TokenSecret"]
+                  ?? Environment.GetEnvironmentVariable("TOKEN_SECRET");
+
+if (string.IsNullOrWhiteSpace(tokenSecret))
+{
+    if (!(builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")))
+    {
+        throw new InvalidOperationException("KARAMEL_TOKEN_SECRET (Karamel:TokenSecret) must be provided in non-development environments");
+    }
+    tokenSecret = "dev-secret-change-me";
+}
+
+if (tokenSecret.Length < 32)
+{
+    if (!(builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")))
+    {
+        throw new InvalidOperationException("KARAMEL_TOKEN_SECRET must be at least 32 characters long in non-development environments");
+    }
+}
+
 builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new Karamel.Backend.Services.TokenService(tokenSecret));
 // Add SignalR and register hub filter globally
 builder.Services.AddSignalR(options =>

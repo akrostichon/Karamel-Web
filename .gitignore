@@ -7,3 +7,4 @@
 /dotnet_run_output.log
 /dotnet_run_verbose.log
 /test-output.log
+**/_gen/

@@ -31,15 +31,6 @@
 
 ## Phase 1: Prototype Cleanup ✅ COMPLETE
 
-### Step 1.1: Remove Template Files ✅
-**Delete**:
-- ✅ `Pages/Counter.razor`
-- ✅ `Pages/Weather.razor`
-
-**Update**:
-- ✅ `Layout/NavMenu.razor` - Remove Counter/Weather links
----
-
 ## Phase 2: Library Management & Multi-View Architecture
 
 ### Step 2.1: Directory Scanning ✅
@@ -51,7 +42,6 @@
 - ✅ Return array of song metadata objects
 - ✅ **Keep directory handle in JavaScript module scope** for session-long file access
 - ✅ Added `loadSongFiles()` function for loading specific songs during playback
-- ✅ **Unit tests with Vitest** - 14 tests covering all functionality with mocked File System Access API
 
 ### Step 2.2: Song Metadata Extraction ✅
 **Files**: `wwwroot/js/fileAccess.js`, `wwwroot/js/metadata.js`
@@ -60,35 +50,19 @@
 - Extract ID3 tags: artist, title
 - **Fallback**: If no ID3 tags, parse filename using configurable pattern (default: "%artist - %title")
 - Return song metadata array (no file handles - those stay in JS for playback)
-- Unit tests with Vitest
 - **Status**: ✅ COMPLETED (commit: 0e5fe7e)
 
 ### Step 2.3: State Management Setup ✅
 **Files**: `Models/Song.cs`, `Models/Session.cs`, `Store/LibraryState.cs`, `Store/PlaylistState.cs`
-
-- ✅ Install NuGet: `Fluxor.Blazor.Web`
-- ✅ Create `Song` model: Id (GUID), Artist, Title, Mp3FileName, CdgFileName, AddedBySinger
-- ✅ Create `Session` model: SessionId (GUID), CreatedAt, LibraryPath, RequireSingerName, PauseBetweenSongs, FilenamePattern
-- ✅ Create `LibraryState`: List<Song>, loading status, search filter (sorted alphabetically by Artist, then Title)
-- ✅ Create `PlaylistState`: Queue<Song> (queue first item is next song), current Song + SingerName, Dictionary<string, int> SingerSongCounts
 - ✅ Define actions: LoadLibrary, FilterSongs, AddToPlaylist (validates 10-song limit), RemoveSong, ReorderPlaylist, NextSong (pops first item)
 - ✅ Configure Fluxor in Program.cs and App.razor
 - **Status**: ✅ COMPLETED
 
-### Step 2.4: Session Sharing Mechanism ✅
+### Step 2.4: Session Sharing Mechanism - Frontend ✅
 **Files**: `wwwroot/js/sessionBridge.js`, `wwwroot/js/sessionBridge.test.js`, `Services/SessionService.cs`
-- ✅ Generate session URL with SessionId as query parameter: `/session?id={guid}`
-- ✅ Use **Broadcast Channel API** for cross-tab state synchronization:
-  - Main tab (with folder access) broadcasts playlist changes (library will be stable)
-  - Secondary tabs (Playlist, Singer views) listen and update their state
-- ✅ **sessionStorage**: Persist session state (library metadata, playlist, settings) so tab refresh doesn't lose context
-- ✅ Create sessionBridge.js to handle broadcast messages
-- ✅ SessionService.cs manages session state in Fluxor and triggers JS broadcast
 - ✅ **Multiple Sessions Support**: Each session has its own isolated state using session-specific storage keys and broadcast channels
   - Different browser tabs/windows can run independent karaoke sessions simultaneously
   - Sessions are identified by unique GUIDs ensuring no cross-contamination
-  - Each session has its own directory handle, library, and playlist state
-- ✅ **Unit tests with Vitest** - Comprehensive test coverage for session isolation, broadcast messaging, and state synchronization
 - ✅ **Note**: Main tab must remain open (holds directory handle). If closed, session ends for all tabs.
 - **Status**: ✅ COMPLETED
 
@@ -108,7 +82,6 @@
   - Opens Playlist view in new tab: `/playlist?session={guid}`
   - Opens Singer view in new tab: `/singer?session={guid}`
   - **Current tab navigates to NextSongView** (retains folder access)
-- ✅ **Testing**: Extract JavaScript logic to homeInterop.js module with comprehensive Vitest unit tests (see [TESTING_STRATEGY.md](TESTING_STRATEGY.md) for details)
 - **Status**: ✅ COMPLETED
 
 ### Step 2.6: Library Search Component ✅
@@ -121,14 +94,6 @@
 - ✅ "Add to Queue" button (microphone icon) dispatches AddToPlaylist action
 - ✅ Shows confirmation toast on successful add
 
-#### Testing:
-- ✅ **Unit tests**: Test filtering logic (case-insensitive, contains match)
-- ✅ **Unit tests**: Verify table displays correct columns with proper sorting (alphabetically by Artist, then Title)
-- ✅ **Unit tests**: Test AddToPlaylist action dispatch with correct song data
-- ✅ **Unit tests**: Test toast notification display on successful add
-- ✅ **Edge cases**: Empty library, empty search results, special characters in artist/title
-- **Status**: ✅ COMPLETED (14 tests passing)
-
 ### Step 2.7: Playlist Management View ✅
 **Files**: `Pages/Playlist.razor`, `Karamel.Web.Tests/PlaylistPageTests.cs`
 
@@ -139,17 +104,6 @@
 - ✅ Clear playlist button (asks for confirmation)
 - ✅ Listens to Broadcast Channel for real-time updates from main tab
 - ✅ No folder access needed (metadata-only view)
-
-#### Testing:
-- ✅ **Unit tests**: Verify "Now Playing" displays first song in queue with correct artist, title, and singer name
-- ✅ **Unit tests**: Verify "Up Next" displays remaining songs in order with correct metadata
-- ✅ **Unit tests**: Test RemoveSongAction dispatch when remove button clicked
-- ✅ **Unit tests**: Test ReorderPlaylistAction dispatch with correct old/new indices on drag-drop
-- ✅ **Unit tests**: Test ClearPlaylistAction dispatch when clear button clicked (with confirmation dialog)
-- ✅ **Unit tests**: Verify empty state message when playlist is empty
-- ✅ **Unit tests**: Verify drag-drop UI only enabled when singers allowed to reorder (session setting)
-- ✅ **Edge cases**: Single song in queue, queue becomes empty after removal, reorder to same position
-- **Status**: ✅ COMPLETED (11 tests passing)
 
 ### Step 2.8: Singer View ✅
 **Files**: `Pages/SingerView.razor`, `Karamel.Web.Tests/SingerViewTests.cs`
@@ -162,18 +116,6 @@
 - ✅ Success toast: "Song added! It's now #{position} in queue"
 - ✅ Error toast if limit reached: "Maximum 10 songs per singer"
 - ✅ No folder access needed (uses broadcast metadata from main tab)
-
-#### Testing:
-- ✅ **Unit tests**: Verify name entry form displays when RequireSingerName is true
-- ✅ **Unit tests**: Verify name entry form is skipped when RequireSingerName is false
-- ✅ **Unit tests**: Test singer name is stored in session state after confirmation
-- ✅ **Unit tests**: Verify LibrarySearch component is displayed after name confirmation
-- ✅ **Unit tests**: Test 10-song limit validation per singer (tracked in PlaylistState)
-- ✅ **Unit tests**: Verify success toast shows with correct queue position
-- ✅ **Unit tests**: Verify error toast displays when singer reaches 10-song limit
-- ✅ **Unit tests**: Test mobile-optimized styling and touch-friendly buttons
-- ✅ **Edge cases**: Empty singer name validation, special characters in names, session state persistence
-- **Status**: ✅ COMPLETED
 
 ### Step 2.9: Next Song View ✅
 **Files**: `Pages/NextSongView.razor`, `wwwroot/js/qrcode.js`, `wwwroot/js/qrcode.test.js`, `Karamel.Web.Tests/NextSongViewTests.cs`
@@ -188,14 +130,6 @@
   - Center: "Sing a song" message + QR code (large) - Left side shows a large microphone.
 - Listens to Broadcast Channel for playlist updates
 
-#### Testing: ✅
-- **Unit tests**: Verify display of next song from queue with correct artist, title, and singer name (18 C# tests, 20 JS tests - all passing)
-- **Unit tests**: Test empty queue state shows "Sing a song" message and large QR code
-- **Unit tests**: Verify QR code generation with correct session URL
-- **Unit tests**: Test auto-advance timer to PlayerView after configured pause seconds
-- **Unit tests**: Verify broadcast channel listener updates when playlist changes
-- **Edge cases**: Queue becomes empty while timer is running, session GUID validation, pause duration variations
-
 ### Step 2.10: Player View (Refactor KaraokePlayer.razor)
 **Files**: `Pages/PlayerView.razor` (renamed from KaraokePlayer.razor), `Karamel.Web.Tests/PlayerViewTests.cs`
 
@@ -207,19 +141,6 @@
 - **Retains folder access** - all playback logic stays in JavaScript
 - Dispatches NextSong action on completion (removes song from queue index 0)
 - Allows to open embedded playlist or singer view by hovering over the left side (15 pixels) of the screen. This hovering will cause an expand section icon to show. if this is clicked, the left side will show a pane where I can switch between showing a Singer view or the Playlist view. It will take up 20% of the screen width.
-
-#### Testing: ✅
-- ✅ **Unit tests**: Verify session validation and invalid session error display
-- ✅ **Unit tests**: Test CurrentSong is loaded from PlaylistState automatically
-- ✅ **Unit tests**: Verify full-screen canvas display without card wrappers
-- ✅ **Unit tests**: Test controls overlay appears/hides based on hover state
-- ✅ **Unit tests**: Verify side panel opens on left-edge hover and icon click
-- ✅ **Unit tests**: Test switching between Singer and Playlist views in side panel
-- ✅ **Unit tests**: Verify NextSong action dispatch when song playback ends
-- ✅ **Unit tests**: Test navigation to NextSongView after song completion
-- ✅ **Unit tests**: Verify proper handling when queue is empty after song ends
-- ✅ **Edge cases**: Session without CurrentSong, playback errors, side panel state persistence
-- **Status**: ✅ COMPLETED (19 tests passing)
 
 ### Step 2.11: Navigation & Session Flow ✅ COMPLETED
 **Files**: `Layout/NavMenu.razor`, `Layout/MainLayout.razor`, `App.razor`, `Karamel.Web.Tests/NavigationFlowTests.cs`, `Karamel.Web.Tests/SessionTestBase.cs`, `Pages/*.razor`, `STRICT_SESSION_VALIDATION_PLAN.md`
@@ -236,16 +157,6 @@
 - Multi-session support: Different tabs can run independent sessions simultaneously
 - Test session handling: Can add song to playlist in SingerView. It is broadcast to NextSongView and PlaylistView.
 - Test: first song is added to playlist and NextSongView shows it and navigates to PlayerView.
-
-#### Testing:
-- ✅ **Unit tests**: Verify MainLayout no longer includes NavMenu component
-- ✅ **Unit tests**: Test minimal layout structure without sidebar navigation
-- ✅ **Unit tests**: Verify all views validate session GUID from query parameters (STRICT)
-- ✅ **Unit tests**: Test invalid session GUID handling (error display)
-- ✅ **Unit tests**: Test missing session parameter handling
-- ✅ **Edge cases**: Malformed GUIDs, empty session parameters, valid GUID but no session data
-- ✅ **Created SessionTestBase**: Centralized test infrastructure with SetupTestWithSession() helper
-- **Status**: ✅ COMPLETED (92 tests passing, 9 skipped with documented reasons)
 
 ### Step 2.12: PlayerView starts playback ✅ COMPLETED
 - first song is added to playlist
@@ -366,15 +277,6 @@ Notes:
 - Unit tests using `Microsoft.EntityFrameworkCore.InMemory` have been added and pass locally.
 - `Program.cs` configures the DB provider via `DB_PROVIDER` env var (defaults to `Sqlite`).
 
-#### Step 6.2.1 Tests for DB layer 
-- Purpose: Define unit and integration tests to validate provider-agnostic behavior and repository correctness.
-- Tests:
-  - Unit tests using `Microsoft.EntityFrameworkCore.InMemory` to verify basic CRUD operations for `Session`, `Playlist`, and `PlaylistItem` repositories.
-  - Integration tests using SQLite in-memory mode (`DataSource=:memory:`) to validate migrations and provider-specific behaviors where necessary.
-  - Tests should assert that repositories work correctly when swapping providers (InMemory → SQLite) and that `BackendDbContext` can be configured via DI.
-  - Place tests in `Karamel.Backend.Tests` and ensure they run with `dotnet test`.
-
-
 ### Step 6.3 Session + Playlist models and REST API (link-based tokens) ✅ COMPLETED
 - Purpose: Implement `Session`, `Playlist`, `PlaylistItem` models and REST endpoints for create/get/heartbeat/end and playlist mutations. Issue link-based tokens at session creation.
 - Files to add/update: `Karamel.Backend/Models/Session.cs`, `Karamel.Backend/Models/PlaylistItem.cs`, `Karamel.Backend/Controllers/SessionController.cs`, `Karamel.Backend/Controllers/PlaylistController.cs`, `Karamel.Backend/Services/TokenService.cs`
@@ -397,8 +299,6 @@ Notes:
 1. ✅ Created `LinkTokenHubFilter` implementing `IHubFilter` with X-Link-Token validation from connection context
 2. ✅ Added hub mutation methods: `AddItemAsync`, `RemoveItemAsync`, `ReorderAsync` with repository DI
 3. ✅ Marked REST endpoints as `[Obsolete]` for future removal (kept for backward compatibility)
-4. ✅ Added 8 comprehensive SignalR integration tests (authorized/unauthorized mutations, broadcasts, cumulative state)
-5. ✅ All tests passing (12 backend tests, ~35s duration)
 
 **Key Implementation Details:**
 - **Filter registration**: Must use `.AddSignalR().AddHubOptions<PlaylistHub>(opts => opts.AddFilter<LinkTokenHubFilter>())` for filters to work
@@ -417,18 +317,6 @@ Notes:
 
 **Status**: ✅ COMPLETED (SignalR bridge implemented; `sessionBridge.js` replaced by `signalRBridge.js`; `SessionService.cs` updated to prefer SignalR with broadcast fallback; frontend and backend interop verified locally)
 
-#### Step 6.5.a Tests and migration plan (NEW)
-- Purpose: Define and run the tests required to safely migrate from BroadcastChannel to SignalR and provide a clear rollback/compatibility path during transition.
-- Files/areas to update: `Karamel.Web/wwwroot/js/sessionBridge.test.js`, `Karamel.Web/wwwroot/js/homeInterop.test.js`, other JS tests that `vi.mock` the bridge; `Karamel.Web.Tests` C# tests that rely on JS interop behavior.
-- Substeps:
-  1. Add `signalRBridge.test.js` and update existing tests to `vi.mock('./signalRBridge.js')` instead of `sessionBridge.js`.
-  2. Implement `signalRBridge.js` as a compatibility shim that re-exports the `sessionBridge.js` API during initial rollout. This lets tests and local dev continue to run while the full SignalR implementation is built.
-  3. Update `SessionService.cs` to import `./js/signalRBridge.js` by default. Keep detection/fallback logic so `sessionBridge.js` can be used if server is not available (preserve offline/local dev flow).
-  4. Update C# tests that use `IJSRuntime` mocks to reference the `signalRBridge` exports where needed.
-  5. Run the JS test suite (`npm run test:run`) and fix mocks/expectations. Then run `dotnet test Karamel.Web.Tests` and resolve failures.
-  6. Once all tests pass, replace the shim with the full SignalR implementation and add SignalR-specific unit tests (mocking the Hub connection and events).
-- Acceptance for tests: All JS tests run with `signalRBridge` mocked; `Karamel.Web.Tests` pass locally with no additional unexpected skips.
-
 **Status**: ✅ COMPLETED (tests updated to mock `signalRBridge`; JS Vitest and `Karamel.Web.Tests` C# suites passing locally; SignalR-specific tests added)
 
 ### Step 6.6 Session cleanup & heartbeats
@@ -440,13 +328,7 @@ Notes:
 
 **Status**: ✅ COMPLETED (backend cleanup service implemented, heartbeat endpoints used by client, and `SessionCleanupTests` passing locally)
 
-#### Tests (added)
-- Add `Karamel.Backend.Tests/SessionCleanupTests.cs` to verify `SessionCleanupService.CleanupOnceAsync` deletes expired sessions.
-- Expose `CleanupOnceAsync` on the background service so tests can run a single cleanup pass deterministically.
-- Test should create an expired session in the test DB, call `CleanupOnceAsync`, and assert the session was removed.
-- Integration test will run against the in-memory SQLite TestServer (TestServerFactory) as per existing test patterns.
-
-### Step 6.7 Deployment prep (Azure)
+### Step 6.7 Deployment prep (Azure) ✅ COMPLETED
 - Purpose: Add `appsettings.Production.json` with Azure SQL connection placeholders, a short `DEPLOYMENT.md` describing Azure App Service steps, and ensure WebSockets are enabled in deployment guidance.
 - Files to add: `Karamel.Backend/appsettings.Production.json` (template), `DEPLOYMENT.md` (short Azure checklist), `Karamel.Backend/Dockerfile` (optional, recommended for container deployments).
 - Quick verification: CI step to run migrations against a staging SQL Server and deploy to App Service (manual step in short doc). 
@@ -503,7 +385,7 @@ Chosen approach (easiest / low-cost initial deployment):
 - **Key Vault:** `kv-karamel-<env>` to store `KARAMEL_TOKEN_SECRET` and any other secrets; use Key Vault references from App Service.
 - **Backend hosting:** Azure App Service (Linux) hosting the ASP.NET Core backend. SignalR will run in-app for the initial deployment (no Azure SignalR Service yet). Enable WebSockets on the App Service.
 - **Frontend hosting:** Azure Static Web Apps `staticweb-<env>-karamel` for Blazor WASM with built-in GitHub Actions deployment.
-- **Database:** Azure SQL Database using **Serverless (vCore) with auto-pause** for cheapest dev/runtime profile. Note: platform backups are mandatory and cannot be fully disabled; choose minimal retention while using serverless to reduce compute costs.
+- **Database:** Azure SQL Database using **Serverless (vCore) with auto-pause** for cheapest dev/runtime profile. Choose minimal retention while using serverless to reduce compute costs.
 - **Monitoring:** Application Insights for backend telemetry and basic alerts.
 - **Region:** westeurope
 
@@ -529,11 +411,27 @@ Notes and caveats:
 - - Hosting SignalR in-app is easiest initially — move to Azure SignalR Service later when scale or reliability requires it.
 - Static Web Apps provides free TLS, easy CI/CD, and global distribution for Blazor WASM static assets; Storage+CDN is an alternative if you want tighter control.
 
+
 Acceptance criteria for Phase 7:
 - `rg-karamel-dev` exists with tagged resources.
 - `kv-karamel-dev` contains `KARAMEL_TOKEN_SECRET` accessible to App Service via Managed Identity.
 - Azure SQL serverless database is reachable from the backend and EF migrations can be applied from CI.
 - Backend deployed to App Service and frontend deployed to Static Web Apps with successful end-to-end test deployment.
+
+Status: ✅ IMPLEMENTED (CI + startup validation + helper scripts)
+
+What I implemented in this commit:
+
+- **CI/CD workflows**: Added GitHub Actions workflows
+  - File: [.github/workflows/backend-deploy.yml](.github/workflows/backend-deploy.yml)
+  - File: [.github/workflows/frontend-deploy.yml](.github/workflows/frontend-deploy.yml)
+- **Migrations helper script**: `scripts/run_migrations.sh` to run EF Core migrations from CI
+- **Startup validation**: Backend `Program.cs` now validates `Karamel:TokenSecret` / `KARAMEL_TOKEN_SECRET` and enforces a minimum length in non-development environments
+
+Notes:
+- Workflows are configured to run on `main` (deploy) and `feature/**` (build/test). Deployment steps require repository secrets (`AZURE_WEBAPP_PUBLISH_PROFILE`, `AZURE_STATIC_WEB_APPS_API_TOKEN`, etc.).
+- I ran a full solution build, the `Karamel.Web.Tests` test suite, and the JS Vitest suite locally; all passed (3 skipped C# tests expected).
+- I did not run the full backend integration tests automatically — please run `dotnet test .\Karamel.Backend.Tests\ -v minimal` manually as per the project's testing guidance if you want CI to exercise SignalR/DB integration.
 
 Link to deployment checklist: see `DEPLOYMENT.md` for App Service settings and production-only steps.
 
