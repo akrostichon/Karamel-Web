@@ -5,11 +5,24 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure EF Core DbContext with provider-agnostic options
 var dbProvider = builder.Configuration["DB_PROVIDER"] ?? System.Environment.GetEnvironmentVariable("DB_PROVIDER") ?? "Sqlite";
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? builder.Configuration["DefaultConnection"];
+var useAad = (builder.Configuration["DB_USE_AAD"] ?? Environment.GetEnvironmentVariable("DB_USE_AAD")) == "true";
 
 if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
-        options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;"));
+    if (useAad && !string.IsNullOrWhiteSpace(connectionString))
+    {
+        // Use managed identity access token via a custom DbConnection
+        builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>((serviceProvider, options) =>
+        {
+            var conn = Karamel.Backend.Services.ManagedIdentitySqlConnectionFactory.Create(connectionString);
+            options.UseSqlServer(conn);
+        });
+    }
+    else
+    {
+        builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
+            options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;"));
+    }
 }
 else
 {

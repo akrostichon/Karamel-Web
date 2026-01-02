@@ -1,6 +1,6 @@
 # Azure Infra (Bicep) — Karamel Phase 7
 
-This folder contains minimal Bicep templates to provision resources used by Phase 7:
+This folder contains Bicep templates to provision resources:
 
 - Key Vault
 - Azure SQL Server + Database (example SKU; adjust for serverless elsewhere if needed)
@@ -8,7 +8,7 @@ This folder contains minimal Bicep templates to provision resources used by Phas
 - Static Web App (frontend)
 - Application Insights
 
-This is a simple starting point. For production use you should harden and split templates into modules, add networking (private endpoints), and configure RBAC and Key Vault access policies for managed identities.
+Should still configure RBAC and Key Vault access policies for managed identities.
 
 Quick deploy (examples):
 
@@ -33,7 +33,13 @@ az deployment group create --resource-group rg-karamel-dev --template-file infra
 
 4. After deployment:
 - Store `KARAMEL_TOKEN_SECRET` in Key Vault `kv-karamel-dev` and grant the App Service managed identity access.
-- Configure app settings in the Web App (connection strings, Key Vault references, `WEBSITES_ENABLE_WEBSOCKETS=1`).
+- The backend now supports Azure AD (managed identity) authentication to Azure SQL. Recommended steps:
+	- Ensure the Web App has a system-assigned managed identity (the Bicep template enables this).
+	- Create a contained database user mapped to the Web App's managed identity and grant it the necessary DB role (the `infra/deploy.ps1` script attempts to do this automatically):
+		- `CREATE USER [<webAppName>] FROM EXTERNAL PROVIDER; ALTER ROLE db_owner ADD MEMBER [<webAppName>];`
+	- Set the App Setting `DB_USE_AAD=true` on the Web App so the backend uses the managed identity flow at runtime.
+	- Do NOT store admin DB passwords in production; use Key Vault only for temporary admin credentials during migration or for rotation.
+- Configure app settings in the Web App (Key Vault references, `WEBSITES_ENABLE_WEBSOCKETS=1`).
 
 Notes and caveats:
 - The SQL SKU used above is a basic example; to use serverless you can change the SKU and settings accordingly (serverless requires specific SKUs and compute tier settings).
