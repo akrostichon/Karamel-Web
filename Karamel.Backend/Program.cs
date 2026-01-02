@@ -22,7 +22,29 @@ else
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
 builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Karamel.Backend.Repositories.PlaylistRepository>();
 // Register TokenService with secret from configuration (fallback for dev)
-var tokenSecret = builder.Configuration["TokenSecret"] ?? Environment.GetEnvironmentVariable("TOKEN_SECRET") ?? "dev-secret-change-me";
+// Priority: Karamel:TokenSecret -> KARAMEL_TOKEN_SECRET environment var -> TokenSecret
+var tokenSecret = builder.Configuration["Karamel:TokenSecret"]
+                  ?? Environment.GetEnvironmentVariable("KARAMEL_TOKEN_SECRET")
+                  ?? builder.Configuration["TokenSecret"]
+                  ?? Environment.GetEnvironmentVariable("TOKEN_SECRET");
+
+if (string.IsNullOrWhiteSpace(tokenSecret))
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException("KARAMEL_TOKEN_SECRET (Karamel:TokenSecret) must be provided in non-development environments");
+    }
+    tokenSecret = "dev-secret-change-me";
+}
+
+if (tokenSecret.Length < 32)
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException("KARAMEL_TOKEN_SECRET must be at least 32 characters long in non-development environments");
+    }
+}
+
 builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new Karamel.Backend.Services.TokenService(tokenSecret));
 // Add SignalR and register hub filter globally
 builder.Services.AddSignalR(options =>
