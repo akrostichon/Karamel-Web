@@ -19,6 +19,9 @@ resource plan 'Microsoft.Web/serverfarms@2025-03-01' = {
 resource webApp 'Microsoft.Web/sites@2025-03-01' = {
   name: name
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: plan.id
     siteConfig: {

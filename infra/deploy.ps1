@@ -95,4 +95,27 @@ if ($RunMigrations) {
     Write-Host "Please run migrations manually or configure a deployment job that runs 'dotnet ef database update' against the DB." -ForegroundColor Yellow
 }
 
+# Create contained database user for the web app managed identity and grant db_owner
+Write-Host "Creating contained DB user for web app managed identity (AAD auth)"
+try {
+    # Acquire an access token for SQL using the web app principal (caller) - not the web app identity
+    # Instead, we'll connect using admin credentials and run T-SQL to create the contained user mapped to the web app identity
+    $adminConn = $connectionString
+    Add-Type -AssemblyName "System.Data"
+    $connection = New-Object System.Data.SqlClient.SqlConnection $adminConn
+    $connection.Open()
+    $createUserSql = "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = N'\\" + $webAppName + "\\') BEGIN CREATE USER [" + $webAppName + "] FROM EXTERNAL PROVIDER; EXEC sp_addrolemember N'db_owner', N'" + $webAppName + "'; END"
+    $cmd = $connection.CreateCommand()
+    $cmd.CommandText = $createUserSql
+    $cmd.ExecuteNonQuery() | Out-Null
+    $connection.Close()
+    Write-Host "Contained user created for $webAppName"
+} catch {
+    Write-Warning "Failed to create contained DB user: $_";
+}
+
+# Switch App Service to use AAD-based connection approach
+Write-Host "Setting an app setting to indicate AAD SQL auth will be used"
+az webapp config appsettings set -n $webAppName -g $ResourceGroup --settings "DB_USE_AAD=true" | Out-Null
+
 Write-Host "Deployment post-setup complete. Web App identity assigned and Key Vault secret configured." -ForegroundColor Green
