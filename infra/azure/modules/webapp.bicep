@@ -3,7 +3,7 @@ param name string
 param planName string
 param location string = resourceGroup().location
 
-resource plan 'Microsoft.Web/serverfarms@2022-03-01' = {
+resource plan 'Microsoft.Web/serverfarms@2025-03-01' = {
   name: planName
   location: location
   sku: {
@@ -16,7 +16,7 @@ resource plan 'Microsoft.Web/serverfarms@2022-03-01' = {
   }
 }
 
-resource webApp 'Microsoft.Web/sites@2022-03-01' = {
+resource webApp 'Microsoft.Web/sites@2025-03-01' = {
   name: name
   location: location
   properties: {

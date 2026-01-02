@@ -2,7 +2,7 @@
 param name string
 param location string = resourceGroup().location
 
-resource ai 'Microsoft.Insights/components@2020-02-02' = {
+resource ai 'Microsoft.Insights/components@2023-08-01' = {
   name: name
   location: location
   properties: {
