@@ -35,9 +35,9 @@ else
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
 builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Karamel.Backend.Repositories.PlaylistRepository>();
 // Register TokenService with secret from configuration (fallback for dev)
-// Priority: Karamel:TokenSecret -> KARAMEL_TOKEN_SECRET environment var -> TokenSecret
+// Priority: Karamel:TokenSecret -> KARAMEL-TOKEN-SECRET environment var -> TokenSecret
 var tokenSecret = builder.Configuration["Karamel:TokenSecret"]
-                  ?? Environment.GetEnvironmentVariable("KARAMEL_TOKEN_SECRET")
+                  ?? Environment.GetEnvironmentVariable("KARAMEL-TOKEN-SECRET")
                   ?? builder.Configuration["TokenSecret"]
                   ?? Environment.GetEnvironmentVariable("TOKEN_SECRET");
 
@@ -45,7 +45,7 @@ if (string.IsNullOrWhiteSpace(tokenSecret))
 {
     if (!(builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")))
     {
-        throw new InvalidOperationException("KARAMEL_TOKEN_SECRET (Karamel:TokenSecret) must be provided in non-development environments");
+        throw new InvalidOperationException("KARAMEL-TOKEN-SECRET (Karamel:TokenSecret) must be provided in non-development environments");
     }
     tokenSecret = "dev-secret-change-me";
 }
@@ -54,7 +54,7 @@ if (tokenSecret.Length < 32)
 {
     if (!(builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")))
     {
-        throw new InvalidOperationException("KARAMEL_TOKEN_SECRET must be at least 32 characters long in non-development environments");
+        throw new InvalidOperationException("KARAMEL-TOKEN-SECRET must be at least 32 characters long in non-development environments");
     }
 }
 

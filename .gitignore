@@ -8,3 +8,4 @@
 /dotnet_run_verbose.log
 /test-output.log
 **/_gen/
+prompts/

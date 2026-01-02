@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "rg-karamel-prod"
+    },
+    "location": {
+      "value": "northeurope"
+    },
+    "staticLocation": {
+      "value": "westeurope"
+    },
+    "sqlAdminUser": {
+      "value": "karameladmin"
+    },
+    "sqlAdminPassword": {
+      "value": "ReplaceWithStrongPassword!"
+    },
+    "createKeyVault": {
+      "value": false
+    },
+    "keyVaultName": {
+      "value": "rg-karamel-prod-kv"
+    }
+    ,
+    "createSqlPrivateEndpoint": {
+      "value": true
+    },
+    "sqlVnetName": {
+      "value": "rg-karamel-prod-sql-vnet"
+    },
+    "sqlSubnetName": {
+      "value": "sql-subnet"
+    },
+    "sqlVnetPrefix": {
+      "value": "10.1.0.0/16"
+    },
+    "sqlSubnetPrefix": {
+      "value": "10.1.0.0/24"
+    }
+    ,
+    "appServicePlanSkuName": {
+      "value": "F1"
+    },
+    "appServicePlanSkuTier": {
+      "value": "Free"
+    },
+    "appServicePlanSkuCapacity": {
+      "value": 1
+    }
+  }
+}

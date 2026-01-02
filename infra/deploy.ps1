@@ -2,9 +2,9 @@
 infra/deploy.ps1
 
 Usage:
-  .\infra\deploy.ps1 -ResourceGroup rg-karamel-dev -DeploymentName main [-TokenSecret <value>] [-RunMigrations]
+    .\infra\deploy.ps1 -ResourceGroup rg-karamel-prod -DeploymentName main [-TokenSecret <value>] [-RunMigrations]
 
-This script reads outputs from the ARM deployment, sets the KARAMEL_TOKEN_SECRET in Key Vault,
+This script reads outputs from the ARM deployment, sets the KARAMEL-TOKEN-SECRET in Key Vault,
 assigns a system-assigned identity to the web app, grants it access to Key Vault secrets, and
 sets app settings and a SQL connection string on the web app.
 
@@ -34,7 +34,9 @@ function Get-DeploymentOutput {
     return $out.properties.outputs
 }
 
-if (-not (az account show -o none 2>$null)) {
+# Verify Azure CLI login by running 'az account show' and checking the exit code
+$null = az account show -o none 2>$null
+if ($LASTEXITCODE -ne 0) {
     Write-Host "Please login with 'az login' before running this script." -ForegroundColor Yellow
     exit 1
 }
@@ -58,10 +60,10 @@ Write-Host "  SQL Server: $sqlServer" -ForegroundColor Green
 Write-Host "  SQL DB:     $sqlDatabase" -ForegroundColor Green
 
 if (-not $TokenSecret) {
-    $TokenSecret = Read-Host -AsSecureString "Enter KARAMEL_TOKEN_SECRET (min 32 chars)" | ConvertFrom-SecureString
+    $TokenSecret = Read-Host -AsSecureString "Enter KARAMEL-TOKEN-SECRET (min 32 chars)" | ConvertFrom-SecureString
     # ConvertFrom-SecureString produces an encrypted string; to get plain text, read as secure string then convert
-    $secure = Read-Host -AsSecureString "Confirm KARAMEL_TOKEN_SECRET (input again to confirm)"
-    if ($secure -eq $null) { Write-Error "No secret provided"; exit 1 }
+    $secure = Read-Host -AsSecureString "Confirm KARAMEL-TOKEN-SECRET (input again to confirm)"
+    if ($null -eq $secure) { Write-Error "No secret provided"; exit 1 }
     $TokenSecretPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
 } else {
     $TokenSecretPlain = $TokenSecret
@@ -78,8 +80,8 @@ if (-not $principalId) { Write-Error "Failed to get web app principalId"; exit 1
 Write-Host "Granting Key Vault secret get/list to principal: $principalId"
 az keyvault set-policy -n $kvName --object-id $principalId --secret-permissions get list | Out-Null
 
-Write-Host "Storing KARAMEL_TOKEN_SECRET in Key Vault: $kvName"
-az keyvault secret set --vault-name $kvName --name "KARAMEL_TOKEN_SECRET" --value $TokenSecretPlain | Out-Null
+Write-Host "Storing KARAMEL-TOKEN-SECRET in Key Vault: $kvName"
+az keyvault secret set --vault-name $kvName --name "KARAMEL-TOKEN-SECRET" --value $TokenSecretPlain | Out-Null
 
 # Compose connection string (admin account used; consider AAD auth for production)
 $sqlFqdn = az sql server show -g $ResourceGroup -n $sqlServer --query fullyQualifiedDomainName -o tsv
@@ -87,7 +89,7 @@ if (-not $sqlFqdn) { Write-Error "Could not retrieve SQL server FQDN"; exit 1 }
 $connectionString = "Server=tcp:$sqlFqdn,1433;Initial Catalog=$sqlDatabase;Persist Security Info=False;User ID=karameladmin;Password=ChangeThisPassword!123;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
 
 Write-Host "Setting app settings/connection string on web app $webAppName"
-az webapp config appsettings set -n $webAppName -g $ResourceGroup --settings "KARAMEL_TOKEN_SECRET=@Microsoft.KeyVault(SecretUri=https://$kvName.vault.azure.net/secrets/KARAMEL_TOKEN_SECRET)" | Out-Null
+az webapp config appsettings set -n $webAppName -g $ResourceGroup --settings "KARAMEL-TOKEN-SECRET=@Microsoft.KeyVault(SecretUri=https://$kvName.vault.azure.net/secrets/KARAMEL-TOKEN-SECRET)" | Out-Null
 az webapp config connection-string set -n $webAppName -g $ResourceGroup --settings DefaultConnection=$connectionString --connection-string-type SQLAzure | Out-Null
 
 if ($RunMigrations) {
