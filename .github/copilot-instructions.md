@@ -63,6 +63,16 @@ dotnet run --project Karamel.Web
 # Application start time: ~2-3 seconds
 ```
 
+## Azure Deployment Warning
+
+IMPORTANT: There is no development Azure environment for this repository. Do NOT deploy to the resource group `rg-karamel-dev` under any circumstances. All Azure deployments must target the production resource group `rg-karamel-prod` and must be reviewed before execution. Automated or manual deployments to `rg-karamel-dev` are strictly prohibited and can cause irreversible production-impacting configuration drift.
+
+Guidance:
+- **Always** set `--resource-group rg-karamel-prod` when running `az deployment group create` or similar commands.
+- If you need a non-production environment, request the creation of a separate resource group and update the infra parameters accordingly.
+- Double-check parameters files (for example, infra/azure/parameters.dev.json) and ensure they reference `rg-karamel-prod` before running any deployment commands.
+
+
 ## Development Workflow
 
 ### Branch Strategy

@@ -1,0 +1,751 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "6944183975027656555"
+    }
+  },
+  "parameters": {
+    "namePrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Name prefix for deployed resources (e.g. karamel-dev)"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "northeurope"
+    },
+    "sqlAdminUser": {
+      "type": "string"
+    },
+    "sqlAdminPassword": {
+      "type": "securestring"
+    },
+    "createKeyVault": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "If true, create a new Key Vault. Otherwise use an existing vault name provided by keyVaultName"
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-kv', parameters('namePrefix'))]",
+      "metadata": {
+        "description": "Name of Key Vault to create or reuse"
+      }
+    },
+    "staticLocation": {
+      "type": "string",
+      "defaultValue": "westeurope",
+      "metadata": {
+        "description": "Location to create the Static Web App (some resource types are not available in all regions)"
+      }
+    },
+    "createSqlPrivateEndpoint": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Create a private endpoint and related networking for the SQL Server"
+      }
+    },
+    "sqlVnetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "VNet name for SQL private endpoint (optional)"
+      }
+    },
+    "sqlSubnetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Subnet name inside the VNet for the SQL private endpoint (optional)"
+      }
+    },
+    "sqlVnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.0.0/16",
+      "metadata": {
+        "description": "VNet CIDR (used when a VNet is created)"
+      }
+    },
+    "sqlSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.0.0/24",
+      "metadata": {
+        "description": "Subnet CIDR (used when a VNet is created)"
+      }
+    },
+    "appServicePlanSkuName": {
+      "type": "string",
+      "defaultValue": "F1",
+      "metadata": {
+        "description": "App Service Plan SKU name"
+      }
+    },
+    "appServicePlanSkuTier": {
+      "type": "string",
+      "defaultValue": "Free",
+      "metadata": {
+        "description": "App Service Plan SKU tier"
+      }
+    },
+    "appServicePlanSkuCapacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "App Service Plan capacity"
+      }
+    },
+    "appServiceLocation": {
+      "type": "string",
+      "defaultValue": "westeurope",
+      "metadata": {
+        "description": "Location for App Service resources (App Service Plan & Web App)"
+      }
+    }
+  },
+  "variables": {
+    "sqlServerName": "[format('{0}-sqlsrv', parameters('namePrefix'))]",
+    "sqlDbName": "[format('{0}-sqldb', parameters('namePrefix'))]",
+    "appServicePlanName": "[format('{0}-plan', parameters('namePrefix'))]",
+    "webAppName": "[format('{0}-api', parameters('namePrefix'))]",
+    "staticSiteName": "[format('{0}-static', parameters('namePrefix'))]",
+    "appInsightsName": "[format('{0}-ai', parameters('namePrefix'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "keyvaultModule",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[parameters('keyVaultName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "createVault": {
+            "value": "[parameters('createKeyVault')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "6929642548199685950"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Deploy a Key Vault"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            },
+            "enablePurgeProtection": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable purge protection (irreversible once true). Disabled because you cannot delete the Key Vault if enabled."
+              }
+            },
+            "createVault": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Whether to create a new Key Vault. If false, module will not create resources and will return the provided name as output"
+              }
+            }
+          },
+          "variables": {
+            "kvResourceName": "[parameters('name')]"
+          },
+          "resources": [
+            {
+              "condition": "[parameters('createVault')]",
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2025-05-01",
+              "name": "[variables('kvResourceName')]",
+              "location": "[parameters('location')]",
+              "properties": "[union(createObject('tenantId', subscription().tenantId, 'sku', createObject('family', 'A', 'name', 'standard'), 'enableRbacAuthorization', true(), 'enableSoftDelete', true()), if(parameters('enablePurgeProtection'), createObject('enablePurgeProtection', true()), createObject()))]"
+            }
+          ],
+          "outputs": {
+            "keyVaultName": {
+              "type": "string",
+              "value": "[variables('kvResourceName')]"
+            },
+            "keyVaultId": {
+              "type": "string",
+              "value": "[if(parameters('createVault'), resourceId('Microsoft.KeyVault/vaults', variables('kvResourceName')), subscriptionResourceId('Microsoft.KeyVault/vaults', variables('kvResourceName')))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "appInsightsModule",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('appInsightsName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "5401748937814644915"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Deploy Application Insights resource"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "Application_Type": "web"
+              },
+              "kind": "web"
+            }
+          ],
+          "outputs": {
+            "appInsightsName": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', parameters('name'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "sqlModule",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "serverName": {
+            "value": "[variables('sqlServerName')]"
+          },
+          "dbName": {
+            "value": "[variables('sqlDbName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "administratorLogin": {
+            "value": "[parameters('sqlAdminUser')]"
+          },
+          "administratorPassword": {
+            "value": "[parameters('sqlAdminPassword')]"
+          },
+          "createPrivateEndpoint": {
+            "value": "[parameters('createSqlPrivateEndpoint')]"
+          },
+          "vnetName": "[if(empty(parameters('sqlVnetName')), createObject('value', format('{0}-vnet', variables('sqlServerName'))), createObject('value', parameters('sqlVnetName')))]",
+          "subnetName": "[if(empty(parameters('sqlSubnetName')), createObject('value', 'sql-subnet'), createObject('value', parameters('sqlSubnetName')))]",
+          "vnetAddressPrefix": {
+            "value": "[parameters('sqlVnetPrefix')]"
+          },
+          "subnetPrefix": {
+            "value": "[parameters('sqlSubnetPrefix')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "4864727852400104628"
+            }
+          },
+          "parameters": {
+            "serverName": {
+              "type": "string",
+              "metadata": {
+                "description": "Deploy an Azure SQL Server and a serverless database"
+              }
+            },
+            "dbName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            },
+            "administratorLogin": {
+              "type": "string"
+            },
+            "administratorPassword": {
+              "type": "securestring"
+            },
+            "createPrivateEndpoint": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Whether to create a private endpoint and VNet for the SQL server"
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "defaultValue": "[format('{0}-vnet', parameters('serverName'))]",
+              "metadata": {
+                "description": "Name of the VNet to create for the private endpoint (when enabled)"
+              }
+            },
+            "subnetName": {
+              "type": "string",
+              "defaultValue": "sql-subnet",
+              "metadata": {
+                "description": "Subnet name to create/use inside the VNet for private endpoint"
+              }
+            },
+            "vnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "10.1.0.0/16",
+              "metadata": {
+                "description": "VNet address prefix"
+              }
+            },
+            "subnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.1.0.0/24",
+              "metadata": {
+                "description": "Subnet address prefix"
+              }
+            },
+            "privateDnsZoneName": {
+              "type": "string",
+              "defaultValue": "privatelink.database.windows.net",
+              "metadata": {
+                "description": "Private DNS zone for Azure SQL private endpoint"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Sql/servers",
+              "apiVersion": "2023-08-01",
+              "name": "[parameters('serverName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "administratorLogin": "[parameters('administratorLogin')]",
+                "administratorLoginPassword": "[parameters('administratorPassword')]",
+                "minimalTlsVersion": "1.2",
+                "publicNetworkAccess": "Disabled"
+              }
+            },
+            {
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2023-08-01",
+              "name": "[format('{0}/{1}', parameters('serverName'), parameters('dbName'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "GP_S_Gen5_1",
+                "tier": "GeneralPurpose"
+              },
+              "properties": {
+                "zoneRedundant": false,
+                "autoPauseDelay": 40
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('createPrivateEndpoint')]",
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2021-05-01",
+              "name": "[parameters('vnetName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('vnetAddressPrefix')]"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "[parameters('subnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('subnetPrefix')]"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "[parameters('createPrivateEndpoint')]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('privateDnsZoneName')]",
+              "location": "global",
+              "properties": {}
+            },
+            {
+              "condition": "[parameters('createPrivateEndpoint')]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', parameters('privateDnsZoneName'), format('{0}-link', parameters('vnetName')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('createPrivateEndpoint')]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2021-05-01",
+              "name": "[format('{0}-pe', parameters('serverName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-pls', parameters('serverName'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]",
+                      "groupIds": [
+                        "sqlServer"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('createPrivateEndpoint')]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2021-05-01",
+              "name": "[format('{0}/{1}', format('{0}-pe', parameters('serverName')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe', parameters('serverName')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "sqlServerName": {
+              "type": "string",
+              "value": "[parameters('serverName')]"
+            },
+            "sqlDatabaseName": {
+              "type": "string",
+              "value": "[parameters('dbName')]"
+            },
+            "sqlServerFullyQualifiedDomainName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Sql/servers', parameters('serverName')), '2023-08-01').fullyQualifiedDomainName]"
+            },
+            "privateEndpointId": {
+              "type": "string",
+              "value": "[if(parameters('createPrivateEndpoint'), resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe', parameters('serverName'))), '')]"
+            },
+            "privateDnsZoneId": {
+              "type": "string",
+              "value": "[if(parameters('createPrivateEndpoint'), resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName')), '')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "webModule",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('webAppName')]"
+          },
+          "planName": {
+            "value": "[variables('appServicePlanName')]"
+          },
+          "location": {
+            "value": "[parameters('appServiceLocation')]"
+          },
+          "planSkuName": {
+            "value": "[parameters('appServicePlanSkuName')]"
+          },
+          "planSkuTier": {
+            "value": "[parameters('appServicePlanSkuTier')]"
+          },
+          "planSkuCapacity": {
+            "value": "[parameters('appServicePlanSkuCapacity')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "7985663378312035739"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Deploy an App Service Plan and Web App"
+              }
+            },
+            "planName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            },
+            "planSkuName": {
+              "type": "string",
+              "defaultValue": "F1",
+              "metadata": {
+                "description": "SKU name for the App Service Plan (e.g., F1, B1, S1)"
+              }
+            },
+            "planSkuTier": {
+              "type": "string",
+              "defaultValue": "Free",
+              "metadata": {
+                "description": "SKU tier for the App Service Plan (e.g., Free, Basic, Standard)"
+              }
+            },
+            "planSkuCapacity": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "Plan capacity"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2025-03-01",
+              "name": "[parameters('planName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('planSkuName')]",
+                "tier": "[parameters('planSkuTier')]",
+                "capacity": "[parameters('planSkuCapacity')]"
+              },
+              "properties": {
+                "reserved": true
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2025-03-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('planName'))]",
+                "siteConfig": {
+                  "appSettings": [
+                    {
+                      "name": "WEBSITES_ENABLE_WEBSOCKETS",
+                      "value": "1"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('planName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "appServicePlanId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('planName'))]"
+            },
+            "webAppName": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "webAppId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "staticModule",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('staticSiteName')]"
+          },
+          "location": {
+            "value": "[parameters('staticLocation')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "9487695513787029758"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Deploy a Static Web App"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/staticSites",
+              "apiVersion": "2025-03-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Free",
+                "tier": "Free"
+              },
+              "properties": {}
+            }
+          ],
+          "outputs": {
+            "staticSiteId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/staticSites', parameters('name'))]"
+            },
+            "staticSiteName": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "keyVaultName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvaultModule'), '2025-04-01').outputs.keyVaultName.value]"
+    },
+    "sqlServer": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sqlModule'), '2025-04-01').outputs.sqlServerName.value]"
+    },
+    "sqlDatabase": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sqlModule'), '2025-04-01').outputs.sqlDatabaseName.value]"
+    },
+    "webAppName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'webModule'), '2025-04-01').outputs.webAppName.value]"
+    },
+    "staticSiteName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'staticModule'), '2025-04-01').outputs.staticSiteName.value]"
+    },
+    "appInsights": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appInsightsModule'), '2025-04-01').outputs.appInsightsName.value]"
+    }
+  }
+}

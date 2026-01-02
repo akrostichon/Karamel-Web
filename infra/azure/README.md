@@ -19,16 +19,20 @@ az login
 az account set --subscription "YOUR_SUBSCRIPTION_ID"
 ```
 
-2. Create a resource group (if not already created)
+2. Create a production resource group
+
+This repository is configured to use a single production environment to keep costs low.
 
 ```powershell
-az group create -n rg-karamel-dev -l westeurope
+az group create -n rg-karamel-prod -l northeurope
 ```
 
-3. Deploy the Bicep template
+3. Deploy the Bicep template (single-prod)
+
+Use the consolidated `parameters.json` for production defaults. Replace secrets before running.
 
 ```powershell
-az deployment group create --resource-group rg-karamel-dev --template-file infra/azure/main.bicep --parameters @infra/azure/parameters.dev.json
+az deployment group create --resource-group rg-karamel-prod --template-file infra/azure/main.bicep --parameters @infra/azure/parameters.json
 ```
 
 4. After deployment:

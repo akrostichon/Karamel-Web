@@ -7,7 +7,7 @@ This document lists minimal steps and configuration needed to deploy Karamel.Bac
 2. Provision Azure SQL and create a connection string. Update `Karamel.Backend/appsettings.Production.json` with the production `DefaultConnection` or set the `ConnectionStrings__DefaultConnection` app setting in App Service.
 
 3. Configure App Service settings:
-   - `KARAMEL_TOKEN_SECRET`: Provide a secure 32+ byte secret (do not check in).
+   - `KARAMEL-TOKEN-SECRET`: Provide a secure 32+ byte secret (do not check in).
    - `DB_PROVIDER`: Set to `SqlServer`.
    - `ASPNETCORE_ENVIRONMENT`: Set to `Production`.
    - `ConnectionStrings__DefaultConnection`: (optional, overrides config file)
@@ -23,5 +23,5 @@ This document lists minimal steps and configuration needed to deploy Karamel.Bac
 8. Monitor logs and configure Application Insights for production telemetry.
 
 Notes:
-- Do not store `KARAMEL_TOKEN_SECRET` in source control. Use Azure Key Vault or App Service environment variables.
+- Do not store `KARAMEL-TOKEN-SECRET` in source control. Use Azure Key Vault or App Service environment variables.
 - For container deployments, ensure the container registry credentials are configured in the App Service.
