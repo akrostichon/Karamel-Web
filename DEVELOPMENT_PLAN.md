@@ -382,7 +382,7 @@ Goal: Prepare a minimal, low-friction Azure hosting setup for Karamel so the bac
 
 Chosen approach (easiest / low-cost initial deployment):
 - **Resource Group:** single resource group per environment (`rg-karamel-<env>`).
-- **Key Vault:** `kv-karamel-<env>` to store `KARAMEL_TOKEN_SECRET` and any other secrets; use Key Vault references from App Service.
+- **Key Vault:** `kv-karamel-<env>` to store `KARAMEL-TOKEN-SECRET` and any other secrets; use Key Vault references from App Service.
 - **Backend hosting:** Azure App Service (Linux) hosting the ASP.NET Core backend. SignalR will run in-app for the initial deployment (no Azure SignalR Service yet). Enable WebSockets on the App Service.
 - **Frontend hosting:** Azure Static Web Apps `staticweb-<env>-karamel` for Blazor WASM with built-in GitHub Actions deployment.
 - **Database:** Azure SQL Database using **Serverless (vCore) with auto-pause** for cheapest dev/runtime profile. Choose minimal retention while using serverless to reduce compute costs.
@@ -390,14 +390,14 @@ Chosen approach (easiest / low-cost initial deployment):
 - **Region:** westeurope
 
 Actionable tasks (high-level):
-1. Create resource group `rg-karamel-dev` (or `-prod` for production).
-2. Provision Key Vault `kv-karamel-<env>`; add secret `KARAMEL_TOKEN_SECRET`. Enable RBAC and grant the App Service system-assigned Managed Identity `Key Vault Secrets User` role.
+ 1. Create resource group `rg-karamel-prod`.
+2. Provision Key Vault `kv-karamel-<env>`; add secret `KARAMEL-TOKEN-SECRET`. Enable RBAC and grant the App Service system-assigned Managed Identity `Key Vault Secrets User` role.
 3. Provision Azure SQL Server and Database `sql-karamel-<env>` using Serverless vCore with auto-pause enabled. Configure minimal backup retention if desired (platform backups remain enabled).
 4. Create an App Service Plan (Linux, Basic/Standard) and Web App `app-karamel-api-<env>`; enable system-assigned Managed Identity; configure app settings:
   - `ASPNETCORE_ENVIRONMENT` = `Development`/`Production`
   - `DB_PROVIDER` = `SqlServer`
   - `ConnectionStrings__DefaultConnection` (use Key Vault or App Service setting)
-  - `KARAMEL_TOKEN_SECRET` via Key Vault reference
+  - `KARAMEL-TOKEN-SECRET` via Key Vault reference
   - `WEBSITES_ENABLE_WEBSOCKETS` = `1` (SignalR in-app)
 5. Create Azure Static Web App `staticweb-<env>-karamel` and connect it to the repo branch for automatic builds/publish of the Blazor `wwwroot` assets.
 6. Setup GitHub Actions:
@@ -413,8 +413,8 @@ Notes and caveats:
 
 
 Acceptance criteria for Phase 7:
-- `rg-karamel-dev` exists with tagged resources.
-- `kv-karamel-dev` contains `KARAMEL_TOKEN_SECRET` accessible to App Service via Managed Identity.
+- `rg-karamel-prod` exists with tagged resources.
+- `kv-karamel-prod` contains `KARAMEL-TOKEN-SECRET` accessible to App Service via Managed Identity.
 - Azure SQL serverless database is reachable from the backend and EF migrations can be applied from CI.
 - Backend deployed to App Service and frontend deployed to Static Web Apps with successful end-to-end test deployment.
 
@@ -426,7 +426,7 @@ What I implemented in this commit:
   - File: [.github/workflows/backend-deploy.yml](.github/workflows/backend-deploy.yml)
   - File: [.github/workflows/frontend-deploy.yml](.github/workflows/frontend-deploy.yml)
 - **Migrations helper script**: `scripts/run_migrations.sh` to run EF Core migrations from CI
-- **Startup validation**: Backend `Program.cs` now validates `Karamel:TokenSecret` / `KARAMEL_TOKEN_SECRET` and enforces a minimum length in non-development environments
+- **Startup validation**: Backend `Program.cs` now validates `Karamel:TokenSecret` / `KARAMEL-TOKEN-SECRET` and enforces a minimum length in non-development environments
 
 Notes:
 - Workflows are configured to run on `main` (deploy) and `feature/**` (build/test). Deployment steps require repository secrets (`AZURE_WEBAPP_PUBLISH_PROFILE`, `AZURE_STATIC_WEB_APPS_API_TOKEN`, etc.).
@@ -447,7 +447,7 @@ Link to deployment checklist: see `DEPLOYMENT.md` for App Service settings and p
 ### Step 9.1 Secure secret management for link tokens (REQUIRED)
 - Purpose: Ensure link-token HMAC secrets are provisioned, stored, and rotated securely in all environments.
 - Requirements:
-  - **Secret source**: Read token secret from environment variable `KARAMEL_TOKEN_SECRET` or configuration `Karamel:TokenSecret`. In production, secrets must be provided via Azure Key Vault and not as checked-in config.
+  - **Secret source**: Read token secret from environment variable `KARAMEL-TOKEN-SECRET` or configuration `Karamel:TokenSecret`. In production, secrets must be provided via Azure Key Vault and not as checked-in config.
   - **No production fallback**: The application must fail startup in non-development environments if the secret is missing or empty.
   - **Secret strength**: Require a minimum secret length of 32 bytes (256 bits). Document how to generate a secure secret in `DEPLOYMENT.md` or README.
   - **Rotation tests**: Add unit tests validating that tokens generated with an old secret fail validation after rotation (to confirm rotation behavior), and document rotation procedure.

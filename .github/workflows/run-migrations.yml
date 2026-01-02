@@ -6,7 +6,7 @@ on:
       resource_group:
         description: 'Resource Group'
         required: true
-        default: 'rg-karamel-dev'
+        default: 'rg-karamel-prod'
       deployment_name:
         description: 'Deployment name'
         required: true

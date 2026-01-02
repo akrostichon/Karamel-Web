@@ -5,7 +5,7 @@ Runs EF Core migrations against the deployed database. Designed to run from Azur
 
 Usage:
   # Use deployment outputs (resource group + deployment name)
-  .\infra\run_migrations.ps1 -ResourceGroup rg-karamel-dev -DeploymentName main -ProjectPath "./Karamel.Backend"
+    .\infra\run_migrations.ps1 -ResourceGroup rg-karamel-prod -DeploymentName main -ProjectPath "./Karamel.Backend"
 
 Notes:
   - The script will try to read a DB connection string from Key Vault secret `SqlAdminConnectionString` if present.

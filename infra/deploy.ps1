@@ -2,7 +2,7 @@
 infra/deploy.ps1
 
 Usage:
-  .\infra\deploy.ps1 -ResourceGroup rg-karamel-dev -DeploymentName main [-TokenSecret <value>] [-RunMigrations]
+    .\infra\deploy.ps1 -ResourceGroup rg-karamel-prod -DeploymentName main [-TokenSecret <value>] [-RunMigrations]
 
 This script reads outputs from the ARM deployment, sets the KARAMEL-TOKEN-SECRET in Key Vault,
 assigns a system-assigned identity to the web app, grants it access to Key Vault secrets, and
