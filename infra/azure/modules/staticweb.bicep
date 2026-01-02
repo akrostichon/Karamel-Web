@@ -6,9 +6,7 @@ resource staticSite 'Microsoft.Web/staticSites@2025-03-01' = {
   name: name
   location: location
   properties: {
-    sku: {
-      name: 'Free'
-    }
+    // `sku` is not a permitted property for StaticSite in this API version
   }
 }
 

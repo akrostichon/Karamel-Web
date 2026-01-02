@@ -30,7 +30,6 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
       ]
     }
   }
-  dependsOn: [ plan ]
 }
 
 output appServicePlanId string = plan.id

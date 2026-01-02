@@ -3,6 +3,7 @@
 param namePrefix string
 param location string = resourceGroup().location
 param sqlAdminUser string
+@secure()
 param sqlAdminPassword string
 
 var kvName = '${namePrefix}-kv'
