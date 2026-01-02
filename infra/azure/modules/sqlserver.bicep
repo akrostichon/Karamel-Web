@@ -5,7 +5,7 @@ param location string = resourceGroup().location
 param administratorLogin string
 param administratorPassword string
 
-resource sqlServer 'Microsoft.Sql/servers@2022-02-01-preview' = {
+resource sqlServer 'Microsoft.Sql/servers@2022-11-01' = {
   name: serverName
   location: location
   properties: {
@@ -20,7 +20,7 @@ resource sqlServer 'Microsoft.Sql/servers@2022-02-01-preview' = {
 }
 
 // Serverless database configuration uses sku and computeModel settings
-resource sqlDb 'Microsoft.Sql/servers/databases@2021-02-01-preview' = {
+resource sqlDb 'Microsoft.Sql/servers/databases@2022-11-01' = {
   name: '${sqlServer.name}/${dbName}'
   location: location
   properties: {
