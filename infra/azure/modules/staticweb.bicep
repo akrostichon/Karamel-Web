@@ -5,9 +5,10 @@ param location string = resourceGroup().location
 resource staticSite 'Microsoft.Web/staticSites@2025-03-01' = {
   name: name
   location: location
-  properties: {
-    // `sku` is not a permitted property for StaticSite in this API version
+  sku: {
+    name: 'Free'
   }
+  properties: {}
 }
 
 output staticSiteId string = staticSite.id

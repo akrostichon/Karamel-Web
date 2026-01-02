@@ -1,6 +1,8 @@
 @description('Deploy a Key Vault')
 param name string
 param location string = resourceGroup().location
+@description('Enable purge protection (irreversible once true)')
+param enablePurgeProtection bool = true
 
 resource kv 'Microsoft.KeyVault/vaults@2025-05-01' = {
   name: name
@@ -12,7 +14,7 @@ resource kv 'Microsoft.KeyVault/vaults@2025-05-01' = {
       name: 'standard'
     }
     accessPolicies: []
-    enablePurgeProtection: false
+    enablePurgeProtection: enablePurgeProtection
     enableSoftDelete: true
   }
 }

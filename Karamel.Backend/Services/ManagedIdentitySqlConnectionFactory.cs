@@ -1,20 +1,26 @@
 using System;
 using System.Data.Common;
 using Microsoft.Data.SqlClient;
-using Azure.Identity;
+using Microsoft.Azure.Services.AppAuthentication;
 
 namespace Karamel.Backend.Services
 {
     public static class ManagedIdentitySqlConnectionFactory
     {
-        public static DbConnection Create(string connectionString)
+        public static System.Data.Common.DbConnection Create(string connectionString)
         {
             var builder = new SqlConnectionStringBuilder(connectionString);
             var conn = new SqlConnection(builder.ConnectionString);
-            // Acquire token using DefaultAzureCredential (managed identity in the App Service)
-            var credential = new DefaultAzureCredential();
-            var token = credential.GetToken(new Azure.Core.TokenRequestContext(new[] { "https://database.windows.net/.default" }));
-            conn.AccessToken = token.Token;
+            try
+            {
+                var tokenProvider = new AzureServiceTokenProvider();
+                var token = tokenProvider.GetAccessTokenAsync("https://database.windows.net/").GetAwaiter().GetResult();
+                conn.AccessToken = token;
+            }
+            catch
+            {
+                // If token acquisition fails, leave connection without AccessToken so fallback path (user/pass) works
+            }
             return conn;
         }
     }

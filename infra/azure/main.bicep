@@ -5,6 +5,8 @@ param location string = resourceGroup().location
 param sqlAdminUser string
 @secure()
 param sqlAdminPassword string
+@description('Optional location override for SQL resources (defaults to resource group location)')
+param sqlLocation string = location
 
 var kvName = '${namePrefix}-kv'
 var sqlServerName = '${namePrefix}-sqlsrv'
@@ -35,7 +37,7 @@ module sqlModule 'modules/sqlserver.bicep' = {
   params: {
     serverName: sqlServerName
     dbName: sqlDbName
-    location: location
+    location: sqlLocation
     administratorLogin: sqlAdminUser
     administratorPassword: sqlAdminPassword
   }
