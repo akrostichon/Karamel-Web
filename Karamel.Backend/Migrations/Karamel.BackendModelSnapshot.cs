@@ -49,7 +49,7 @@ namespace Karamel.Backend.Migrations
 
             modelBuilder.Entity("Karamel.Backend.Models.Playlist", b =>
             {
-                b.HasMany("Karamel.Backend.Models.PlaylistItem").WithOne().HasForeignKey("PlaylistId").OnDelete(DeleteBehavior.Cascade);
+                b.HasMany("Items").WithOne().HasForeignKey("PlaylistId").OnDelete(DeleteBehavior.Cascade);
             });
         }
     }
