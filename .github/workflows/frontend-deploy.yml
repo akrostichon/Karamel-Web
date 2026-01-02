@@ -14,7 +14,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '26'
       - name: Install dependencies
         working-directory: Karamel.Web/wwwroot
         run: |
@@ -33,7 +33,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '26'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Build Blazor WASM
         run: |
           dotnet publish Karamel.Web -c Release -o artifact
