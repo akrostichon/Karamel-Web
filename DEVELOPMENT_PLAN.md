@@ -390,10 +390,10 @@ Chosen approach (easiest / low-cost initial deployment):
 - **Region:** westeurope
 
 Actionable tasks (high-level):
- 1. Create resource group `rg-karamel-prod`.
-2. Provision Key Vault `kv-karamel-<env>`; add secret `KARAMEL-TOKEN-SECRET`. Enable RBAC and grant the App Service system-assigned Managed Identity `Key Vault Secrets User` role.
-3. Provision Azure SQL Server and Database `sql-karamel-<env>` using Serverless vCore with auto-pause enabled. Configure minimal backup retention if desired (platform backups remain enabled).
-4. Create an App Service Plan (Linux, Basic/Standard) and Web App `app-karamel-api-<env>`; enable system-assigned Managed Identity; configure app settings:
+ 1. Create resource group `rg-karamel-prod`. ✅ COMPLETED
+2. Provision Key Vault `kv-karamel-<env>`; add secret `KARAMEL-TOKEN-SECRET`. Enable RBAC and grant the App Service system-assigned Managed Identity `Key Vault Secrets User` role. ✅ COMPLETED
+3. Provision Azure SQL Server and Database `rg-karamel-prod-sqlsrv/rg-karamel-prod-sqldb` using Serverless vCore with auto-pause enabled. Configure minimal backup retention if desired (platform backups remain enabled). ✅ COMPLETED
+4. Create an App Service Plan (Linux, Basic/Standard) and Web App `rg-karamel-prod-api`; enable system-assigned Managed Identity; configure app settings:
   - `ASPNETCORE_ENVIRONMENT` = `Development`/`Production`
   - `DB_PROVIDER` = `SqlServer`
   - `ConnectionStrings__DefaultConnection` (use Key Vault or App Service setting)

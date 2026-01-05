@@ -18,19 +18,17 @@ on:
 
 jobs:
   run-migrations:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, rg-karamel-prod-runner]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Login to Azure (VM Managed Identity)
+        run: az login --identity
 
       - name: Install dotnet SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Run migration script
         run: |

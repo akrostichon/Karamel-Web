@@ -25,3 +25,13 @@ This document lists minimal steps and configuration needed to deploy Karamel.Bac
 Notes:
 - Do not store `KARAMEL-TOKEN-SECRET` in source control. Use Azure Key Vault or App Service environment variables.
 - For container deployments, ensure the container registry credentials are configured in the App Service.
+
+Run-migrations workflow note:
+- The repository includes a manual GitHub Actions workflow to run EF Core migrations: `.github/workflows/run-migrations.yml`.
+- This workflow is `workflow_dispatch` (manual trigger) and requires the `AZURE_CREDENTIALS` secret (service principal JSON) with permission to read deployment outputs and, if needed, access Key Vault secrets.
+- Before running the workflow, ensure the following secrets are configured in the GitHub repository settings:
+   - `AZURE_CREDENTIALS` (required): Azure service principal JSON used by `azure/login` action.
+   - `SQL_ADMIN_PASSWORD` (recommended): used by infra deploy to build admin connection string if present.
+   - If your Key Vault contains `SqlAdminConnectionString`, ensure the service principal has `get` access to that Key Vault secret.
+
+To trigger migrations from the Actions UI, go to GitHub → Actions → Run EF Migrations → Run workflow and provide `resource_group`, `deployment_name`, and `project_path`.
