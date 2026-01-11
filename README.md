@@ -1,6 +1,7 @@
 # Karamel-Web
 Karamel-Web is a modern, cloud-enabled reimagining of the original Karamel karaoke player.
 Built with Blazor WebAssembly, it brings karaoke management to the web while keeping your media files local.
+Karamel-Web supports cdg+mp3 files either zipped or unzipped (one song and cdg per zip).
 
 ## Features:
 - Singers can search your Song library and add their songs to the playlist
@@ -18,7 +19,3 @@ This project uses the following third-party libraries. See THIRD-PARTY-NOTICES.m
 - Fluxor — Flux pattern state management for Blazor (MIT). https://github.com/mrpmorris/Fluxor
 
 For full license text, see the LICENSE file and THIRD-PARTY-NOTICES.md.
-
-## ZIP Archive Support (Planned)
-
-Support for ZIP-based karaoke packages (paired `.mp3` + `.cdg` inside ZIP files) is planned. The project will use JSZip for in-browser enumeration and lazy extraction; see ZIP_SUPPORT_PLAN.md for details.

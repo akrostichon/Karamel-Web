@@ -196,10 +196,28 @@
             // Load song files from directory handle
             try
             {
-                await fileAccessModule.InvokeVoidAsync("loadSongFiles", 
-                    song.Mp3FileName.Contains('/') ? song.Mp3FileName.Substring(0, song.Mp3FileName.LastIndexOf('/')) : "",
-                    System.IO.Path.GetFileName(song.Mp3FileName),
-                    System.IO.Path.GetFileName(song.CdgFileName));
+                var dirPath = song.Path ?? string.Empty;
+                // If song has zip metadata, pass zip info so loader can extract lazily
+                if (!string.IsNullOrEmpty(song.ZipFileName))
+                {
+                    var zipInfo = new {
+                        zipFileName = song.ZipFileName,
+                        zipEntryMp3Path = song.ZipEntryMp3Path,
+                        zipEntryCdgPath = song.ZipEntryCdgPath,
+                        zipFilePath = song.ZipFilePath
+                    };
+
+                    await fileAccessModule.InvokeVoidAsync("loadSongFiles", dirPath,
+                        System.IO.Path.GetFileName(song.Mp3FileName),
+                        System.IO.Path.GetFileName(song.CdgFileName), zipInfo);
+                }
+                else
+                {
+                    await fileAccessModule.InvokeVoidAsync("loadSongFiles", 
+                        dirPath,
+                        System.IO.Path.GetFileName(song.Mp3FileName),
+                        System.IO.Path.GetFileName(song.CdgFileName));
+                }
             }
             catch (JSException jsEx)
             {

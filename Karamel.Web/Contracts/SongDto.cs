@@ -10,10 +10,13 @@ public record SongDto(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("mp3FileName")] string Mp3FileName,
     [property: JsonPropertyName("cdgFileName")] string CdgFileName,
+    [property: JsonPropertyName("path")] string? Path,
+    [property: JsonPropertyName("fullPath")] string? FullPath,
     [property: JsonPropertyName("sourceType")] string? SourceType,
     [property: JsonPropertyName("zipFileName")] string? ZipFileName,
     [property: JsonPropertyName("zipEntryMp3Path")] string? ZipEntryMp3Path,
     [property: JsonPropertyName("zipEntryCdgPath")] string? ZipEntryCdgPath,
+    [property: JsonPropertyName("zipFilePath")] string? ZipFilePath,
     [property: JsonPropertyName("addedBySinger")] string? AddedBySinger
 );
 
@@ -24,11 +27,14 @@ public static class SongConverters
         Artist: s.Artist,
         Title: s.Title,
         Mp3FileName: s.Mp3FileName,
+        Path: s.Path,
+        FullPath: s.FullPath,
         CdgFileName: s.CdgFileName,
         SourceType: s.SourceType.ToString(),
         ZipFileName: s.ZipFileName,
         ZipEntryMp3Path: s.ZipEntryMp3Path,
         ZipEntryCdgPath: s.ZipEntryCdgPath,
+        ZipFilePath: s.ZipFilePath,
         AddedBySinger: s.AddedBySinger
     );
 
@@ -39,10 +45,13 @@ public static class SongConverters
         Title = s.GetProperty("title").GetString() ?? string.Empty,
         Mp3FileName = s.GetProperty("mp3FileName").GetString() ?? string.Empty,
         CdgFileName = s.GetProperty("cdgFileName").GetString() ?? string.Empty,
+        Path = s.TryGetProperty("path", out var p) ? p.GetString() : null,
+        FullPath = s.TryGetProperty("fullPath", out var fp) ? fp.GetString() : null,
         SourceType = GetSourceTypeFromJson(s, "sourceType"),
         ZipFileName = s.TryGetProperty("zipFileName", out var zfn) ? zfn.GetString() : null,
         ZipEntryMp3Path = s.TryGetProperty("zipEntryMp3Path", out var zmp3) ? zmp3.GetString() : null,
         ZipEntryCdgPath = s.TryGetProperty("zipEntryCdgPath", out var zcdg) ? zcdg.GetString() : null,
+        ZipFilePath = s.TryGetProperty("zipFilePath", out var zfp) ? zfp.GetString() : null,
         AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
     };
 
@@ -61,10 +70,13 @@ public static class SongConverters
             Title = dto.Title ?? string.Empty,
             Mp3FileName = dto.Mp3FileName ?? string.Empty,
             CdgFileName = dto.CdgFileName ?? string.Empty,
+            Path = dto.Path,
+            FullPath = dto.FullPath,
             SourceType = sourceTypeParsed,
             ZipFileName = dto.ZipFileName,
             ZipEntryMp3Path = dto.ZipEntryMp3Path,
             ZipEntryCdgPath = dto.ZipEntryCdgPath,
+            ZipFilePath = dto.ZipFilePath,
             AddedBySinger = dto.AddedBySinger
         };
     }

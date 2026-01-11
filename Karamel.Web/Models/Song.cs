@@ -14,6 +14,9 @@ public record Song
     public required string Mp3FileName { get; init; }
     public required string CdgFileName { get; init; }
     public string? AddedBySinger { get; init; }
+    public string? Path { get; init; }
+    public string? FullPath { get; init; }
+    public string? ZipFilePath { get; init; }
 
     // New ZIP-origin metadata. When SourceType == Zip the Zip* fields
     // describe the origin ZIP file and inner entry paths for MP3 and CDG.
