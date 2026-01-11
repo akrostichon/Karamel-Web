@@ -325,7 +325,7 @@ describe('moduleName', () => {
 - NuGet: xUnit 2.9.3, bUnit 1.32.7, Moq 4.20.72
 
 ### wwwroot/package.json
-- Vitest 1.0.0, Happy-DOM 20.0.11
+- Vitest 4.0.16, Happy-DOM 20.0.11
 - Scripts: `npm test` (watch), `npm run test:run` (once), `npm run test:ui` (UI)
 
 ### wwwroot/vitest.config.js

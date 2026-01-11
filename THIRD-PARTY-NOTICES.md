@@ -48,13 +48,13 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
   - Notes: Referenced via CDN; if you include icon files in a distribution, include the license text.
 
 - Vitest
-  - Version: devDependency in `wwwroot/package.json` (^1.0.0)
+  - Version: devDependency in `wwwroot/package.json` (^4.0.16)
   - License: MIT
   - Source: https://github.com/vitest-dev/vitest
   - Notes: Development/test tool; include attribution in developer-facing docs.
 
 - @vitest/ui
-  - Version: devDependency in `wwwroot/package.json` (^1.0.0)
+  - Version: devDependency in `wwwroot/package.json` (^4.0.16)
   - License: MIT
   - Source: https://github.com/vitest-dev/ui
 
