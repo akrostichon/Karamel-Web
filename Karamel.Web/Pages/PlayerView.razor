@@ -96,6 +96,8 @@
     }
 </div>
 
+<ErrorDialog Title="Playback Error" Message="@blockingErrorMessage" Visible="@showBlockingError" OnAccept="OnBlockingErrorAccepted" />
+
 @code {
     [Parameter]
     [SupplyParameterFromQuery(Name = "session")]
@@ -113,6 +115,8 @@
     private string? errorMessage;
     private bool isInitialized = false;
     private bool isSessionValid = false;
+    private bool showBlockingError = false;
+    private string blockingErrorMessage = string.Empty;
     private Timer? heartbeatTimer;
 
     protected override void OnInitialized()
@@ -190,10 +194,22 @@
             errorMessage = null;
 
             // Load song files from directory handle
-            await fileAccessModule.InvokeVoidAsync("loadSongFiles", 
-                song.Mp3FileName.Contains('/') ? song.Mp3FileName.Substring(0, song.Mp3FileName.LastIndexOf('/')) : "",
-                System.IO.Path.GetFileName(song.Mp3FileName),
-                System.IO.Path.GetFileName(song.CdgFileName));
+            try
+            {
+                await fileAccessModule.InvokeVoidAsync("loadSongFiles", 
+                    song.Mp3FileName.Contains('/') ? song.Mp3FileName.Substring(0, song.Mp3FileName.LastIndexOf('/')) : "",
+                    System.IO.Path.GetFileName(song.Mp3FileName),
+                    System.IO.Path.GetFileName(song.CdgFileName));
+            }
+            catch (JSException jsEx)
+            {
+                // If the JS loader threw a corrupt-zip or related error, surface a blocking modal
+                var msg = jsEx.Message ?? "Failed to load song files.";
+                blockingErrorMessage = MapExceptionToUserMessage(jsEx, initializing: false);
+                showBlockingError = true;
+                StateHasChanged();
+                return; // don't proceed to initialize player
+            }
 
             // Initialize player with callback for song end
             await playerModule.InvokeVoidAsync("initializePlayerWithCallback", dotNetRef);
@@ -206,6 +222,28 @@
             errorMessage = MapExceptionToUserMessage(ex, initializing: false);
             StateHasChanged();
         }
+    }
+
+    private async Task OnBlockingErrorAccepted()
+    {
+        // Acknowledgement from user - clear blocking state and navigate back to NextSongView
+        showBlockingError = false;
+        blockingErrorMessage = string.Empty;
+
+        // Clear current song so NextSongView can resume showing queue
+        try
+        {
+            Dispatcher.Dispatch(new ClearCurrentSongAction());
+        }
+        catch { }
+
+        var sessionId = SessionState.Value.CurrentSession?.SessionId;
+        if (sessionId.HasValue)
+        {
+            NavigationManager.NavigateTo($"/nextsong?session={sessionId}");
+        }
+
+        await Task.CompletedTask;
     }
 
     [JSInvokable]

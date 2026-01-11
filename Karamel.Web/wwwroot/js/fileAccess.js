@@ -7,6 +7,7 @@ let mp3Data = null;
 let cdgData = null;
 let libraryDirectoryHandle = null; // Keep directory handle for session-long access
 let zipModule = null;
+const MAX_ZIP_SIZE = 20 * 1024 * 1024; // 20 MB limit for in-memory unzip
 
 // Helper: build a song object for a directory-origin song
 async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
@@ -177,32 +178,38 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
                             const file = await entry.getFile();
                             mp3Files.set(baseName, { handle: entry, file: file });
                         } else if (fileName.endsWith('.zip')) {
-                        // ZIP files: simplified handling per spec — each zip is expected
-                        // to contain exactly one MP3 and one CDG at the zip root.
+                            // ZIP files: simplified handling per spec — each zip is expected
+                            // to contain exactly one MP3 and one CDG at the zip root.
                             try {
-                            const jszip = await ensureJSZip();
-                            const zipFileObj = await entry.getFile();
-                            const zipBuf = await zipFileObj.arrayBuffer();
-                            const zip = await jszip.loadAsync(zipBuf);
+                                const jszip = await ensureJSZip();
+                                const zipFileObj = await entry.getFile();
 
-                            let mp3Entry = null;
-                            let cdgEntry = null;
-                            zip.forEach((relativePath) => {
-                                // only consider root entries (no '/')
-                                if (relativePath.indexOf('/') !== -1) return;
-                                const lower = relativePath.toLowerCase();
-                                if (!mp3Entry && lower.endsWith('.mp3')) mp3Entry = relativePath;
-                                if (!cdgEntry && lower.endsWith('.cdg')) cdgEntry = relativePath;
-                            });
+                                // If file size is known and exceeds the limit, skip to avoid OOM
+                                if (typeof zipFileObj.size === 'number' && zipFileObj.size > MAX_ZIP_SIZE) {
+                                    console.warn('Skipping large ZIP file during scan:', entry.name, `(${zipFileObj.size} bytes)`);
+                                } else {
+                                    const zipBuf = await zipFileObj.arrayBuffer();
+                                    const zip = await jszip.loadAsync(zipBuf);
 
-                            if (mp3Entry && cdgEntry) {
-                                const song = await buildZipSong(zip, entry.name, mp3Entry, cdgEntry, filenamePatternInner);
-                                songsAcc.push(song);
-                                matchedCount++;
+                                    let mp3Entry = null;
+                                    let cdgEntry = null;
+                                    zip.forEach((relativePath) => {
+                                        // only consider root entries (no '/')
+                                        if (relativePath.indexOf('/') !== -1) return;
+                                        const lower = relativePath.toLowerCase();
+                                        if (!mp3Entry && lower.endsWith('.mp3')) mp3Entry = relativePath;
+                                        if (!cdgEntry && lower.endsWith('.cdg')) cdgEntry = relativePath;
+                                    });
+
+                                    if (mp3Entry && cdgEntry) {
+                                        const song = await buildZipSong(zip, entry.name, mp3Entry, cdgEntry, filenamePatternInner);
+                                        songsAcc.push(song);
+                                        matchedCount++;
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn('Failed to read ZIP file during scan:', entry.name, e);
                             }
-                        } catch (e) {
-                            console.warn('Failed to read ZIP file during scan:', entry.name, e);
-                        }
                     } else if (fileName.endsWith('.cdg')) {
                         const baseName = entry.name.slice(0, -4); // Remove .cdg extension
                         cdgFiles.add(baseName);
@@ -285,52 +292,56 @@ async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '', 
                     const baseName = entry.name.slice(0, -4); // Remove .cdg extension
                     cdgFiles.add(baseName);
                     } else if (fileName.endsWith('.zip')) {
-                    // Simplified ZIP handling: assume a single mp3 + cdg at zip root
+                        // Simplified ZIP handling: assume a single mp3 + cdg at zip root
                         try {
-                        const jszip = await ensureJSZip();
-                        const zipFileObj = await entry.getFile();
-                        const zipBuf = await zipFileObj.arrayBuffer();
-                        const zip = await jszip.loadAsync(zipBuf);
+                            const jszip = await ensureJSZip();
+                            const zipFileObj = await entry.getFile();
+                            if (typeof zipFileObj.size === 'number' && zipFileObj.size > MAX_ZIP_SIZE) {
+                                console.warn('Skipping large ZIP file during scan:', entry.name, `(${zipFileObj.size} bytes)`);
+                            } else {
+                                const zipBuf = await zipFileObj.arrayBuffer();
+                                const zip = await jszip.loadAsync(zipBuf);
 
-                        let mp3Entry = null;
-                        let cdgEntry = null;
-                        zip.forEach((relativePath) => {
-                            if (relativePath.indexOf('/') !== -1) return;
-                            const lower = relativePath.toLowerCase();
-                            if (!mp3Entry && lower.endsWith('.mp3')) mp3Entry = relativePath;
-                            if (!cdgEntry && lower.endsWith('.cdg')) cdgEntry = relativePath;
-                        });
+                                let mp3Entry = null;
+                                let cdgEntry = null;
+                                zip.forEach((relativePath) => {
+                                    if (relativePath.indexOf('/') !== -1) return;
+                                    const lower = relativePath.toLowerCase();
+                                    if (!mp3Entry && lower.endsWith('.mp3')) mp3Entry = relativePath;
+                                    if (!cdgEntry && lower.endsWith('.cdg')) cdgEntry = relativePath;
+                                });
 
-                        if (mp3Entry && cdgEntry) {
-                            const baseName = mp3Entry.substring(0, mp3Entry.length - 4);
-                            let artist = '';
-                            let title = baseName;
-                            try {
-                                const mp3ArrayBuffer = await zip.file(mp3Entry).async('arraybuffer');
-                                const blob = new Blob([mp3ArrayBuffer], { type: 'audio/mpeg' });
-                                const md = await extractMetadata(blob, baseName, filenamePattern);
-                                artist = md.artist; title = md.title;
-                            } catch (e) {
-                                // ignore
+                                if (mp3Entry && cdgEntry) {
+                                    const baseName = mp3Entry.substring(0, mp3Entry.length - 4);
+                                    let artist = '';
+                                    let title = baseName;
+                                    try {
+                                        const mp3ArrayBuffer = await zip.file(mp3Entry).async('arraybuffer');
+                                        const blob = new Blob([mp3ArrayBuffer], { type: 'audio/mpeg' });
+                                        const md = await extractMetadata(blob, baseName, filenamePattern);
+                                        artist = md.artist; title = md.title;
+                                    } catch (e) {
+                                        // ignore
+                                    }
+
+                                    songs.push({
+                                        id: crypto.randomUUID(),
+                                        artist: artist,
+                                        title: title,
+                                        mp3FileName: `${baseName}.mp3`,
+                                        cdgFileName: `${baseName}.cdg`,
+                                        path: '',
+                                        fullPath: baseName,
+                                        sourceType: 'zip',
+                                        zipFileName: entry.name,
+                                        zipEntryMp3Path: mp3Entry,
+                                        zipEntryCdgPath: cdgEntry
+                                    });
+                                }
                             }
-
-                            songs.push({
-                                id: crypto.randomUUID(),
-                                artist: artist,
-                                title: title,
-                                mp3FileName: `${baseName}.mp3`,
-                                cdgFileName: `${baseName}.cdg`,
-                                path: '',
-                                fullPath: baseName,
-                                sourceType: 'zip',
-                                zipFileName: entry.name,
-                                zipEntryMp3Path: mp3Entry,
-                                zipEntryCdgPath: cdgEntry
-                            });
+                        } catch (e) {
+                            console.warn('Failed to read ZIP file during scan:', entry.name, e);
                         }
-                    } catch (e) {
-                        console.warn('Failed to read ZIP file during scan:', entry.name, e);
-                    }
                 }
             } else if (entry.kind === 'directory') {
                 subdirectories.push(entry);
@@ -388,6 +399,9 @@ export async function loadSongFiles(path, mp3FileName, cdgFileName, zipInfo = nu
             // zipInfo: { zipFileName, zipEntryMp3Path, zipEntryCdgPath }
             const zipHandle = await libraryDirectoryHandle.getFileHandle(zipInfo.zipFileName);
             const zipFileObj = await zipHandle.getFile();
+            if (typeof zipFileObj.size === 'number' && zipFileObj.size > MAX_ZIP_SIZE) {
+                throw new Error(`ZIP file too large to extract in-memory: ${zipInfo.zipFileName} (${zipFileObj.size} bytes)`);
+            }
             const zipBuf = await zipFileObj.arrayBuffer();
             const jszip = await ensureJSZip();
             const zip = await jszip.loadAsync(zipBuf);

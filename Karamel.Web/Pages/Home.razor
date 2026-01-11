@@ -267,13 +267,15 @@
             }
             else if (result.Success)
             {
+                // Convert DTOs to Song instances to avoid enum JSON issues
+                var songs = result.Songs?.Select(s => Karamel.Web.Contracts.SongConverters.ConvertDtoToSong(s)).ToList() ?? new List<Song>();
                 _librarySelected = true;
-                _songCount = result.SongCount;
-                _selectedSongs = result.Songs;
+                _songCount = songs.Count;
+                _selectedSongs = songs;
                 _libraryError = null;
 
-                // Dispatch action to load library into state
-                Dispatcher.Dispatch(new LoadLibraryAction(result.Songs));
+                // Dispatch action to load library into state (success)
+                Dispatcher.Dispatch(new LoadLibrarySuccessAction(_selectedSongs));
             }
             else
             {
@@ -415,7 +417,7 @@
     // DTOs for JS interop
     private class LibrarySelectionResult
     {
-        public List<Song> Songs { get; set; } = new();
+        public List<Karamel.Web.Contracts.SongDto> Songs { get; set; } = new();
         public int SongCount { get; set; }
         public bool Success { get; set; }
         public string? Error { get; set; }

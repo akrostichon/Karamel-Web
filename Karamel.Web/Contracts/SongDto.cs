@@ -39,10 +39,64 @@ public static class SongConverters
         Title = s.GetProperty("title").GetString() ?? string.Empty,
         Mp3FileName = s.GetProperty("mp3FileName").GetString() ?? string.Empty,
         CdgFileName = s.GetProperty("cdgFileName").GetString() ?? string.Empty,
-        SourceType = s.TryGetProperty("sourceType", out var st) && Enum.TryParse<SongSourceType>(st.GetString(), out var parsed) ? parsed : SongSourceType.Directory,
+        SourceType = GetSourceTypeFromJson(s, "sourceType"),
         ZipFileName = s.TryGetProperty("zipFileName", out var zfn) ? zfn.GetString() : null,
         ZipEntryMp3Path = s.TryGetProperty("zipEntryMp3Path", out var zmp3) ? zmp3.GetString() : null,
         ZipEntryCdgPath = s.TryGetProperty("zipEntryCdgPath", out var zcdg) ? zcdg.GetString() : null,
         AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
     };
+
+    public static Song ConvertDtoToSong(SongDto dto)
+    {
+        var sourceTypeParsed = SongSourceType.Directory;
+        if (!string.IsNullOrWhiteSpace(dto.SourceType) && Enum.TryParse<SongSourceType>(dto.SourceType, ignoreCase: true, out var st))
+        {
+            sourceTypeParsed = st;
+        }
+
+        return new Song
+        {
+            Id = Guid.Parse(dto.Id),
+            Artist = dto.Artist ?? string.Empty,
+            Title = dto.Title ?? string.Empty,
+            Mp3FileName = dto.Mp3FileName ?? string.Empty,
+            CdgFileName = dto.CdgFileName ?? string.Empty,
+            SourceType = sourceTypeParsed,
+            ZipFileName = dto.ZipFileName,
+            ZipEntryMp3Path = dto.ZipEntryMp3Path,
+            ZipEntryCdgPath = dto.ZipEntryCdgPath,
+            AddedBySinger = dto.AddedBySinger
+        };
+    }
+
+        private static SongSourceType GetSourceTypeFromJson(JsonElement parent, string propName)
+        {
+            if (!parent.TryGetProperty(propName, out var st) || st.ValueKind == JsonValueKind.Null)
+                return SongSourceType.Directory;
+
+            try
+            {
+                if (st.ValueKind == JsonValueKind.String)
+                {
+                    var s = st.GetString();
+                    if (!string.IsNullOrWhiteSpace(s) && Enum.TryParse<SongSourceType>(s, ignoreCase: true, out var parsed))
+                        return parsed;
+                }
+                else if (st.ValueKind == JsonValueKind.Number)
+                {
+                    if (st.TryGetInt32(out var iv))
+                    {
+                        if (Enum.IsDefined(typeof(SongSourceType), iv))
+                            return (SongSourceType)iv;
+                    }
+                }
+            }
+            catch
+            {
+                // fall through to default
+            }
+
+            return SongSourceType.Directory;
+        }
+
 }
