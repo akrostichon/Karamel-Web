@@ -117,9 +117,10 @@ describe('fileAccess.js - ZIP support', () => {
       zipEntryCdgPath: song.zipEntryCdgPath
     });
 
-    expect(result).toHaveProperty('mp3Blob');
+    expect(result).toHaveProperty('mp3Data');
     expect(result).toHaveProperty('mp3Url');
     expect(result).toHaveProperty('cdgData');
+    expect(result.mp3Data).toBeInstanceOf(Uint8Array);
     expect(result.cdgData).toBeInstanceOf(Uint8Array);
   });
 });

@@ -1,7 +1,7 @@
 // Karaoke player - CDG and audio synchronization
 
 import CDGraphics from 'https://cdn.jsdelivr.net/npm/cdgraphics@7.0.0/+esm';
-import { getMp3Data, getCdgData } from './fileAccess.js';
+import * as byteStore from './byteStore.js';
 
 let cdgPlayer = null;
 let audioElement = null;
@@ -26,18 +26,21 @@ export function initializePlayerWithCallback(dotNetReference) {
             return;
         }
 
-        // Get file data from fileAccess module
-        const mp3Data = getMp3Data();
-        const cdgData = getCdgData();
-        
+        // Get file data from byteStore
+        const mp3Data = byteStore.getBytes('mp3');
+        const cdgData = byteStore.getBytes('cdg');
+
         if (!mp3Data || !cdgData) {
             console.error('File data not available');
             return;
         }
 
-        // Create blob and object URL for MP3
-        const mp3Blob = new Blob([mp3Data], { type: 'audio/mpeg' });
-        const mp3Url = URL.createObjectURL(mp3Blob);
+        // Prefer cached object URL from byteStore
+        let mp3Url = byteStore.createObjectUrl('mp3', 'audio/mpeg');
+        if (!mp3Url) {
+            const mp3Blob = new Blob([mp3Data.buffer.slice(mp3Data.byteOffset, mp3Data.byteOffset + mp3Data.byteLength)], { type: 'audio/mpeg' });
+            mp3Url = URL.createObjectURL(mp3Blob);
+        }
 
         // Set audio source
         audioElement.src = mp3Url;
