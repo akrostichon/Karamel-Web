@@ -57,12 +57,6 @@ public static class SongConverters
 
     public static Song ConvertDtoToSong(SongDto dto)
     {
-        var sourceTypeParsed = SongSourceType.Directory;
-        if (!string.IsNullOrWhiteSpace(dto.SourceType) && Enum.TryParse<SongSourceType>(dto.SourceType, ignoreCase: true, out var st))
-        {
-            sourceTypeParsed = st;
-        }
-
         return new Song
         {
             Id = Guid.Parse(dto.Id),
@@ -72,7 +66,7 @@ public static class SongConverters
             CdgFileName = dto.CdgFileName ?? string.Empty,
             Path = dto.Path,
             FullPath = dto.FullPath,
-            SourceType = sourceTypeParsed,
+            SourceType = GetSongTypeFromDto(dto),
             ZipFileName = dto.ZipFileName,
             ZipEntryMp3Path = dto.ZipEntryMp3Path,
             ZipEntryCdgPath = dto.ZipEntryCdgPath,
@@ -81,7 +75,18 @@ public static class SongConverters
         };
     }
 
-        private static SongSourceType GetSourceTypeFromJson(JsonElement parent, string propName)
+    private static SongSourceType GetSongTypeFromDto(SongDto dto)
+    {
+        var sourceTypeParsed = SongSourceType.Directory;
+        if (!string.IsNullOrWhiteSpace(dto.SourceType) && Enum.TryParse<SongSourceType>(dto.SourceType, ignoreCase: true, out var st))
+        {
+            sourceTypeParsed = st;
+        }
+
+        return sourceTypeParsed;
+    }
+
+    private static SongSourceType GetSourceTypeFromJson(JsonElement parent, string propName)
         {
             if (!parent.TryGetProperty(propName, out var st) || st.ValueKind == JsonValueKind.Null)
                 return SongSourceType.Directory;

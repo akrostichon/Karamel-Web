@@ -42,7 +42,6 @@ export async function findMp3CdgRootPairFromBuffer(zipBuf) {
     const rootEntries = [];
     let mp3Entry = null;
     let cdgEntry = null;
-    // First pass: check root entries (no '/'), as before
     zip.forEach((relativePath) => {
         if (relativePath.indexOf('/') !== -1) return; // only root entries
         rootEntries.push(relativePath);
@@ -51,31 +50,6 @@ export async function findMp3CdgRootPairFromBuffer(zipBuf) {
         if (!cdgEntry && lower.endsWith('.cdg')) cdgEntry = relativePath;
     });
     if (mp3Entry && cdgEntry) return { mp3Entry, cdgEntry, rootEntries };
-
-    // Fallback: try to find an mp3+cdg pair inside the same subdirectory
-    // Group files by their directory path
-    const entriesByDir = new Map();
-    zip.forEach((relativePath) => {
-        const idx = relativePath.lastIndexOf('/');
-        const dir = idx === -1 ? '' : relativePath.substring(0, idx);
-        const name = idx === -1 ? relativePath : relativePath.substring(idx + 1);
-        const lower = name.toLowerCase();
-        if (!entriesByDir.has(dir)) entriesByDir.set(dir, []);
-        entriesByDir.get(dir).push({ name, lower, fullPath: relativePath });
-    });
-
-    for (const [dir, items] of entriesByDir) {
-        let foundMp3 = null;
-        let foundCdg = null;
-        for (const it of items) {
-            if (!foundMp3 && it.lower.endsWith('.mp3')) foundMp3 = it.fullPath;
-            if (!foundCdg && it.lower.endsWith('.cdg')) foundCdg = it.fullPath;
-        }
-        if (foundMp3 && foundCdg) {
-            return { mp3Entry: foundMp3, cdgEntry: foundCdg, rootEntries };
-        }
-    }
-
     return { mp3Entry: null, cdgEntry: null, rootEntries };
 }
 

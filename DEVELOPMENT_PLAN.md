@@ -376,7 +376,69 @@ Schema additions and considerations:
 
 ---
 
-## Phase 7: Azure provisioning & Deployment (new)
+## Phase 7: Library in Backend
+Goal: add library content to Database and make it accessible in SignalR. Tabs should no longer transfer the whole song library, since a) that won't work in a distributed scenario and b) the number of songs might be too large.
+A small song representation: Guid,Artist,Title,SessionId should be added to the database after the library is scanned. The library will still be kept locally in the main tab, but not be transferred to other tabs. other tabs need to call signalR to get either paginated library results or filtered paginated library results.
+Pagination needs to be built into the Library view.
+
+### Phase 7 — Expanded Requirements (details needed)
+
+- **Primary goals**:
+  - Persist a lightweight per-session song catalog to the backend so non-main tabs can request paginated, searchable subsets of the library instead of receiving the whole library payload.
+  - Ensure the backend representation contains no sensitive local filesystem information (do NOT persist `fullPath` or any direct file handles). Keep `fullPath` strictly client-local.
+  - Provide an efficient API (REST + SignalR support) for listing, searching, and retrieving the minimal song representation.
+
+- **Minimal Song Representation (required fields)**:
+  - `Id` (GUID) — opaque server-side id for the song record
+  - `SessionId` (GUID) — session that owns this library entry
+  - `Artist` (string)
+  - `Title` (string)
+  - `MetadataJson` (JSON, nullable) — optional small blob for future fields (durationMs, album, trackNumber)
+
+- **Fields explicitly excluded**:
+  - `FullPath`, local directory handles, file system handles, or any absolute/relative local paths must not be stored in the backend. Use an opaque `ZipFilePath` token if necessary for zip entries (see questions).
+
+- **Indexes**:
+  - Index on `(SessionId, Artist, Title)` for search and paging
+  - Covering index on `(SessionId, AddedAt)` for ordered pagination
+
+- **API surface**:
+  - REST: `GET /api/sessions/{sessionId}/library?page=1&pageSize=50&search=term&sort=artist` → returns paginated `SongListItemDto` (Id, Artist, Title, SourceType, ZipToken)
+  - REST: `GET /api/sessions/{sessionId}/library/{songId}` → returns single item (metadataJson + server Id)
+  - SignalR method: `GetLibraryPage(sessionId, page, pageSize, search, sort)` → returns same payload as REST for interactive usage (lower latency, smaller payloads)
+  - `SearchLibrary(sessionId, query, maxResults)` shortcut for typeahead/autocomplete.
+
+- **Auth & tokens**:
+  - Use the existing link-token / hub filter mechanism for authorization. All library listing calls must require a valid session link token (same protection as playlist mutations).
+
+- **Client behavior & flow**:
+  - After main tab scans the directory, it writes the local `Song` list to its local state and ALSO sends a *sanitized* library summary to the backend: for each song, send only the Minimal Song Representation fields (no fullPath).
+  - Backend creates `Song` rows for that `SessionId` in a single bulk upsert operation (idempotent on a hash of Artist+Title+session). Return created Ids for the main tab to map local items to server Ids.
+  - Main tab continues to hold full file-system handles (`Path`/`FullPath`/FileHandles) locally. When a non-main tab requests a page, it receives server `Id` values and metadata; if the user plays a song in a non-main tab, the client should request the main tab to play it (via SignalR `RequestPlay(songServerId)`), not attempt to access files itself.
+
+- **Zip / archive handling**:
+  - No special handling required.
+
+- **Migration & lifecycle**:
+  - When a session is created and after the scan completes, write songs to DB as a bulk operation. There will be no further updates.
+  - No upsert logic required.
+  - Cleanup: when a session expires (per existing TTL logic), delete library rows for that `SessionId` as part of the cleanup job.
+
+- **Performance & paging**:
+  - Default `pageSize` = 50; support up to 500 for admin views. Use server-side ordering by `Artist` then `Title` (or `AddedAt` if requested).
+  - Provide `X-Total-Count` in REST responses for UI pagination controls.
+
+- **Privacy checks**:
+  - Add server-side validation to reject any incoming payloads that include properties named `fullPath`, `path`, `handle`, or similar keys — return 400 and log an audit event.
+
+- **Testing & acceptance**:
+  - Unit tests for repository upsert and delete-by-session behavior.
+  - Integration test: simulate main-tab bulk upload with 1,000 songs and verify paginated REST responses return expected counts and order within acceptable latency (<200ms for page=1, pageSize=50 in local dev environment).
+  - Security test: verify that attempts to persist `fullPath` in payloads are rejected and do not end up in the DB.
+
+---
+
+## Phase 8: Azure provisioning & Deployment (new)
 
 Goal: Prepare a minimal, low-friction Azure hosting setup for Karamel so the backend and frontend can be deployed and tested with low cost and simple operations.
 
@@ -412,7 +474,7 @@ Notes and caveats:
 - Static Web Apps provides free TLS, easy CI/CD, and global distribution for Blazor WASM static assets; Storage+CDN is an alternative if you want tighter control.
 
 
-Acceptance criteria for Phase 7:
+Acceptance criteria for Phase 8:
 - `rg-karamel-prod` exists with tagged resources.
 - `kv-karamel-prod` contains `KARAMEL-TOKEN-SECRET` accessible to App Service via Managed Identity.
 - Azure SQL serverless database is reachable from the backend and EF migrations can be applied from CI.
@@ -435,16 +497,16 @@ Notes:
 
 Link to deployment checklist: see `DEPLOYMENT.md` for App Service settings and production-only steps.
 
-### Phase 8: Production Deployment
+### Phase 9: Production Deployment
 - CI/CD pipeline
 - Monitoring & logging
 - Performance optimization
 
-### Phase 9: Security review
+### Phase 10: Security review
 - Check for possible dDOS attacks - do not allow to add more than one song in 3 seconds.
 - Perform a full security review as a trained security expert, advise on options where we can improve
 
-### Step 9.1 Secure secret management for link tokens (REQUIRED)
+### Step 10.1 Secure secret management for link tokens (REQUIRED)
 - Purpose: Ensure link-token HMAC secrets are provisioned, stored, and rotated securely in all environments.
 - Requirements:
   - **Secret source**: Read token secret from environment variable `KARAMEL-TOKEN-SECRET` or configuration `Karamel:TokenSecret`. In production, secrets must be provided via Azure Key Vault and not as checked-in config.
