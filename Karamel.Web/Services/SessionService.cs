@@ -5,6 +5,7 @@ using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
 using Microsoft.JSInterop;
 using System.Text.Json;
+using Karamel.Web.Contracts;
 
 namespace Karamel.Web.Services;
 
@@ -23,6 +24,8 @@ public class SessionService : ISessionService
     private bool _isInitialized;
     private bool _isMainTab;
     private DotNetObjectReference<SessionService>? _stateUpdateDotNetRef;
+
+    // Song (de)serialization helpers moved to Karamel.Web.Contracts.SongDto / SongConverters
 
     public SessionService(
         IJSRuntime jsRuntime,
@@ -77,14 +80,7 @@ public class SessionService : ISessionService
 
         var data = new
         {
-            songs = songs.Select(s => new
-            {
-                id = s.Id.ToString(),
-                artist = s.Artist,
-                title = s.Title,
-                mp3FileName = s.Mp3FileName,
-                cdgFileName = s.CdgFileName
-            }).ToArray()
+            songs = songs.Select(SongConverters.ConvertSongToDto).ToArray()
         };
 
         await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", sessionId.ToString(), data);
@@ -101,24 +97,8 @@ public class SessionService : ISessionService
         var state = _playlistState.Value;
         var data = new
         {
-            queue = state.Queue.Select(s => new
-            {
-                id = s.Id.ToString(),
-                artist = s.Artist,
-                title = s.Title,
-                mp3FileName = s.Mp3FileName,
-                cdgFileName = s.CdgFileName,
-                addedBySinger = s.AddedBySinger
-            }).ToArray(),
-            currentSong = state.CurrentSong == null ? null : new
-            {
-                id = state.CurrentSong.Id.ToString(),
-                artist = state.CurrentSong.Artist,
-                title = state.CurrentSong.Title,
-                addedBySinger = state.CurrentSong.AddedBySinger,
-                mp3FileName = state.CurrentSong.Mp3FileName,
-                cdgFileName = state.CurrentSong.CdgFileName
-            },
+            queue = state.Queue.Select(SongConverters.ConvertSongToDto).ToArray(),
+            currentSong = state.CurrentSong == null ? null : SongConverters.ConvertSongToDto(state.CurrentSong),
             currentSingerName = state.CurrentSingerName,
             singerSongCounts = state.SingerSongCounts
         };
@@ -267,14 +247,7 @@ public class SessionService : ISessionService
                 libraryData.TryGetProperty("songs", out var songsArray))
             {
                 Console.WriteLine($"SessionService: Found library data with {songsArray.GetArrayLength()} songs");
-                var songs = songsArray.EnumerateArray().Select(s => new Song
-                {
-                    Id = Guid.Parse(s.GetProperty("id").GetString()!),
-                    Artist = s.GetProperty("artist").GetString() ?? "",
-                    Title = s.GetProperty("title").GetString() ?? "",
-                    Mp3FileName = s.GetProperty("mp3FileName").GetString() ?? "",
-                    CdgFileName = s.GetProperty("cdgFileName").GetString() ?? ""
-                }).ToList();
+                var songs = songsArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
                 
                 Console.WriteLine($"SessionService: Dispatching LoadLibrarySuccessAction with {songs.Count} songs");
                 _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
@@ -298,15 +271,7 @@ public class SessionService : ISessionService
                     var queue = new List<Song>();
                     if (playlistData.TryGetProperty("queue", out var queueArray))
                     {
-                        queue = queueArray.EnumerateArray().Select(s => new Song
-                        {
-                            Id = Guid.Parse(s.GetProperty("id").GetString()!),
-                            Artist = s.GetProperty("artist").GetString() ?? "",
-                            Title = s.GetProperty("title").GetString() ?? "",
-                            Mp3FileName = s.GetProperty("mp3FileName").GetString() ?? "",
-                            CdgFileName = s.GetProperty("cdgFileName").GetString() ?? "",
-                            AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
-                        }).ToList();
+                        queue = queueArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
                     }
 
                     var singerSongCounts = new Dictionary<string, int>();
@@ -402,15 +367,7 @@ public class SessionService : ISessionService
             if (data.TryGetProperty("queue", out var queueArray))
             {
                 Console.WriteLine($"SessionService: Playlist update contains queue with {queueArray.GetArrayLength()} items");
-                var queue = queueArray.EnumerateArray().Select(s => new Song
-                {
-                    Id = Guid.Parse(s.GetProperty("id").GetString()!),
-                    Artist = s.GetProperty("artist").GetString() ?? "",
-                    Title = s.GetProperty("title").GetString() ?? "",
-                    Mp3FileName = s.GetProperty("mp3FileName").GetString() ?? "",
-                    CdgFileName = s.GetProperty("cdgFileName").GetString() ?? "",
-                    AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
-                }).ToList();
+                var queue = queueArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
 
                 // Extract singer song counts
                 var singerSongCounts = new Dictionary<string, int>();
@@ -436,15 +393,7 @@ public class SessionService : ISessionService
                 {
                     if (data.TryGetProperty("currentSong", out var currentSongObj) && currentSongObj.ValueKind != JsonValueKind.Null)
                     {
-                        currentSong = new Song
-                        {
-                            Id = Guid.Parse(currentSongObj.GetProperty("id").GetString()!),
-                            Artist = currentSongObj.GetProperty("artist").GetString() ?? "",
-                            Title = currentSongObj.GetProperty("title").GetString() ?? "",
-                            Mp3FileName = currentSongObj.TryGetProperty("mp3FileName", out var mp3p) ? mp3p.GetString() ?? "" : "",
-                            CdgFileName = currentSongObj.TryGetProperty("cdgFileName", out var cdgp) ? cdgp.GetString() ?? "" : "",
-                            AddedBySinger = currentSongObj.TryGetProperty("addedBySinger", out var added) ? added.GetString() : null
-                        };
+                        currentSong = SongConverters.ConvertJsonToSong(currentSongObj);
                     }
 
                     if (data.TryGetProperty("currentSingerName", out var currentSingerProp) && currentSingerProp.ValueKind != JsonValueKind.Null)
@@ -540,15 +489,7 @@ public class SessionService : ISessionService
     {
         if (_sessionBridgeModule == null) return false;
 
-        var item = new
-        {
-            id = song.Id.ToString(),
-            artist = song.Artist,
-            title = song.Title,
-            mp3FileName = song.Mp3FileName,
-            cdgFileName = song.CdgFileName,
-            addedBySinger = song.AddedBySinger
-        };
+        var item = SongConverters.ConvertSongToDto(song);
 
         try
         {
@@ -589,15 +530,7 @@ public class SessionService : ISessionService
     {
         if (_sessionBridgeModule == null) return false;
 
-        var items = newOrder.Select(s => new
-        {
-            id = s.Id.ToString(),
-            artist = s.Artist,
-            title = s.Title,
-            mp3FileName = s.Mp3FileName,
-            cdgFileName = s.CdgFileName,
-            addedBySinger = s.AddedBySinger
-        }).ToArray();
+        var items = newOrder.Select(SongConverters.ConvertSongToDto).ToArray();
 
         try
         {

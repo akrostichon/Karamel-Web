@@ -18,3 +18,7 @@ This project uses the following third-party libraries. See THIRD-PARTY-NOTICES.m
 - Fluxor — Flux pattern state management for Blazor (MIT). https://github.com/mrpmorris/Fluxor
 
 For full license text, see the LICENSE file and THIRD-PARTY-NOTICES.md.
+
+## ZIP Archive Support (Planned)
+
+Support for ZIP-based karaoke packages (paired `.mp3` + `.cdg` inside ZIP files) is planned. The project will use JSZip for in-browser enumeration and lazy extraction; see ZIP_SUPPORT_PLAN.md for details.

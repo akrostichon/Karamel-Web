@@ -6,6 +6,82 @@ import { extractMetadata, validatePattern } from './metadata.js';
 let mp3Data = null;
 let cdgData = null;
 let libraryDirectoryHandle = null; // Keep directory handle for session-long access
+let zipModule = null;
+
+// Helper: build a song object for a directory-origin song
+async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
+    // mp3FileEntry may be an object { handle, file } (from getFile) or a File-like object
+    const fileObj = mp3FileEntry.file ? mp3FileEntry.file : mp3FileEntry;
+    const baseName = fileObj.name.slice(0, -4);
+    const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
+    const metadata = await extractMetadata(fileObj, fullPath, filenamePattern);
+    return {
+        id: crypto.randomUUID(),
+        artist: metadata.artist,
+        title: metadata.title,
+        mp3FileName: `${baseName}.mp3`,
+        cdgFileName: `${baseName}.cdg`,
+        path: relativePath,
+        fullPath: fullPath
+    };
+}
+
+// Helper: build a song object for a zip-origin song (assumes mp3Entry/cdgEntry are root paths)
+async function buildZipSong(zip, zipFileName, mp3EntryPath, cdgEntryPath, filenamePattern) {
+    const baseName = mp3EntryPath.substring(0, mp3EntryPath.length - 4);
+    let artist = '';
+    let title = baseName;
+    try {
+        const mp3ArrayBuffer = await zip.file(mp3EntryPath).async('arraybuffer');
+        const blob = new Blob([mp3ArrayBuffer], { type: 'audio/mpeg' });
+        const md = await extractMetadata(blob, baseName, filenamePattern);
+        artist = md.artist; title = md.title;
+    } catch (e) {
+        // ignore metadata extraction errors
+    }
+
+    return {
+        id: crypto.randomUUID(),
+        artist: artist,
+        title: title,
+        mp3FileName: `${baseName}.mp3`,
+        cdgFileName: `${baseName}.cdg`,
+        path: '',
+        fullPath: baseName,
+        sourceType: 'zip',
+        zipFileName: zipFileName,
+        zipEntryMp3Path: mp3EntryPath,
+        zipEntryCdgPath: cdgEntryPath
+    };
+}
+
+async function ensureJSZip() {
+    if (zipModule) return zipModule;
+    // Try dynamic import first (works in bundlers if available)
+    try {
+        zipModule = await import('jszip');
+        return zipModule;
+    } catch (e) {
+        // Fallback to CDN UMD build which exposes JSZip global when loaded
+    }
+
+    return new Promise((resolve, reject) => {
+        if (window.JSZip) { zipModule = window.JSZip; resolve(window.JSZip); return; }
+        const existing = document.querySelector('script[data-jszip]');
+        if (existing) {
+            existing.addEventListener('load', () => { zipModule = window.JSZip; resolve(window.JSZip); });
+            existing.addEventListener('error', () => reject(new Error('Failed to load JSZip from CDN')));
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.setAttribute('data-jszip', '1');
+        script.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+        script.onload = () => { zipModule = window.JSZip; resolve(window.JSZip); };
+        script.onerror = () => reject(new Error('Failed to load JSZip from CDN'));
+        document.head.appendChild(script);
+    });
+}
 
 export async function pickMp3File() {
     try {
@@ -97,9 +173,35 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
                     const fileName = entry.name.toLowerCase();
 
                     if (fileName.endsWith('.mp3')) {
-                        const baseName = entry.name.slice(0, -4); // Remove .mp3 extension
-                        const file = await entry.getFile();
-                        mp3Files.set(baseName, { handle: entry, file: file });
+                            const baseName = entry.name.slice(0, -4); // Remove .mp3 extension
+                            const file = await entry.getFile();
+                            mp3Files.set(baseName, { handle: entry, file: file });
+                        } else if (fileName.endsWith('.zip')) {
+                        // ZIP files: simplified handling per spec — each zip is expected
+                        // to contain exactly one MP3 and one CDG at the zip root.
+                        try {
+                            const jszip = await ensureJSZip();
+                            const zipBuf = await entry.getFile().arrayBuffer();
+                            const zip = await jszip.loadAsync(zipBuf);
+
+                            let mp3Entry = null;
+                            let cdgEntry = null;
+                            zip.forEach((relativePath) => {
+                                // only consider root entries (no '/')
+                                if (relativePath.indexOf('/') !== -1) return;
+                                const lower = relativePath.toLowerCase();
+                                if (!mp3Entry && lower.endsWith('.mp3')) mp3Entry = relativePath;
+                                if (!cdgEntry && lower.endsWith('.cdg')) cdgEntry = relativePath;
+                            });
+
+                            if (mp3Entry && cdgEntry) {
+                                const song = await buildZipSong(zip, entry.name, mp3Entry, cdgEntry, filenamePatternInner);
+                                songsAcc.push(song);
+                                matchedCount++;
+                            }
+                        } catch (e) {
+                            console.warn('Failed to read ZIP file during scan:', entry.name, e);
+                        }
                     } else if (fileName.endsWith('.cdg')) {
                         const baseName = entry.name.slice(0, -4); // Remove .cdg extension
                         cdgFiles.add(baseName);
@@ -120,17 +222,8 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
                 const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
 
                 // Extract metadata (ID3 tags or filename parsing)
-                const metadata = await extractMetadata(mp3Data.file, fullPath, filenamePatternInner);
-
-                songsAcc.push({
-                    id: crypto.randomUUID(),
-                    artist: metadata.artist,
-                    title: metadata.title,
-                    mp3FileName: `${baseName}.mp3`,
-                    cdgFileName: `${baseName}.cdg`,
-                    path: relativePath,
-                    fullPath: fullPath
-                });
+                const song = await buildDirectorySong(mp3Data, relativePath, filenamePatternInner);
+                songsAcc.push(song);
 
                 matchedCount++;
                 try {
@@ -190,6 +283,52 @@ async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '', 
                 } else if (fileName.endsWith('.cdg')) {
                     const baseName = entry.name.slice(0, -4); // Remove .cdg extension
                     cdgFiles.add(baseName);
+                    } else if (fileName.endsWith('.zip')) {
+                    // Simplified ZIP handling: assume a single mp3 + cdg at zip root
+                    try {
+                        const jszip = await ensureJSZip();
+                        const zipBuf = await entry.getFile().arrayBuffer();
+                        const zip = await jszip.loadAsync(zipBuf);
+
+                        let mp3Entry = null;
+                        let cdgEntry = null;
+                        zip.forEach((relativePath) => {
+                            if (relativePath.indexOf('/') !== -1) return;
+                            const lower = relativePath.toLowerCase();
+                            if (!mp3Entry && lower.endsWith('.mp3')) mp3Entry = relativePath;
+                            if (!cdgEntry && lower.endsWith('.cdg')) cdgEntry = relativePath;
+                        });
+
+                        if (mp3Entry && cdgEntry) {
+                            const baseName = mp3Entry.substring(0, mp3Entry.length - 4);
+                            let artist = '';
+                            let title = baseName;
+                            try {
+                                const mp3ArrayBuffer = await zip.file(mp3Entry).async('arraybuffer');
+                                const blob = new Blob([mp3ArrayBuffer], { type: 'audio/mpeg' });
+                                const md = await extractMetadata(blob, baseName, filenamePattern);
+                                artist = md.artist; title = md.title;
+                            } catch (e) {
+                                // ignore
+                            }
+
+                            songs.push({
+                                id: crypto.randomUUID(),
+                                artist: artist,
+                                title: title,
+                                mp3FileName: `${baseName}.mp3`,
+                                cdgFileName: `${baseName}.cdg`,
+                                path: '',
+                                fullPath: baseName,
+                                sourceType: 'zip',
+                                zipFileName: entry.name,
+                                zipEntryMp3Path: mp3Entry,
+                                zipEntryCdgPath: cdgEntry
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('Failed to read ZIP file during scan:', entry.name, e);
+                    }
                 }
             } else if (entry.kind === 'directory') {
                 subdirectories.push(entry);
@@ -208,17 +347,8 @@ async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '', 
             const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
 
             // Extract metadata (ID3 tags or filename parsing)
-            const metadata = await extractMetadata(mp3Data.file, fullPath, filenamePattern);
-
-            songs.push({
-                id: crypto.randomUUID(),
-                artist: metadata.artist,
-                title: metadata.title,
-                mp3FileName: `${baseName}.mp3`,
-                cdgFileName: `${baseName}.cdg`,
-                path: relativePath,
-                fullPath: fullPath
-            });
+            const song = await buildDirectorySong(mp3Data, relativePath, filenamePattern);
+            songs.push(song);
         }
 
         // Recursively scan subdirectories
@@ -246,13 +376,40 @@ export function getLibraryDirectoryHandle() {
  * @param {string} cdgFileName - CDG filename
  * @returns {Promise<{mp3Data: Uint8Array, cdgData: Uint8Array}>}
  */
-export async function loadSongFiles(path, mp3FileName, cdgFileName) {
+export async function loadSongFiles(path, mp3FileName, cdgFileName, zipInfo = null) {
     try {
         if (!libraryDirectoryHandle) {
             throw new Error('No library directory selected');
         }
+        // If zipInfo is provided (zip-origin song), lazily extract from ZIP instead
+        if (zipInfo && zipInfo.zipFileName) {
+            // zipInfo: { zipFileName, zipEntryMp3Path, zipEntryCdgPath }
+            const zipHandle = await libraryDirectoryHandle.getFileHandle(zipInfo.zipFileName);
+            const zipBuf = await zipHandle.getFile().arrayBuffer();
+            const jszip = await ensureJSZip();
+            const zip = await jszip.loadAsync(zipBuf);
 
-        // Navigate to the correct subdirectory
+            // Extract CDG as ArrayBuffer using the provided zip entry path
+            const cdgArrayBuffer = await zip.file(zipInfo.zipEntryCdgPath).async('arraybuffer');
+            const loadedCdgData = new Uint8Array(cdgArrayBuffer);
+
+            // Extract MP3 as Blob and create object URL for player
+            const mp3ArrayBuffer = await zip.file(zipInfo.zipEntryMp3Path).async('arraybuffer');
+            const mp3Blob = new Blob([mp3ArrayBuffer], { type: 'audio/mpeg' });
+            const mp3Url = URL.createObjectURL(mp3Blob);
+
+            // Store cdg in module-level variable; mp3 is referenced by URL
+            cdgData = loadedCdgData;
+            mp3Data = null; // mp3Data array not stored when using object URL
+
+            return {
+                mp3Url,
+                mp3Blob,
+                cdgData: loadedCdgData
+            };
+        }
+
+        // Navigate to the correct subdirectory for directory-origin songs
         let currentDir = libraryDirectoryHandle;
         if (path) {
             const pathParts = path.split('/');
