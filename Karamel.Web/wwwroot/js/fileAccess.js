@@ -179,9 +179,10 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
                         } else if (fileName.endsWith('.zip')) {
                         // ZIP files: simplified handling per spec — each zip is expected
                         // to contain exactly one MP3 and one CDG at the zip root.
-                        try {
+                            try {
                             const jszip = await ensureJSZip();
-                            const zipBuf = await entry.getFile().arrayBuffer();
+                            const zipFileObj = await entry.getFile();
+                            const zipBuf = await zipFileObj.arrayBuffer();
                             const zip = await jszip.loadAsync(zipBuf);
 
                             let mp3Entry = null;
@@ -285,9 +286,10 @@ async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '', 
                     cdgFiles.add(baseName);
                     } else if (fileName.endsWith('.zip')) {
                     // Simplified ZIP handling: assume a single mp3 + cdg at zip root
-                    try {
+                        try {
                         const jszip = await ensureJSZip();
-                        const zipBuf = await entry.getFile().arrayBuffer();
+                        const zipFileObj = await entry.getFile();
+                        const zipBuf = await zipFileObj.arrayBuffer();
                         const zip = await jszip.loadAsync(zipBuf);
 
                         let mp3Entry = null;
@@ -385,7 +387,8 @@ export async function loadSongFiles(path, mp3FileName, cdgFileName, zipInfo = nu
         if (zipInfo && zipInfo.zipFileName) {
             // zipInfo: { zipFileName, zipEntryMp3Path, zipEntryCdgPath }
             const zipHandle = await libraryDirectoryHandle.getFileHandle(zipInfo.zipFileName);
-            const zipBuf = await zipHandle.getFile().arrayBuffer();
+            const zipFileObj = await zipHandle.getFile();
+            const zipBuf = await zipFileObj.arrayBuffer();
             const jszip = await ensureJSZip();
             const zip = await jszip.loadAsync(zipBuf);
 
