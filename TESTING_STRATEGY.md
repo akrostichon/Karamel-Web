@@ -9,19 +9,19 @@ This document outlines the testing approach for Karamel-Web, covering JavaScript
 ## Testing Stack
 
 ### JavaScript Testing (Current)
-- **Framework**: Vitest v1.0.0
-- **DOM Mock**: Happy-DOM v12.10.3
+- **Framework**: Vitest
+- **DOM Mock**: Happy-DOM
 - **Location**: `wwwroot/js/*.test.js`
 - **Command**: `npm test` (watch mode) or `npm run test:run` (single run)
 - **UI**: `npm run test:ui` for visual test runner
 
 ### C# Testing (Current)
-- **Framework**: xUnit v3.1.4
+- **Framework**: xUnit
 - **Test Project**: `Karamel.Web.Tests`
 - **Location**: `Karamel.Web.Tests/*.cs`
 - **Command**: `dotnet test`
-- **Blazor Testing**: bUnit (future - for component tests)
-- **Mocking**: Moq (future)
+- **Blazor Testing**: bUnit
+- **Mocking**: Moq
 
 ---
 

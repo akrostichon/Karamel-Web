@@ -59,7 +59,7 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
   - Source: https://github.com/vitest-dev/ui
 
 - happy-dom
-  - Version: devDependency in `wwwroot/package.json` (^12.10.3)
+  - Version: devDependency in `wwwroot/package.json` (^20.0.11)
   - License: MIT (verify upstream)
   - Source: https://github.com/capricorn86/happy-dom
   - Notes: Test environment for Vitest in Node; development-only dependency.
