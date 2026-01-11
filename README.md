@@ -1,6 +1,7 @@
 # Karamel-Web
 Karamel-Web is a modern, cloud-enabled reimagining of the original Karamel karaoke player.
 Built with Blazor WebAssembly, it brings karaoke management to the web while keeping your media files local.
+Karamel-Web supports cdg+mp3 files either zipped or unzipped (one song and cdg per zip).
 
 ## Features:
 - Singers can search your Song library and add their songs to the playlist

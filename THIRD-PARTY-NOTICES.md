@@ -22,6 +22,12 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
   - Source: https://github.com/davidshimjs/qrcodejs
   - Notes: Used for generating QR codes linking to singer pages.
 
+- JSZip
+  - Version: referenced via CDN for runtime; devDependency pinned in `wwwroot/package.json` (jszip ^4.0.0)
+  - License: MIT
+  - Source: https://github.com/Stuk/jszip
+  - Notes: Used client-side to enumerate and extract entries from ZIP archives lazily. Runtime usage will import from CDN (for example: https://cdn.jsdelivr.net/npm/jszip@4.0.0/dist/jszip.min.js). Include the MIT license text when redistributing the package.
+
 - Fluxor
   - Version: added as a NuGet dependency for Blazor state management
   - License: MIT

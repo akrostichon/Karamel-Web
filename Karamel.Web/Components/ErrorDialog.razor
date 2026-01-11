@@ -1,0 +1,39 @@
+@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+
+<div class="modal-backdrop" style="display:@(Visible ? "block" : "none")">
+    <div class="modal-dialog modal-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@Title</h5>
+            </div>
+            <div class="modal-body">
+                <p>@Message</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" @onclick="OnAcceptClicked">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "Error";
+
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool Visible { get; set; }
+
+    [Parameter]
+    public EventCallback OnAccept { get; set; }
+
+    private async Task OnAcceptClicked()
+    {
+        if (OnAccept.HasDelegate)
+        {
+            await OnAccept.InvokeAsync(null);
+        }
+    }
+}

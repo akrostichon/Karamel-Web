@@ -54,11 +54,14 @@ function loadJsMediaTagsFromCDN() {
  * @param {string} filenamePattern - Pattern for parsing filename (default: "%artist - %title")
  * @returns {Promise<{artist: string, title: string}>} Artist and title
  */
-export async function extractMetadata(file, relativePath, filenamePattern = '%artist - %title') {
+export async function extractMetadata(fileOrBuffer, relativePath, filenamePattern = '%artist - %title') {
+    // Accept File, Blob, ArrayBuffer, or Uint8Array. Normalize to Blob for jsmediatags.
+    const blob = normalizeToBlob(fileOrBuffer);
+
     // Try ID3 tags first if available
-    if (id3Enabled) {
+    if (id3Enabled && blob) {
         try {
-            const id3Data = await readID3Tags(file);
+            const id3Data = await readID3Tags(blob);
             if (id3Data && id3Data.artist && id3Data.title) {
                 return {
                     artist: id3Data.artist.trim(),
@@ -85,6 +88,7 @@ function readID3Tags(file) {
     }
     
     return new Promise((resolve, reject) => {
+        // jsmediatags.read works with File/Blob in both browser and test envs
         jsmediatags.read(file, {
             onSuccess: (tag) => {
                 const tags = tag.tags || {};
@@ -100,6 +104,34 @@ function readID3Tags(file) {
             }
         });
     });
+}
+
+/**
+ * Normalize input to a Blob for ID3 reading.
+ * Accepts File, Blob, ArrayBuffer, Uint8Array.
+ * Returns null for unsupported inputs.
+ */
+function normalizeToBlob(input) {
+    if (!input) return null;
+    // If it's already a Blob (File is a subtype), return as-is
+    if (typeof Blob !== 'undefined' && input instanceof Blob) return input;
+
+    // Node-test environment may provide Buffer-like Uint8Array
+    if (input instanceof Uint8Array) {
+        return new Blob([input.buffer], { type: 'audio/mpeg' });
+    }
+
+    if (input instanceof ArrayBuffer) {
+        return new Blob([input], { type: 'audio/mpeg' });
+    }
+
+    // If it's an object with a 'file' property (our wrappers), use that
+    if (typeof input === 'object' && input.file) {
+        return normalizeToBlob(input.file);
+    }
+
+    // Otherwise unsupported (string/name); return null to force filename fallback
+    return null;
 }
 
 /**
