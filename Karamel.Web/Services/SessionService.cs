@@ -46,7 +46,7 @@ public class SessionService : ISessionService
     /// </summary>
     /// <param name="sessionId">Session GUID</param>
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
-    public async Task InitializeAsync(Guid sessionId, bool asMainTab)
+    public async Task InitializeAsync(Guid sessionId, bool asMainTab, string? linkToken = null)
     {
         if (_isInitialized)
             return;
@@ -55,7 +55,8 @@ public class SessionService : ISessionService
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./js/signalRBridge.js");
 
-        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab);
+        // Pass link token if present so JS SignalR client can use it when connecting
+        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, linkToken);
 
         // Load existing session state from sessionStorage
         if (!asMainTab)

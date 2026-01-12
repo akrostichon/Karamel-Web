@@ -4,10 +4,13 @@
 @using Karamel.Web.Store.Session
 @using Karamel.Web.Store.Library
 @using Microsoft.JSInterop
+@using System.Text.Json
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject IDispatcher Dispatcher
 @inject NavigationManager NavigationManager
+@inject Karamel.Web.Services.ISessionService SessionService
+@inject System.Net.Http.HttpClient Http
 
 <PageTitle>Karamel - Karaoke Session Setup</PageTitle>
 
@@ -366,18 +369,77 @@
                 return;
             }
 
-            // Initialize session in state
+            // Create server-side session and obtain link token
+            string? linkToken = null;
+            try
+            {
+                var createReq = new { RequireSingerName = _requireSingerName, PauseBetweenSongsSeconds = _pauseBetweenSongs };
+                var createRes = await Http.PostAsJsonAsync("/api/sessions", createReq);
+                if (createRes.IsSuccessStatusCode)
+                {
+                    var json = await createRes.Content.ReadFromJsonAsync<JsonElement>();
+                    if (json.TryGetProperty("linkToken", out var tokenProp))
+                    {
+                        linkToken = tokenProp.GetString();
+                    }
+                    if (json.TryGetProperty("sessionId", out var sidProp) && string.IsNullOrEmpty(sessionId))
+                    {
+                        sessionId = sidProp.GetString() ?? sessionId;
+                    }
+                }
+                else
+                {
+                    _startSessionError = $"Failed to create server session: {createRes.StatusCode}";
+                    _isStartingSession = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _startSessionError = $"Failed to create server session: {ex.Message}";
+                _isStartingSession = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Initialize session in local state (include same sessionId)
             var session = new Models.Session
             {
                 SessionId = Guid.Parse(sessionId),
-                LibraryPath = "Selected Library", // We don't have actual path from File System Access API
+                LibraryPath = "Selected Library",
                 RequireSingerName = _requireSingerName,
-                PauseBetweenSongs = true, // Always enable pause screen between songs
+                PauseBetweenSongs = true,
                 PauseBetweenSongsSeconds = _pauseBetweenSongs,
                 FilenamePattern = _filenamePattern
             };
 
             Dispatcher.Dispatch(new InitializeSessionAction(session));
+
+            // Initialize SessionService as main tab with link token so SignalR can connect with the token
+            try
+            {
+                await SessionService.InitializeAsync(session.SessionId, true, linkToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Home.StartSession: SessionService.InitializeAsync failed: {ex.Message}");
+            }
+
+            // Save library locally and upload sanitized catalog to server
+            try
+            {
+                if (_selectedSongs != null)
+                {
+                    await SessionService.SaveLibraryToSessionStorageAsync(session.SessionId, _selectedSongs);
+                    var uploaded = await SessionService.UploadLibraryToServerAsync(session.SessionId, _selectedSongs, linkToken);
+                    Console.WriteLine($"Library upload to server result: {uploaded}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Home.StartSession: library upload failed: {ex.Message}");
+            }
 
             // Lock theme for this session so other tabs cannot change it
             _themeLocked = true;

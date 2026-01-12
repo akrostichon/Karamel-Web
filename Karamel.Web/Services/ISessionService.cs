@@ -15,12 +15,13 @@ public interface ISessionService : IAsyncDisposable
     /// </summary>
     /// <param name="sessionId">Session GUID</param>
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
-    Task InitializeAsync(Guid sessionId, bool asMainTab);
+    Task InitializeAsync(Guid sessionId, bool asMainTab, string? linkToken = null);
 
     /// <summary>
     /// Save library to sessionStorage (main tab only, called once during session initialization)
     /// </summary>
     Task SaveLibraryToSessionStorageAsync(Guid sessionId, IEnumerable<Song> songs);
+    Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null);
 
     /// <summary>
     /// Broadcast playlist updated event (main tab only)
