@@ -14,6 +14,7 @@ High-level rules
 - When you create a branch, name it `feature/implement-phase-<phase>-step-<step>` (for example `feature/implement-phase-1-step-2`) unless instructed otherwise.
 - Always add a tests substep under the chosen Step X in `DEVELOPMENT_PLAN.md` before writing code. The tests substep must describe which tests will be added (unit, integration, JS), target files, and the acceptance criteria.
 - Avoid running long-running or background integration tests automatically. Do not run backend SignalR/WebSocket integration tests without explicit permission.
+- Avoid assumptions: when requirements are ambiguous or incomplete, explicitly ask the user for clarification before implementing. If multiple valid implementations exist, present the reasonable options and request which to pursue.
 - When committing, use a user-facing commit message that describes the feature or user-visible change (example: "Azure provisioning & Deployment"), not a vague technical message like "Implement Phase X".
 - Create commits and push only when explicitly asked to; by default commit locally and stop.
 
@@ -64,5 +65,3 @@ Notes & constraints
 - Always ask if a requested step requires external resources you cannot access (CI, production database, Azure). Obtain explicit permission before running remote or long-running integration tasks.
 - If any action would modify production resources or sensitive configuration, stop and ask for credentials/confirmation.
 - For C# backend integration tests involving SignalR or WebApplicationFactory, ask the user before running; do not run them by default.
-
-If you want this prompt adjusted (tone, verbosity, extra constraints), reply with exact wording changes.
