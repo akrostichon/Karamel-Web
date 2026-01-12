@@ -299,6 +299,30 @@ export function saveLibraryToSessionStorage(sessionId, libraryData) {
 	}
 }
 
+export async function uploadLibraryToServer(sessionId, libraryData, options = {}) {
+	try {
+		if (!sessionId) throw new Error('sessionId is required');
+		const url = `/api/sessions/${sessionId}/library/bulk`;
+		const headers = { 'Content-Type': 'application/json' };
+		if (options.linkToken) {
+			headers['X-Link-Token'] = options.linkToken;
+		}
+
+		// Prepare sanitized payload: array of { artist, title, metadataJson }
+		const songs = (libraryData && libraryData.songs) ? libraryData.songs.map(s => ({ artist: s.artist || s.artistName || s.artistName, title: s.title || s.track || s.title, metadataJson: s.metadataJson || null })) : [];
+
+		const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(songs) });
+		if (!resp.ok) {
+			console.warn('uploadLibraryToServer failed', resp.status, await resp.text());
+			return false;
+		}
+		return true;
+	} catch (e) {
+		console.warn('uploadLibraryToServer exception', e);
+		return false;
+	}
+}
+
 export function getSessionStateForSession(sessionId) {
 	try {
 		if (!sessionId) throw new Error('sessionId is required');

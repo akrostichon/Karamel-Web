@@ -87,6 +87,30 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
+    /// Upload sanitized library to server-side API for paginated listing (main tab only)
+    /// </summary>
+    public async Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null)
+    {
+        if (!_isMainTab || _sessionBridgeModule == null)
+            return false;
+
+        var data = new
+        {
+            songs = songs.Select(SongConverters.ConvertSongToDto).ToArray()
+        };
+
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("uploadLibraryToServer", sessionId.ToString(), data, new { linkToken });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: uploadLibraryToServer failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Broadcast playlist updated event (main tab only)
     /// </summary>
     public async Task BroadcastPlaylistUpdatedAsync()
