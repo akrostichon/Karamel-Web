@@ -79,12 +79,36 @@ public class SessionService : ISessionService
         if (!_isMainTab || _sessionBridgeModule == null)
             return;
 
-        var data = new
+        try
         {
-            songs = songs.Select(SongConverters.ConvertSongToDto).ToArray()
-        };
+            // If SignalR is connected, prefer server-backed listing and don't save full library locally
+            var usingSignalR = false;
+            try
+            {
+                usingSignalR = await _sessionBridgeModule.InvokeAsync<bool>("isUsingSignalR");
+            }
+            catch
+            {
+                // ignore JS interop failures and fall back to saving locally
+            }
 
-        await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", sessionId.ToString(), data);
+            if (usingSignalR)
+            {
+                Console.WriteLine("SessionService: SignalR active — skipping saving full library to sessionStorage");
+                return;
+            }
+
+            var data = new
+            {
+                songs = songs.Select(SongConverters.ConvertSongToDto).ToArray()
+            };
+
+            await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", sessionId.ToString(), data);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: Failed to save library to sessionStorage: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -108,6 +132,40 @@ public class SessionService : ISessionService
         {
             Console.WriteLine($"SessionService: uploadLibraryToServer failed: {ex.Message}");
             return false;
+        }
+    }
+
+    public async Task<System.Text.Json.JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
+    {
+        if (_sessionBridgeModule == null)
+            return default;
+
+        try
+        {
+            var result = await _sessionBridgeModule.InvokeAsync<System.Text.Json.JsonElement>("fetchLibraryPage", sessionId.ToString(), page, pageSize, search, sort);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: FetchLibraryPageAsync failed: {ex.Message}");
+            return default;
+        }
+    }
+
+    public async Task<System.Text.Json.JsonElement> SearchLibraryAsync(Guid sessionId, string query, int maxResults = 10)
+    {
+        if (_sessionBridgeModule == null)
+            return default;
+
+        try
+        {
+            var result = await _sessionBridgeModule.InvokeAsync<System.Text.Json.JsonElement>("searchLibrary", sessionId.ToString(), query, maxResults);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: SearchLibraryAsync failed: {ex.Message}");
+            return default;
         }
     }
 
@@ -240,6 +298,17 @@ public class SessionService : ISessionService
             // Now read from sessionStorage (which should have been updated by the sync)
             var stateJson = await _sessionBridgeModule.InvokeAsync<JsonElement>("getSessionStateForSession", sessionId.ToString());
 
+            // If SignalR is active, skip restoring the full library from sessionStorage
+            var signalRActive = false;
+            try
+            {
+                signalRActive = await _sessionBridgeModule.InvokeAsync<bool>("isUsingSignalR");
+            }
+            catch
+            {
+                // ignore
+            }
+
             Console.WriteLine($"SessionService: Got state from sessionStorage: {stateJson}");
 
             // Restore session settings
@@ -266,20 +335,45 @@ public class SessionService : ISessionService
                 Console.WriteLine($"SessionService: No session data found in sessionStorage");
             }
 
-            // Restore library (saved by main tab during init)
-            if (stateJson.TryGetProperty("library", out var libraryData) && 
-                libraryData.ValueKind != JsonValueKind.Null &&
-                libraryData.TryGetProperty("songs", out var songsArray))
+            // Restore library (saved by main tab during init) unless SignalR is active
+            if (signalRActive)
             {
-                Console.WriteLine($"SessionService: Found library data with {songsArray.GetArrayLength()} songs");
-                var songs = songsArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-                
-                Console.WriteLine($"SessionService: Dispatching LoadLibrarySuccessAction with {songs.Count} songs");
-                _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                Console.WriteLine("SessionService: SignalR active — fetching first library page from server via bridge");
+                try
+                {
+                    var pageResult = await _sessionBridgeModule.InvokeAsync<JsonElement>("fetchLibraryPage", sessionId.ToString(), 1, 50, null, null);
+                    if (pageResult.ValueKind != JsonValueKind.Undefined && pageResult.ValueKind != JsonValueKind.Null)
+                    {
+                        // Expect pageResult.items as array
+                        if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
+                        {
+                            var songs = itemsArr.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
+                            _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                            Console.WriteLine($"SessionService: Dispatched first page with {songs.Count} songs");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SessionService: Failed to fetch library page via bridge: {ex.Message}");
+                }
             }
             else
             {
-                Console.WriteLine($"SessionService: No library data found in sessionStorage");
+                if (stateJson.TryGetProperty("library", out var libraryData) && 
+                    libraryData.ValueKind != JsonValueKind.Null &&
+                    libraryData.TryGetProperty("songs", out var songsArray))
+                {
+                    Console.WriteLine($"SessionService: Found library data with {songsArray.GetArrayLength()} songs");
+                    var songs = songsArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
+                    
+                    Console.WriteLine($"SessionService: Dispatching LoadLibrarySuccessAction with {songs.Count} songs");
+                    _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                }
+                else
+                {
+                    Console.WriteLine($"SessionService: No library data found in sessionStorage");
+                }
             }
 
             // Note: Playlist state doesn't need to be restored here initially as it starts empty

@@ -8,7 +8,21 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+// Allow overriding the backend base address via environment/configuration for development.
+// If `KARAMEL_BACKEND_BASE` (or configuration key `BackendBase`) is set, use it; otherwise
+// fall back to the host environment base address so relative API calls work in production.
+var backendBaseFromConfig = builder.Configuration["BackendBase"] ?? Environment.GetEnvironmentVariable("KARAMEL_BACKEND_BASE");
+Uri baseAddress;
+if (!string.IsNullOrWhiteSpace(backendBaseFromConfig))
+{
+    baseAddress = new Uri(backendBaseFromConfig);
+}
+else
+{
+    baseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+}
+
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = baseAddress });
 
 // Add Fluxor state management
 builder.Services.AddFluxor(options =>

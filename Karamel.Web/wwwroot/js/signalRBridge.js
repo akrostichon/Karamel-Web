@@ -299,6 +299,77 @@ export function saveLibraryToSessionStorage(sessionId, libraryData) {
 	}
 }
 
+export function isUsingSignalR() {
+	return !!usingSignalR && !!hubConnection && hubConnection.state === (window.signalR ? window.signalR.HubConnectionState?.Connected : 1);
+}
+
+export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, search = null, sort = null) {
+	if (!sessionId) throw new Error('sessionId is required');
+
+	// Prefer SignalR RPC when connected
+	if (usingSignalR && hubConnection) {
+		try {
+			const res = await hubConnection.invoke('GetLibraryPage', sessionId, page, pageSize, search, sort);
+			// Expect shape: { items, page, pageSize, totalCount }
+			return res;
+		} catch (e) {
+			console.warn('fetchLibraryPage via SignalR failed, falling back to REST:', e);
+		}
+	}
+
+	// REST fallback
+	try {
+		const params = new URLSearchParams();
+		params.set('page', String(page));
+		params.set('pageSize', String(pageSize));
+		if (search) params.set('search', search);
+		if (sort) params.set('sort', sort);
+
+		const url = `/api/sessions/${sessionId}/library?${params.toString()}`;
+		const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+		if (!resp.ok) {
+			console.warn('fetchLibraryPage REST failed', resp.status, await resp.text());
+			return { items: [], page, pageSize, totalCount: 0 };
+		}
+		const items = await resp.json();
+		const total = parseInt(resp.headers.get('X-Total-Count') || '0');
+		return { items, page, pageSize, totalCount: total };
+	} catch (e) {
+		console.warn('fetchLibraryPage exception', e);
+		return { items: [], page, pageSize, totalCount: 0 };
+	}
+}
+
+export async function searchLibrary(sessionId, query, maxResults = 10) {
+	if (!sessionId) throw new Error('sessionId is required');
+	if (!query) return [];
+
+	// Prefer SignalR when available
+	if (usingSignalR && hubConnection) {
+		try {
+			const res = await hubConnection.invoke('SearchLibrary', sessionId, query, maxResults);
+			return res;
+		} catch (e) {
+			console.warn('searchLibrary via SignalR failed, falling back to REST:', e);
+		}
+	}
+
+	try {
+		const params = new URLSearchParams();
+		params.set('search', query);
+		params.set('page', '1');
+		params.set('pageSize', String(maxResults));
+		const url = `/api/sessions/${sessionId}/library?${params.toString()}`;
+		const resp = await fetch(url);
+		if (!resp.ok) return [];
+		const items = await resp.json();
+		return items;
+	} catch (e) {
+		console.warn('searchLibrary REST failed', e);
+		return [];
+	}
+}
+
 export async function uploadLibraryToServer(sessionId, libraryData, options = {}) {
 	try {
 		if (!sessionId) throw new Error('sessionId is required');

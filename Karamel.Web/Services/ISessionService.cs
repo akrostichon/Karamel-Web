@@ -24,6 +24,13 @@ public interface ISessionService : IAsyncDisposable
     Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null);
 
     /// <summary>
+    /// Fetch a paginated library page from server (prefers SignalR RPC when available)
+    /// Returns a JSON element containing { items, page, pageSize, totalCount }
+    /// </summary>
+    Task<System.Text.Json.JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null);
+    Task<System.Text.Json.JsonElement> SearchLibraryAsync(Guid sessionId, string query, int maxResults = 10);
+
+    /// <summary>
     /// Broadcast playlist updated event (main tab only)
     /// </summary>
     Task BroadcastPlaylistUpdatedAsync();

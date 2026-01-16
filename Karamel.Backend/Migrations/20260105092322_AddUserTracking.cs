@@ -15,8 +15,8 @@ namespace Karamel.Backend.Migrations
                 name: "Playlists",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    SessionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
+                    Id = table.Column<Guid>(nullable: false),
+                    SessionId = table.Column<Guid>(nullable: false)
                 },
                 constraints: table =>
                 {
@@ -27,12 +27,12 @@ namespace Karamel.Backend.Migrations
                 name: "Sessions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    LinkToken = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    RequireSingerName = table.Column<bool>(type: "bit", nullable: false),
-                    PauseBetweenSongsSeconds = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<Guid>(nullable: false),
+                    LinkToken = table.Column<string>(nullable: false),
+                    CreatedAt = table.Column<DateTime>(nullable: false),
+                    ExpiresAt = table.Column<DateTime>(nullable: true),
+                    RequireSingerName = table.Column<bool>(nullable: false),
+                    PauseBetweenSongsSeconds = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
@@ -43,12 +43,12 @@ namespace Karamel.Backend.Migrations
                 name: "PlaylistItems",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    PlaylistId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Position = table.Column<int>(type: "int", nullable: false),
-                    Artist = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    SingerName = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    Id = table.Column<Guid>(nullable: false),
+                    PlaylistId = table.Column<Guid>(nullable: false),
+                    Position = table.Column<int>(nullable: false),
+                    Artist = table.Column<string>(nullable: false),
+                    Title = table.Column<string>(nullable: false),
+                    SingerName = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
                 {

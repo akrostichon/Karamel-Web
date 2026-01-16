@@ -23,16 +23,14 @@ namespace Karamel.Backend.Migrations
                 .HasAnnotation("ProductVersion", "10.0.1")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
+            // Provider-specific annotations removed to keep migrations provider-agnostic
             modelBuilder.Entity("Karamel.Backend.Models.Playlist", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        ;
 
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("SessionId");
 
                     b.HasKey("Id");
 
@@ -46,21 +44,16 @@ namespace Karamel.Backend.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Artist")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired();
 
-                    b.Property<Guid>("PlaylistId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("PlaylistId");
 
-                    b.Property<int>("Position")
-                        .HasColumnType("int");
+                    b.Property<int>("Position");
 
-                    b.Property<string>("SingerName")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<string>("SingerName");
 
                     b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired();
 
                     b.HasKey("Id");
 
@@ -72,24 +65,18 @@ namespace Karamel.Backend.Migrations
             modelBuilder.Entity("Karamel.Backend.Models.Session", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .ValueGeneratedOnAdd();
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTime>("CreatedAt");
 
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTime?>("ExpiresAt");
 
                     b.Property<string>("LinkToken")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired();
 
-                    b.Property<int>("PauseBetweenSongsSeconds")
-                        .HasColumnType("int");
+                    b.Property<int>("PauseBetweenSongsSeconds");
 
-                    b.Property<bool>("RequireSingerName")
-                        .HasColumnType("bit");
+                    b.Property<bool>("RequireSingerName");
 
                     b.HasKey("Id");
 
