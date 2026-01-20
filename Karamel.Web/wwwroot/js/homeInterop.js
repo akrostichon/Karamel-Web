@@ -4,7 +4,7 @@
  */
 
 import { pickLibraryDirectory } from './fileAccess.js';
-import { saveLibraryToSessionStorage, broadcastStateUpdate } from './signalRBridge.js';
+import { broadcastStateUpdate } from './signalRBridge.js';
 import { validatePattern } from './metadata.js';
 
 /**
@@ -157,9 +157,7 @@ export async function initializeKaraokeSession(config, songs) {
     
     // Session is already initialized by SessionService.InitializeAsync in Home.razor
     // with proper linkToken and backendUrl parameters, so we don't call initializeSession here
-    
-    // Save library to sessionStorage
-    await saveLibraryToSessionStorage(config.sessionId, { songs });
+    // Library is also uploaded to server by SessionService.UploadLibraryToServerAsync
     
     // Broadcast session settings (includes all session data for secondary tabs)
     const sessionSettings = {

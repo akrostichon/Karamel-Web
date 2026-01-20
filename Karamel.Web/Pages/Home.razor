@@ -446,12 +446,11 @@
                 Console.WriteLine($"Home.StartSession: SessionService.InitializeAsync failed: {ex.Message}");
             }
 
-            // Save library locally and upload sanitized catalog to server
+            // Upload sanitized catalog to server
             try
             {
                 if (_selectedSongs != null)
                 {
-                    await SessionService.SaveLibraryToSessionStorageAsync(session.SessionId, _selectedSongs);
                     var uploaded = await SessionService.UploadLibraryToServerAsync(session.SessionId, _selectedSongs, linkToken);
                     Console.WriteLine($"Library upload to server result: {uploaded}");
                 }

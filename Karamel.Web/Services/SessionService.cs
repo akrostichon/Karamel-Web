@@ -26,6 +26,11 @@ public class SessionService : ISessionService
     private bool _isMainTab;
     private DotNetObjectReference<SessionService>? _stateUpdateDotNetRef;
 
+    /// <summary>
+    /// Gets whether this tab is the main tab (has directory handle)
+    /// </summary>
+    public bool IsMainTab => _isMainTab;
+
     // Song (de)serialization helpers moved to Karamel.Web.Contracts.SongDto / SongConverters
 
     public SessionService(
@@ -75,46 +80,6 @@ public class SessionService : ISessionService
         await SetupStateUpdateListenerAsync();
 
         _isInitialized = true;
-    }
-
-    /// <summary>
-    /// Save library to sessionStorage (main tab only, called once during session initialization)
-    /// </summary>
-    public async Task SaveLibraryToSessionStorageAsync(Guid sessionId, IEnumerable<Song> songs)
-    {
-        if (!_isMainTab || _sessionBridgeModule == null)
-            return;
-
-        try
-        {
-            // If SignalR is connected, prefer server-backed listing and don't save full library locally
-            var usingSignalR = false;
-            try
-            {
-                usingSignalR = await _sessionBridgeModule.InvokeAsync<bool>("isUsingSignalR");
-            }
-            catch
-            {
-                // ignore JS interop failures and fall back to saving locally
-            }
-
-            if (usingSignalR)
-            {
-                Console.WriteLine("SessionService: SignalR active — skipping saving full library to sessionStorage");
-                return;
-            }
-
-            var data = new
-            {
-                songs = songs.Select(SongConverters.ConvertSongToDto).ToArray()
-            };
-
-            await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", sessionId.ToString(), data);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"SessionService: Failed to save library to sessionStorage: {ex.Message}");
-        }
     }
 
     /// <summary>
@@ -341,46 +306,8 @@ public class SessionService : ISessionService
                 Console.WriteLine($"SessionService: No session data found in sessionStorage");
             }
 
-            // Restore library (saved by main tab during init) unless SignalR is active
-            if (signalRActive)
-            {
-                Console.WriteLine("SessionService: SignalR active — fetching first library page from server via bridge");
-                try
-                {
-                    var pageResult = await _sessionBridgeModule.InvokeAsync<JsonElement>("fetchLibraryPage", sessionId.ToString(), 1, 50, null, null);
-                    if (pageResult.ValueKind != JsonValueKind.Undefined && pageResult.ValueKind != JsonValueKind.Null)
-                    {
-                        // Expect pageResult.items as array
-                        if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
-                        {
-                            var songs = itemsArr.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-                            _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
-                            Console.WriteLine($"SessionService: Dispatched first page with {songs.Count} songs");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SessionService: Failed to fetch library page via bridge: {ex.Message}");
-                }
-            }
-            else
-            {
-                if (stateJson.TryGetProperty("library", out var libraryData) && 
-                    libraryData.ValueKind != JsonValueKind.Null &&
-                    libraryData.TryGetProperty("songs", out var songsArray))
-                {
-                    Console.WriteLine($"SessionService: Found library data with {songsArray.GetArrayLength()} songs");
-                    var songs = songsArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-                    
-                    Console.WriteLine($"SessionService: Dispatching LoadLibrarySuccessAction with {songs.Count} songs");
-                    _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
-                }
-                else
-                {
-                    Console.WriteLine($"SessionService: No library data found in sessionStorage");
-                }
-            }
+            // Initialize library from server (no longer using sessionStorage)
+            await InitializeLibraryAsync(sessionId);
 
             // Note: Playlist state doesn't need to be restored here initially as it starts empty
             // It will be updated via broadcast when songs are added
@@ -432,6 +359,65 @@ public class SessionService : ISessionService
         }
     }
     
+    /// <summary>
+    /// Initialize library by fetching from server with retry logic
+    /// </summary>
+    private async Task InitializeLibraryAsync(Guid sessionId)
+    {
+        if (_sessionBridgeModule == null)
+            return;
+
+        const int maxRetries = 3;
+        var delays = new[] { 2000, 4000, 8000 }; // Exponential backoff: 2s, 4s, 8s
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                Console.WriteLine($"SessionService: Fetching library from server (attempt {attempt + 1}/{maxRetries + 1})");
+                
+                var pageResult = await _sessionBridgeModule.InvokeAsync<JsonElement>(
+                    "fetchLibraryPage", 
+                    sessionId.ToString(), 
+                    1, // page
+                    50, // pageSize
+                    null, // searchQuery
+                    null // sortBy
+                );
+                
+                if (pageResult.ValueKind != JsonValueKind.Undefined && pageResult.ValueKind != JsonValueKind.Null)
+                {
+                    if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
+                    {
+                        var songs = itemsArr.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
+                        _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                        Console.WriteLine($"SessionService: Successfully loaded {songs.Count} songs from server");
+                        return; // Success, exit retry loop
+                    }
+                }
+                
+                Console.WriteLine("SessionService: Empty or invalid response from server");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SessionService: Failed to fetch library (attempt {attempt + 1}): {ex.Message}");
+                
+                if (attempt < maxRetries)
+                {
+                    var delay = delays[attempt];
+                    Console.WriteLine($"SessionService: Retrying in {delay}ms...");
+                    await Task.Delay(delay);
+                }
+            }
+        }
+
+        // All retries failed
+        Console.WriteLine("SessionService: All retry attempts failed");
+        _dispatcher.Dispatch(new LoadLibraryFailureAction(
+            "Karaoke Session ended. Connect to new session via shown link."
+        ));
+    }
+
     /// <summary>
     /// Set up listener for ongoing state updates from main tab (secondary tabs only)
     /// </summary>

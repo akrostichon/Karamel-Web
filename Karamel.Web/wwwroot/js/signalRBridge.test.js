@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     initializeSession,
     broadcastStateUpdate,
-    saveLibraryToSessionStorage,
     getSessionState,
     getSessionStateForSession,
     clearSessionState,
@@ -190,62 +189,6 @@ describe('signalRBridge', () => {
         it('should throw error if BroadcastChannel not supported', () => {
             global.BroadcastChannel = undefined;
             expect(() => initializeSession(true)).toThrow('Broadcast Channel API is not supported');
-        });
-    });
-
-    describe('saveLibraryToSessionStorage', () => {
-        it('should save library to sessionStorage without broadcasting', () => {
-            const libraryData = {
-                songs: [
-                    { id: '123', artist: 'Artist 1', title: 'Song 1' },
-                    { id: '456', artist: 'Artist 2', title: 'Song 2' }
-                ]
-            };
-
-            saveLibraryToSessionStorage(TEST_SESSION_ID, libraryData);
-
-            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
-            expect(stored.library).toEqual(libraryData);
-        });
-
-        it('should preserve existing session state when saving library', () => {
-            // Set up existing state
-            const existingState = {
-                session: { sessionId: 'abc-123' },
-                library: null,
-                playlist: { queue: [{ id: '1' }] },
-                currentSong: null
-            };
-            mockSessionStorage.setItem(`karamel-session-${TEST_SESSION_ID}`, JSON.stringify(existingState));
-
-            const libraryData = {
-                songs: [{ id: '789', artist: 'New Artist', title: 'New Song' }]
-            };
-
-            saveLibraryToSessionStorage(TEST_SESSION_ID, libraryData);
-
-            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
-            expect(stored.library).toEqual(libraryData);
-            expect(stored.session).toEqual(existingState.session);
-            expect(stored.playlist).toEqual(existingState.playlist);
-        });
-
-        it('should handle storage errors gracefully', () => {
-            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            
-            const originalSetItem = mockSessionStorage.setItem;
-            mockSessionStorage._originalSetItem = originalSetItem;
-            mockSessionStorage.setItem = () => {
-                throw new Error('Storage quota exceeded');
-            };
-
-            const libraryData = { songs: [] };
-            expect(() => saveLibraryToSessionStorage(libraryData)).not.toThrow();
-
-            // Restore original function
-            mockSessionStorage.setItem = originalSetItem;
-            mockSessionStorage._originalSetItem = null;
-            consoleSpy.mockRestore();
         });
     });
 
@@ -575,23 +518,6 @@ describe('signalRBridge', () => {
             mockSessionStorage.setItem = originalSetItem;
             mockSessionStorage._originalSetItem = null;
             consoleSpy.mockRestore();
-        });
-
-        it('should isolate different sessions', () => {
-            const session1 = 'session-1';
-            const session2 = 'session-2';
-
-            saveLibraryToSessionStorage(session1, { songs: [{ id: '1', title: 'Song 1' }] });
-            saveLibraryToSessionStorage(session2, { songs: [{ id: '2', title: 'Song 2' }] });
-
-            const state1 = getSessionStateForSession(session1);
-            const state2 = getSessionStateForSession(session2);
-
-            expect(state1.library.songs).toHaveLength(1);
-            expect(state1.library.songs[0].id).toBe('1');
-            
-            expect(state2.library.songs).toHaveLength(1);
-            expect(state2.library.songs[0].id).toBe('2');
         });
     });
 });

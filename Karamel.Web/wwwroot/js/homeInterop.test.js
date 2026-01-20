@@ -18,7 +18,6 @@ vi.mock('./fileAccess.js', () => ({
 
 vi.mock('./signalRBridge.js', () => ({
     initializeSession: vi.fn(),
-    saveLibraryToSessionStorage: vi.fn(),
     broadcastStateUpdate: vi.fn()
 }));
 
@@ -34,7 +33,7 @@ vi.mock('./metadata.js', () => ({
 
 // Import mocked modules
 import { pickLibraryDirectory } from './fileAccess.js';
-import { initializeSession, saveLibraryToSessionStorage, broadcastStateUpdate } from './signalRBridge.js';
+import { initializeSession, broadcastStateUpdate } from './signalRBridge.js';
 import { validatePattern } from './metadata.js';
 
 describe('File System Access Support', () => {
@@ -326,8 +325,8 @@ describe('Session Initialization', () => {
         await initializeKaraokeSession(config, songs);
         
         // Session is initialized by SessionService.InitializeAsync, not by homeInterop
-        // so we only check that library and settings are properly handled
-        expect(saveLibraryToSessionStorage).toHaveBeenCalledWith(config.sessionId, { songs });
+        // Library is uploaded to server by SessionService.UploadLibraryToServerAsync
+        // We only check that settings are properly broadcast
         expect(broadcastStateUpdate).toHaveBeenCalledWith('session-settings', {
             sessionId: config.sessionId,
             libraryPath: 'Selected Library',

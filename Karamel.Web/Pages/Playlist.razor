@@ -179,6 +179,19 @@
 
             isSessionValid = ValidateSession();
             isInitializing = false;
+            
+            // If this is the main tab, add beforeunload warning
+            if (SessionService.IsMainTab)
+            {
+                await JSRuntime.InvokeVoidAsync("eval", @"
+                    window.addEventListener('beforeunload', function(e) {
+                        e.preventDefault();
+                        e.returnValue = 'Closing this tab will end the karaoke session for all connected devices. Are you sure?';
+                        return e.returnValue;
+                    });
+                ");
+            }
+            
             StateHasChanged();
         }
     }

@@ -221,26 +221,6 @@ function saveToSessionStorage(type, data) {
 }
 
 /**
- * Save library to sessionStorage (main tab only, called once during session init)
- * @param {string} sessionId - Session GUID
- * @param {object} libraryData - Library data to save
- */
-export function saveLibraryToSessionStorage(sessionId, libraryData) {
-    try {
-        if (!sessionId) {
-            throw new Error('sessionId is required');
-        }
-        
-        const sessionState = getSessionStateForSession(sessionId);
-        sessionState.library = libraryData;
-        sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(sessionState));
-        console.log('Library saved to sessionStorage for session', sessionId, ':', libraryData.songs?.length || 0, 'songs');
-    } catch (error) {
-        console.error('Failed to save library to sessionStorage:', error);
-    }
-}
-
-/**
  * Get session state for a specific session from sessionStorage
  * @param {string} sessionId - Session GUID
  * @returns {object} Session state object

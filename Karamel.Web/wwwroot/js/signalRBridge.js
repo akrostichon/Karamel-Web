@@ -298,18 +298,6 @@ export async function reorderPlaylist(newOrder) {
 	return false;
 }
 
-export function saveLibraryToSessionStorage(sessionId, libraryData) {
-	try {
-		if (!sessionId) throw new Error('sessionId is required');
-		const sessionState = getSessionStateForSession(sessionId);
-		sessionState.library = libraryData;
-		sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(sessionState));
-		console.log('Library saved to sessionStorage for session', sessionId, ':', libraryData.songs?.length || 0, 'songs');
-	} catch (error) {
-		console.error('Failed to save library to sessionStorage:', error);
-	}
-}
-
 export function isUsingSignalR() {
 	return !!usingSignalR && !!hubConnection && hubConnection.state === (window.signalR ? window.signalR.HubConnectionState?.Connected : 1);
 }

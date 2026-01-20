@@ -131,9 +131,6 @@ public class SessionServiceMockBuilder
     private void ConfigureDefaultBehavior()
     {
         // Default: all async methods complete successfully
-        _mock.Setup(s => s.SaveLibraryToSessionStorageAsync(It.IsAny<Guid>(), It.IsAny<IEnumerable<Song>>()))
-            .Returns(Task.CompletedTask);
-        
         _mock.Setup(s => s.ClearSessionAsync())
             .Returns(Task.CompletedTask);
         

@@ -113,6 +113,8 @@ public class NavigationFlowTests : TestContext
         // Arrange - URL without session parameter, no session in state
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
+        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
+        Services.AddSingleton(mockSessionService.Object);
         var navManager = SetupFluxorWithStates(sessionState, playlistState, "http://localhost/player");
 
         // Act

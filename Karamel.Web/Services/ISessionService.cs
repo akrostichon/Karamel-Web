@@ -17,10 +17,6 @@ public interface ISessionService : IAsyncDisposable
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
     Task InitializeAsync(Guid sessionId, bool asMainTab, string? linkToken = null);
 
-    /// <summary>
-    /// Save library to sessionStorage (main tab only, called once during session initialization)
-    /// </summary>
-    Task SaveLibraryToSessionStorageAsync(Guid sessionId, IEnumerable<Song> songs);
     Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null);
 
     /// <summary>
@@ -59,6 +55,11 @@ public interface ISessionService : IAsyncDisposable
     /// Check if main tab is still alive (secondary tabs only)
     /// </summary>
     Task<bool> CheckMainTabAliveAsync();
+
+    /// <summary>
+    /// Gets whether this tab is the main tab (has directory handle)
+    /// </summary>
+    bool IsMainTab { get; }
 
     /// <summary>
     /// Clear session state (when session ends)
