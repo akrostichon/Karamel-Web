@@ -27,7 +27,6 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         var initialSession = new Models.Session
         {
             SessionId = TestSessionId,
-            LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         Dispatcher.Dispatch(new InitializeSessionAction(initialSession));
@@ -61,7 +60,6 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         var initialSession = new Models.Session
         {
             SessionId = TestSessionId,
-            LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         Dispatcher.Dispatch(new InitializeSessionAction(initialSession));
@@ -81,7 +79,6 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         var session = new Models.Session
         {
             SessionId = TestSessionId,
-            LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         Dispatcher.Dispatch(new InitializeSessionAction(session));
@@ -101,7 +98,6 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         var session = new Models.Session
         {
             SessionId = TestSessionId,
-            LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         Dispatcher.Dispatch(new InitializeSessionAction(session));
@@ -121,7 +117,6 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         var session = new Models.Session
         {
             SessionId = TestSessionId,
-            LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         Dispatcher.Dispatch(new InitializeSessionAction(session));
@@ -190,7 +185,6 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         var session = new Models.Session
         {
             SessionId = TestSessionId,
-            LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         Dispatcher.Dispatch(new InitializeSessionAction(session));
@@ -240,7 +234,6 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         var session = new Models.Session
         {
             SessionId = TestSessionId,
-            LibraryPath = @"C:\TestLibrary",
             PauseBetweenSongsSeconds = 5
         };
         Dispatcher.Dispatch(new InitializeSessionAction(session));

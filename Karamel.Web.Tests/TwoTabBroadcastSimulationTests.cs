@@ -63,7 +63,7 @@ namespace Karamel.Web.Tests
             singerStore.InitializeAsync().Wait();
 
             // Initialize session in singer context
-            var initialSession = new Session { SessionId = sessionId, LibraryPath = "C:\\TestLibrary" };
+            var initialSession = new Session { SessionId = sessionId };
             singerDispatcher.Dispatch(new InitializeSessionAction(initialSession));
 
             // Add a song from singer

@@ -1,67 +1,96 @@
-## /implement-phase — Assistant prompt for implementing a Phase/Step
+---
+title: Implement Phase or Step
+description: Implement a specific Phase or Step from DEVELOPMENT_PLAN.md with full test coverage
+arguments:
+  - name: target
+    description: "Phase or Step identifier (e.g., '1' for Phase 1, '1.2' for Step 1.2)"
+    required: true
+---
 
-Purpose
-- A concise, actionable prompt for an AI assistant to implement a specific Step or an entire Phase from the project's `DEVELOPMENT_PLAN.md`.
+You are implementing the specified Phase or Step from `DEVELOPMENT_PLAN.md`. Follow these instructions precisely:
 
-Usage
-- Run with a single positional argument identifying the target:
-  - `/implement-phase 1.2` — implement Step 1.2 only.
-  - `/implement-phase 1` — implement the whole Phase 1 (all steps in that phase).
+## CRITICAL RULES
 
-High-level rules
-- Do not start implementation until the plan and tests-substep are created and committed.
-- Create a feature branch only when the current git branch is `main`. Do not create a branch if on another branch.
-- When you create a branch, name it `feature/implement-phase-<phase>-step-<step>` (for example `feature/implement-phase-1-step-2`) unless instructed otherwise.
-- Always add a tests substep under the chosen Step X in `DEVELOPMENT_PLAN.md` before writing code. The tests substep must describe which tests will be added (unit, integration, JS), target files, and the acceptance criteria.
-- Avoid running long-running or background integration tests automatically. Do not run backend SignalR/WebSocket integration tests without explicit permission.
-- Avoid assumptions: when requirements are ambiguous or incomplete, explicitly ask the user for clarification before implementing. If multiple valid implementations exist, present the reasonable options and request which to pursue.
-- When committing, use a user-facing commit message that describes the feature or user-visible change (example: "Azure provisioning & Deployment"), not a vague technical message like "Implement Phase X".
-- Create commits and push only when explicitly asked to; by default commit locally and stop.
+1. **Branch Management**
+   - Check current git branch first
+   - If on `main`, create feature branch: `feature/implement-phase-<phase>-step-<step>`
+   - If on another branch, stay on that branch
 
-Checklist for the assistant (step-by-step)
-1. Validate input
-   - Confirm the requested target is valid (exists in `DEVELOPMENT_PLAN.md`). If ambiguous, ask the user which exact Step or Phase is intended.
-2. Inspect current git branch
-   - If branch is `main`, create the feature branch as described in rules. If not `main`, stay on the current branch.
-3. Plan tests (required)
-   - Add a new substep to the target Step X in `DEVELOPMENT_PLAN.md` called "Tests".
-   - For each test target include:
-     - Test type: `C# unit` (xUnit/bUnit), `C# integration` (use TestServer; only run with permission), `JS unit` (Vitest).
-     - File(s) to add or update (paths relative to repo).
-     - Mocks or fixtures required.
-     - Acceptance criteria (e.g., "All unit tests in `Karamel.Web.Tests` pass locally; JS Vitest suite passes").
-   - Commit the plan update with a descriptive commit message: "Plan tests for Phase X — Step Y: <short description>".
-4. Implement tests
-   - Create test skeletons and helpers in appropriate test projects.
-   - Keep tests focused and small. Use dependency injection and mocks where appropriate.
-5. Implement feature code
-   - Make minimal, root-cause changes necessary to satisfy the tests and acceptance criteria.
-6. Run tests (locally)
-   - Run C# tests: `dotnet test Karamel.Web.Tests` and/or `dotnet test Karamel.Backend.Tests` (do not run backend integration tests automatically).
-   - Run JS tests: `cd Karamel.Web/wwwroot && npm run test:run`.
-   - Fix failures until acceptance criteria are met.
-7. Update `DEVELOPMENT_PLAN.md`
-   - Mark the Step X as completed (check the checkbox and add a short note summarizing the tests run and results).
-8. Commit changes
-   - Use a human-facing commit message describing the feature from the user's perspective.
-   - Do not push unless explicitly requested.
-9. Report
-   - Produce a short report listing:
-     - Files changed (with paths)
-     - Tests added/updated
-     - Commands run to validate
-     - Any remaining TODOs or risks
+2. **Test-First Approach (MANDATORY)**
+   - Do NOT write implementation code until tests are planned and committed
+   - Add a "Tests" substep to the target Step in `DEVELOPMENT_PLAN.md`
+   - The substep MUST include:
+     - Test types: C# unit (xUnit/bUnit), C# integration (TestServer), or JS unit (Vitest)
+     - Target test file paths
+     - Required mocks/fixtures
+     - Acceptance criteria
+   - Commit the test plan: "Plan tests for Phase X — Step Y: <description>"
 
-Acceptance criteria
-- The tests described in the plan exist and run locally, with passing results (tests previously skipped may remain skipped).
-- The step in `DEVELOPMENT_PLAN.md` is marked completed.
-- The local git history contains descriptive commits covering planning, tests, and implementation.
+3. **Clarification First**
+   - If requirements are ambiguous, ask for clarification before implementing
+   - If multiple valid approaches exist, present options and wait for user choice
+   - Never assume requirements
 
-Examples
-- Minimal: `/implement-phase 2.10` — create tests substep, add tests, implement PlayerView fixes, run `Karamel.Web.Tests`, update plan, commit locally.
-- Whole phase: `/implement-phase 1` — iterate through all steps in Phase 1, adding tests-substeps for each step and implementing them one-by-one.
+4. **Integration Test Restrictions**
+   - NEVER run backend SignalR/WebSocket tests automatically
+   - Always ask permission before running C# integration tests
+   - Default to running only unit tests
 
-Notes & constraints
-- Always ask if a requested step requires external resources you cannot access (CI, production database, Azure). Obtain explicit permission before running remote or long-running integration tasks.
-- If any action would modify production resources or sensitive configuration, stop and ask for credentials/confirmation.
-- For C# backend integration tests involving SignalR or WebApplicationFactory, ask the user before running; do not run them by default.
+5. **Commit Policy**
+   - Use user-facing commit messages (e.g., "Add Azure deployment pipeline", not "Implement Phase 3")
+   - Commit locally by default — only push if explicitly requested
+
+## IMPLEMENTATION STEPS
+
+Execute these steps in order for the target Phase/Step:
+
+1. **Validate Target**
+   - Read `DEVELOPMENT_PLAN.md` and confirm the target exists
+   - If implementing a full Phase, identify all steps within it
+
+2. **Create Test Plan**
+   - Add "Tests" substep to `DEVELOPMENT_PLAN.md` under target Step(s)
+   - Specify all tests with file paths, types, and acceptance criteria
+   - Commit: "Plan tests for Phase X — Step Y: <description>"
+
+3. **Implement Tests**
+   - Create test files in appropriate projects (`Karamel.Web.Tests`, `Karamel.Backend.Tests`, or `wwwroot/js/*.test.js`)
+   - Use mocks and dependency injection appropriately
+   - Keep tests focused and atomic
+
+4. **Implement Feature**
+   - Write minimal code to satisfy tests and acceptance criteria
+   - Follow existing project patterns and architecture
+
+5. **Validate Locally**
+   - Run C# frontend tests: `dotnet test Karamel.Web.Tests`
+   - Run JS tests: `cd Karamel.Web/wwwroot && npm run test:run`
+   - For backend changes: Ask user to manually run `dotnet test Karamel.Backend.Tests`
+   - Fix failures until acceptance criteria met
+
+6. **Update Documentation**
+   - Mark Step(s) as completed in `DEVELOPMENT_PLAN.md`
+   - Add brief summary of tests run and results
+
+7. **Commit Implementation**
+   - Use descriptive, user-facing commit message
+   - Do NOT push unless explicitly requested
+
+8. **Report Results**
+   - List files changed (with paths)
+   - List tests added/updated
+   - Show commands run for validation
+   - Note any remaining TODOs or risks
+
+## ACCEPTANCE CRITERIA
+
+Before completing, verify:
+- [ ] All planned tests exist and pass (or are intentionally skipped)
+- [ ] Target Step(s) marked completed in `DEVELOPMENT_PLAN.md`
+- [ ] Local commits use descriptive, user-facing messages
+- [ ] No code pushed unless explicitly requested
+
+## EXAMPLES
+
+- `/implement-phase 1.2` — Implement only Step 1.2
+- `/implement-phase 1` — Implement all steps in Phase 1 sequentially

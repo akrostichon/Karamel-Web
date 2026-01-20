@@ -123,7 +123,7 @@ public class LibrarySearchTests : TestContext
         
         mockState.Setup(s => s.Value).Returns(state);
         mockSessionState.Setup(s => s.Value).Returns(new Karamel.Web.Store.Session.SessionState { 
-            CurrentSession = new Session { SessionId = sessionId, LibraryPath = "/test/library" } 
+            CurrentSession = new Session { SessionId = sessionId } 
         });
         
         // Mock SearchLibraryAsync for suggestions (returns empty array)
@@ -346,7 +346,7 @@ public class LibrarySearchTests : TestContext
         var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
         
         mockState.Setup(s => s.Value).Returns(state);
-        mockSessionState.Setup(s => s.Value).Returns(new Karamel.Web.Store.Session.SessionState { CurrentSession = new Session { SessionId = Guid.NewGuid(), LibraryPath = "/test/library" } });
+        mockSessionState.Setup(s => s.Value).Returns(new Karamel.Web.Store.Session.SessionState { CurrentSession = new Session { SessionId = Guid.NewGuid() } });
 
         Services.AddSingleton(mockDispatcher.Object);
         Services.AddSingleton(mockState.Object);

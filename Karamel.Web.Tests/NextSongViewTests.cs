@@ -47,7 +47,6 @@ public class NextSongViewTests : SessionTestBase
         _testSessionWithPause = new Models.Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             RequireSingerName = true,
             PauseBetweenSongs = true,
             PauseBetweenSongsSeconds = 5
@@ -56,7 +55,6 @@ public class NextSongViewTests : SessionTestBase
         _testSessionWithoutPause = new Models.Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             RequireSingerName = true,
             PauseBetweenSongs = false,
             PauseBetweenSongsSeconds = 5
@@ -229,7 +227,6 @@ public class NextSongViewTests : SessionTestBase
         var session = new Models.Session
         {
             SessionId = sessionId,
-            LibraryPath = "C:\\Karaoke",
             PauseBetweenSongs = true,
             PauseBetweenSongsSeconds = 5
         };
@@ -272,7 +269,6 @@ public class NextSongViewTests : SessionTestBase
         var sessionWithLongPause = new Models.Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             PauseBetweenSongs = true,
             PauseBetweenSongsSeconds = 10
         };
@@ -345,7 +341,6 @@ public class NextSongViewTests : SessionTestBase
         var session = new Models.Session
         {
             SessionId = validGuid,
-            LibraryPath = "C:\\Karaoke",
             PauseBetweenSongs = true,
             PauseBetweenSongsSeconds = 5
         };
@@ -374,7 +369,6 @@ public class NextSongViewTests : SessionTestBase
         var session = new Models.Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             PauseBetweenSongs = true,
             PauseBetweenSongsSeconds = duration
         };

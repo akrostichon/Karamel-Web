@@ -172,7 +172,6 @@ public class SessionService : ISessionService
         {
             sessionId = session.SessionId.ToString(),
             createdAt = session.CreatedAt,
-            libraryPath = session.LibraryPath,
             requireSingerName = session.RequireSingerName,
             pauseBetweenSongs = session.PauseBetweenSongs,
             pauseBetweenSongsSeconds = session.PauseBetweenSongsSeconds,
@@ -290,7 +289,6 @@ public class SessionService : ISessionService
                 var session = new Models.Session
                 {
                     SessionId = sessionId,
-                    LibraryPath = sessionData.GetProperty("libraryPath").GetString() ?? "",
                     RequireSingerName = sessionData.GetProperty("requireSingerName").GetBoolean(),
                     AllowSingersToReorder = sessionData.TryGetProperty("allowSingerReorder", out var allowReorder) ? allowReorder.GetBoolean() : false,
                     PauseBetweenSongs = sessionData.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) ? pauseEnabled.GetBoolean() : true,

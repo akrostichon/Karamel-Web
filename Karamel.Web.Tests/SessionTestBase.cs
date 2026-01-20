@@ -146,7 +146,6 @@ public abstract class SessionTestBase : TestContext
         return new Session
         {
             SessionId = sessionId ?? Guid.NewGuid(),
-            LibraryPath = "C:\\TestKaraoke",
             RequireSingerName = requireSingerName,
             PauseBetweenSongs = true,
             PauseBetweenSongsSeconds = 5,

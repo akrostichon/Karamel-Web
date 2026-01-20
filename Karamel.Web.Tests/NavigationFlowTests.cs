@@ -135,7 +135,6 @@ public class NavigationFlowTests : TestContext
         var session = new Session
         {
             SessionId = sessionIdInState,
-            LibraryPath = "C:\\Karaoke",
             RequireSingerName = true
         };
 
@@ -183,7 +182,6 @@ public class NavigationFlowTests : TestContext
         var session1 = new Session
         {
             SessionId = sessionId1,
-            LibraryPath = "C:\\Karaoke1",
             RequireSingerName = true
         };
 

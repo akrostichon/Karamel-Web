@@ -162,7 +162,6 @@ export async function initializeKaraokeSession(config, songs) {
     // Broadcast session settings (includes all session data for secondary tabs)
     const sessionSettings = {
         sessionId: config.sessionId,
-        libraryPath: 'Selected Library', // We don't have actual path from File System Access API
         requireSingerName: config.requireSingerName,
         allowSingerReorder: config.allowSingerReorder,
         pauseBetweenSongs: true, // Always enable pause screen

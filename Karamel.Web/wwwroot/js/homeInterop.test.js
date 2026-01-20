@@ -329,7 +329,6 @@ describe('Session Initialization', () => {
         // We only check that settings are properly broadcast
         expect(broadcastStateUpdate).toHaveBeenCalledWith('session-settings', {
             sessionId: config.sessionId,
-            libraryPath: 'Selected Library',
             requireSingerName: true,
             allowSingerReorder: false,
             pauseBetweenSongs: true,
