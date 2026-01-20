@@ -15,12 +15,16 @@ public interface ISessionService : IAsyncDisposable
     /// </summary>
     /// <param name="sessionId">Session GUID</param>
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
-    Task InitializeAsync(Guid sessionId, bool asMainTab);
+    Task InitializeAsync(Guid sessionId, bool asMainTab, string? linkToken = null);
+
+    Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null);
 
     /// <summary>
-    /// Save library to sessionStorage (main tab only, called once during session initialization)
+    /// Fetch a paginated library page from server (prefers SignalR RPC when available)
+    /// Returns a JSON element containing { items, page, pageSize, totalCount }
     /// </summary>
-    Task SaveLibraryToSessionStorageAsync(Guid sessionId, IEnumerable<Song> songs);
+    Task<System.Text.Json.JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null);
+    Task<System.Text.Json.JsonElement> SearchLibraryAsync(Guid sessionId, string query, int maxResults = 10);
 
     /// <summary>
     /// Broadcast playlist updated event (main tab only)
@@ -38,9 +42,9 @@ public interface ISessionService : IAsyncDisposable
     Task BroadcastCurrentSongAsync(Song? song, string? singerName);
 
     /// <summary>
-    /// Generate session URL with SessionId query parameter
+    /// Generate session URL with SessionId and LinkToken query parameters
     /// </summary>
-    Task<string> GenerateSessionUrlAsync(string path, Guid sessionId);
+    Task<string> GenerateSessionUrlAsync(string path, Guid sessionId, string? linkToken = null);
 
     /// <summary>
     /// Get SessionId from current URL query parameter
@@ -51,6 +55,11 @@ public interface ISessionService : IAsyncDisposable
     /// Check if main tab is still alive (secondary tabs only)
     /// </summary>
     Task<bool> CheckMainTabAliveAsync();
+
+    /// <summary>
+    /// Gets whether this tab is the main tab (has directory handle)
+    /// </summary>
+    bool IsMainTab { get; }
 
     /// <summary>
     /// Clear session state (when session ends)

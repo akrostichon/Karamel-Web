@@ -106,19 +106,60 @@ public class LibrarySearchTests : TestContext
     }
 
     [Fact]
-    public void SearchBox_DispatchesFilterAction_WhenTextChanges()
+    public async Task SearchBox_CallsServerSearch_WhenTextChangesAsync()
     {
         // Arrange
+        var searchTerm = "Beatles";
+        var beatlesSongs = _testSongs.Where(s => s.Artist.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+        
         var state = new LibraryState { Songs = _testSongs };
-        var dispatcher = SetupFluxorWithState(state);
+        var sessionId = Guid.NewGuid();
+        
+        var mockDispatcher = new Mock<IDispatcher>();
+        var mockState = new Mock<IState<LibraryState>>();
+        var mockActionSubscriber = new Mock<IActionSubscriber>();
+        var mockSessionState = new Mock<IState<Karamel.Web.Store.Session.SessionState>>();
+        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
+        
+        mockState.Setup(s => s.Value).Returns(state);
+        mockSessionState.Setup(s => s.Value).Returns(new Karamel.Web.Store.Session.SessionState { 
+            CurrentSession = new Session { SessionId = sessionId } 
+        });
+        
+        // Mock SearchLibraryAsync for suggestions (returns empty array)
+        var suggestionJson = System.Text.Json.JsonDocument.Parse("[]").RootElement;
+        mockSessionService.Setup(s => s.SearchLibraryAsync(sessionId, searchTerm, 8))
+            .ReturnsAsync(suggestionJson);
+        
+        // Mock FetchLibraryPageAsync for full results with proper structure including IDs
+        var pageJson = System.Text.Json.JsonDocument.Parse(
+            $"{{\"items\": [{string.Join(",", beatlesSongs.Select(s => $"{{\"id\":\"{s.Id}\",\"artist\":\"{s.Artist}\",\"title\":\"{s.Title}\",\"mp3FileName\":\"{s.Mp3FileName}\",\"cdgFileName\":\"{s.CdgFileName}\"}}"))}], \"totalCount\": {beatlesSongs.Count}}}"
+        ).RootElement;
+        mockSessionService.Setup(s => s.FetchLibraryPageAsync(sessionId, 1, 50, searchTerm, null))
+            .ReturnsAsync(pageJson);
+
+        Services.AddSingleton(mockDispatcher.Object);
+        Services.AddSingleton(mockState.Object);
+        Services.AddSingleton(mockActionSubscriber.Object);
+        Services.AddSingleton(mockSessionState.Object);
+        Services.AddSingleton(mockSessionService.Object);
+        
         var cut = RenderComponent<LibrarySearch>();
         var searchInput = cut.Find("input[type='text']");
 
         // Act
-        searchInput.Input("Beatles");
+        searchInput.Input(searchTerm);
+        
+        // Wait for debounce (300ms) + processing time
+        await Task.Delay(500);
+        
+        // Trigger render to process any pending state changes
+        cut.Render();
 
-        // Assert
-        dispatcher.Verify(d => d.Dispatch(It.Is<FilterSongsAction>(a => a.SearchFilter == "Beatles")), Times.Once);
+        // Assert - Component should call server and dispatch the results
+        mockSessionService.Verify(s => s.SearchLibraryAsync(sessionId, searchTerm, 8), Times.Once);
+        mockSessionService.Verify(s => s.FetchLibraryPageAsync(sessionId, 1, 50, searchTerm, null), Times.Once);
+        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<LoadLibrarySuccessAction>()), Times.Once);
     }
 
     [Fact]
@@ -301,12 +342,17 @@ public class LibrarySearchTests : TestContext
         var mockDispatcher = new Mock<IDispatcher>();
         var mockState = new Mock<IState<LibraryState>>();
         var mockActionSubscriber = new Mock<IActionSubscriber>();
+        var mockSessionState = new Mock<IState<Karamel.Web.Store.Session.SessionState>>();
+        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
         
         mockState.Setup(s => s.Value).Returns(state);
+        mockSessionState.Setup(s => s.Value).Returns(new Karamel.Web.Store.Session.SessionState { CurrentSession = new Session { SessionId = Guid.NewGuid() } });
 
         Services.AddSingleton(mockDispatcher.Object);
         Services.AddSingleton(mockState.Object);
         Services.AddSingleton(mockActionSubscriber.Object);
+        Services.AddSingleton(mockSessionState.Object);
+        Services.AddSingleton(mockSessionService.Object);
 
         return mockDispatcher;
     }

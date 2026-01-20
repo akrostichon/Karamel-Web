@@ -12,6 +12,7 @@ namespace Karamel.Backend.Data
         public DbSet<Session> Sessions { get; set; } = null!;
         public DbSet<Playlist> Playlists { get; set; } = null!;
         public DbSet<PlaylistItem> PlaylistItems { get; set; } = null!;
+        public DbSet<Song> Songs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -35,6 +36,15 @@ namespace Karamel.Backend.Data
                 b.Property(i => i.Position).IsRequired();
                 b.Property(i => i.Artist).IsRequired();
                 b.Property(i => i.Title).IsRequired();
+            });
+
+            modelBuilder.Entity<Song>(b =>
+            {
+                b.HasKey(s => s.Id);
+                b.Property(s => s.Artist).IsRequired().HasMaxLength(512);
+                b.Property(s => s.Title).IsRequired().HasMaxLength(512);
+                b.HasIndex(s => new { s.SessionId, s.AddedAt });
+                b.HasIndex(s => new { s.SessionId, s.Artist, s.Title });
             });
         }
     }

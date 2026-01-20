@@ -13,6 +13,7 @@ namespace Karamel.Backend.Hubs
     {
         private readonly IPlaylistRepository _playlistRepo;
         private readonly ISessionRepository _sessionRepo;
+        private readonly Karamel.Backend.Repositories.ISongRepository _songRepo;
 
         // Per-session semaphores to serialize mutations and avoid races.
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, System.Threading.SemaphoreSlim> _sessionLocks
@@ -21,10 +22,11 @@ namespace Karamel.Backend.Hubs
         private static System.Threading.SemaphoreSlim GetSessionLock(Guid sessionId) =>
             _sessionLocks.GetOrAdd(sessionId, _ => new System.Threading.SemaphoreSlim(1, 1));
 
-        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo)
+        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo, Karamel.Backend.Repositories.ISongRepository songRepo)
         {
             _playlistRepo = playlistRepo;
             _sessionRepo = sessionRepo;
+            _songRepo = songRepo;
         }
 
         /// <summary>
@@ -222,6 +224,25 @@ namespace Karamel.Backend.Hubs
         /// Get the SignalR group name for a session.
         /// </summary>
         public static string GetSessionGroupName(string sessionId) => $"session-{sessionId}";
+
+        /// <summary>
+        /// SignalR RPC to retrieve a paginated library page. No mutation performed.
+        /// Requires the caller to be connected; authorization for read is allowed without link token but callers should provide a valid session context.
+        /// </summary>
+        public async Task<object> GetLibraryPage(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
+        {
+            var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort);
+            return new { items = result.Items, page = result.Page, pageSize = result.PageSize, totalCount = result.TotalCount };
+        }
+
+        /// <summary>
+        /// SignalR RPC to perform quick search (autocomplete) returning up to maxResults items.
+        /// </summary>
+        public async Task<IEnumerable<object>> SearchLibrary(Guid sessionId, string query, int maxResults = 20)
+        {
+            var page = await _songRepo.GetPageAsync(sessionId, 1, maxResults, query, "artist");
+            return page.Items.Select(i => new { i.Id, i.Artist, i.Title, i.MetadataJson });
+        }
     }
 
     // DTOs for hub payloads (shared with controller for now)

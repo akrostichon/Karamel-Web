@@ -15,6 +15,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject System.Net.Http.HttpClient Http
+@inject Karamel.Web.Services.ISessionService SessionService
 
 <PageTitle>Karaoke Player</PageTitle>
 
@@ -160,6 +161,18 @@
                 if (SessionState.Value.CurrentSession != null && PlaylistState.Value.CurrentSong != null)
                 {
                     await LoadAndPlaySong();
+                }
+                
+                // If this is the main tab, add beforeunload warning
+                if (SessionService.IsMainTab)
+                {
+                    await JSRuntime.InvokeVoidAsync("eval", @"
+                        window.addEventListener('beforeunload', function(e) {
+                            e.preventDefault();
+                            e.returnValue = 'Closing this tab will end the karaoke session for all connected devices. Are you sure?';
+                            return e.returnValue;
+                        });
+                    ");
                 }
                 
                 isInitialized = true;

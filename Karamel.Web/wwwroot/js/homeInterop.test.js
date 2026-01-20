@@ -18,7 +18,6 @@ vi.mock('./fileAccess.js', () => ({
 
 vi.mock('./signalRBridge.js', () => ({
     initializeSession: vi.fn(),
-    saveLibraryToSessionStorage: vi.fn(),
     broadcastStateUpdate: vi.fn()
 }));
 
@@ -34,7 +33,7 @@ vi.mock('./metadata.js', () => ({
 
 // Import mocked modules
 import { pickLibraryDirectory } from './fileAccess.js';
-import { initializeSession, saveLibraryToSessionStorage, broadcastStateUpdate } from './signalRBridge.js';
+import { initializeSession, broadcastStateUpdate } from './signalRBridge.js';
 import { validatePattern } from './metadata.js';
 
 describe('File System Access Support', () => {
@@ -325,11 +324,11 @@ describe('Session Initialization', () => {
         
         await initializeKaraokeSession(config, songs);
         
-        expect(initializeSession).toHaveBeenCalledWith(config.sessionId, true);
-        expect(saveLibraryToSessionStorage).toHaveBeenCalledWith(config.sessionId, { songs });
+        // Session is initialized by SessionService.InitializeAsync, not by homeInterop
+        // Library is uploaded to server by SessionService.UploadLibraryToServerAsync
+        // We only check that settings are properly broadcast
         expect(broadcastStateUpdate).toHaveBeenCalledWith('session-settings', {
             sessionId: config.sessionId,
-            libraryPath: 'Selected Library',
             requireSingerName: true,
             allowSingerReorder: false,
             pauseBetweenSongs: true,
@@ -442,7 +441,7 @@ describe('Complete Session Startup Flow', () => {
         expect(result.nextSongUrl).toContain('nextsong');
         expect(result.playlistUrl).toContain('playlist');
         expect(result.singerUrl).toContain('singer');
-        expect(initializeSession).toHaveBeenCalledWith(config.sessionId, true);
+        // Session is initialized by SessionService.InitializeAsync, not by homeInterop
         expect(window.open).toHaveBeenCalledTimes(2);
     });
 });

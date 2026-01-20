@@ -89,8 +89,20 @@
                     @GetSongCount() / 10 songs in queue
                 </div>
             </div>
-
             <LibrarySearch OnAddToQueue="HandleAddToQueue" />
+
+            <div class="d-flex justify-content-center mt-3">
+                @if (isLoadingPage)
+                {
+                    <button class="btn k-btn-outline" disabled>
+                        <span class="spinner-border spinner-border-sm me-2"></span>Loading...
+                    </button>
+                }
+                else if (hasMorePages)
+                {
+                    <button class="btn k-btn-outline" @onclick="LoadMorePage">Load more</button>
+                }
+            </div>
         </div>
     }
 
@@ -116,6 +128,10 @@
     [SupplyParameterFromQuery(Name = "session")]
     public string? SessionParam { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? TokenParam { get; set; }
+
     private string singerName = string.Empty;
     private string tempSingerName = string.Empty;
     private string nameError = string.Empty;
@@ -126,6 +142,9 @@
     private string toastIcon = string.Empty;
     private bool isSessionValid = false;
     private bool isInitializing = true;
+    private int currentPage = 1;
+    private bool isLoadingPage = false;
+    private bool hasMorePages = false;
 
     protected override void OnInitialized()
     {
@@ -154,11 +173,37 @@
         if (firstRender && !string.IsNullOrWhiteSpace(SessionParam) && Guid.TryParse(SessionParam, out var sessionGuid))
         {
             Console.WriteLine($"SingerView: Initializing session for GUID: {sessionGuid}");
+            Console.WriteLine($"SingerView: TokenParam from URL: '{TokenParam}'");
             Console.WriteLine($"SingerView: Current session state before init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
             
             // Initialize session as secondary tab and load state from sessionStorage
             isInitializing = true;
-            await SessionService.InitializeAsync(sessionGuid, false);
+            await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
+
+            // If SignalR is active, prefetch the first page from server
+            try
+            {
+                var pageResult = await SessionService.FetchLibraryPageAsync(sessionGuid, 1, 50, null, null);
+                if (pageResult.ValueKind != System.Text.Json.JsonValueKind.Undefined && pageResult.ValueKind != System.Text.Json.JsonValueKind.Null)
+                {
+                    if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        var songs = itemsArr.EnumerateArray().Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong).ToList();
+                        Dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                        currentPage = 1;
+                        // Determine hasMorePages from totalCount
+                        if (pageResult.TryGetProperty("totalCount", out var totalCountProp) && totalCountProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                        {
+                            var total = totalCountProp.GetInt32();
+                            hasMorePages = total > songs.Count;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SingerView: Prefetch first page failed: {ex.Message}");
+            }
             
             Console.WriteLine($"SingerView: Current session state after init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
             if (SessionState.Value.CurrentSession != null)
@@ -236,6 +281,46 @@
             : null;
 
         Dispatcher.Dispatch(new AddToPlaylistAction(song, currentSingerName));
+    }
+
+    private async Task LoadMorePage()
+    {
+        if (isLoadingPage || SessionState.Value.CurrentSession == null) return;
+        isLoadingPage = true;
+        StateHasChanged();
+
+        try
+        {
+            var sessionGuid = SessionState.Value.CurrentSession.SessionId;
+            var nextPage = currentPage + 1;
+            var pageResult = await SessionService.FetchLibraryPageAsync(sessionGuid, nextPage, 50, null, null);
+            if (pageResult.ValueKind != System.Text.Json.JsonValueKind.Undefined && pageResult.ValueKind != System.Text.Json.JsonValueKind.Null)
+            {
+                if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    var songs = itemsArr.EnumerateArray().Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong).ToList();
+                    // Append to existing library state
+                    var combined = LibraryState.Value.Songs.Concat(songs).ToList();
+                    Dispatcher.Dispatch(new LoadLibrarySuccessAction(combined));
+                    currentPage = nextPage;
+
+                    if (pageResult.TryGetProperty("totalCount", out var totalCountProp) && totalCountProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        var total = totalCountProp.GetInt32();
+                        hasMorePages = combined.Count < total;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SingerView: LoadMorePage failed: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingPage = false;
+            StateHasChanged();
+        }
     }
 
     private void HandleAddToPlaylistSuccess(AddToPlaylistSuccessAction action)

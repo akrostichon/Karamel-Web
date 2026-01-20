@@ -31,14 +31,12 @@ public class SingerViewTests : SessionTestBase
         _testSessionWithNameRequired = new Models.Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             RequireSingerName = true
         };
 
         _testSessionWithoutNameRequired = new Models.Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             RequireSingerName = false
         };
     }

@@ -35,7 +35,6 @@ public class PlayerViewTests : SessionTestBase
         _testSession = new Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             RequireSingerName = true
         };
     }

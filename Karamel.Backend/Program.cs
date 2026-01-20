@@ -34,6 +34,7 @@ else
 // Register repositories
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
 builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Karamel.Backend.Repositories.PlaylistRepository>();
+builder.Services.AddScoped<Karamel.Backend.Repositories.ISongRepository, Karamel.Backend.Repositories.EfSongRepository>();
 // Register TokenService with secret from configuration (fallback for dev)
 // Priority: Karamel:TokenSecret -> KARAMEL-TOKEN-SECRET environment var -> TokenSecret
 var tokenSecret = builder.Configuration["Karamel:TokenSecret"]
@@ -67,22 +68,46 @@ builder.Services.AddSignalR(options =>
 {
     options.AddFilter<Karamel.Backend.Filters.LinkTokenHubFilter>();
 });
+
+// Allow cross-origin requests from the frontend during local development so
+// the browser can POST/OPTIONS to the API when frontend is served from a
+// different origin/port. This policy is permissive for localhost dev only.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("LocalDevCors", policy =>
+    {
+        policy.WithOrigins("http://localhost:5245", "https://localhost:5245")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials()
+              .SetIsOriginAllowedToAllowWildcardSubdomains();
+    });
+    
+    // Add a more permissive policy for troubleshooting
+    options.AddPolicy("DevCorsPermissive", policy =>
+    {
+        policy.SetIsOriginAllowed(origin =>
+        {
+            var uri = new Uri(origin);
+            return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+    });
+});
 // Register controllers for API endpoints
 builder.Services.AddControllers();
+
+// Register Swagger services BEFORE building the app
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // Register the session cleanup background service and the concrete instance so tests can resolve it
 builder.Services.AddSingleton<Karamel.Backend.Services.SessionCleanupService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Karamel.Backend.Services.SessionCleanupService>());
 
 var app = builder.Build();
-
-// Register Swagger services so swagger JSON can be generated in development runs.
-// Skip registration when the service collection is read-only (e.g. test host).
-if (!builder.Services.IsReadOnly)
-{
-    builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
-}
 
 if (app.Environment.IsDevelopment())
 {
@@ -94,6 +119,16 @@ if (app.Environment.IsDevelopment())
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+}
+
+// Enable CORS in the request pipeline for development environment so the
+// frontend running on a different port can make API requests without preflight failures.
+// MUST be called before MapControllers and MapHub
+if (app.Environment.IsDevelopment())
+{
+    // Use the more permissive policy for troubleshooting
+    app.UseCors("DevCorsPermissive");
+    Console.WriteLine("CORS enabled for development environment");
 }
 
 app.MapGet("/health", () => Results.Text("Healthy", "text/plain"))

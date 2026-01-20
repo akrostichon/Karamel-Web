@@ -438,6 +438,27 @@ Pagination needs to be built into the Library view.
 
 ---
 
+  **Status: ✅ IMPLEMENTED**
+
+  Files added/updated for Phase 7 implementation:
+
+  - `Karamel.Backend/Models/Song.cs`
+  - `Karamel.Backend/Data/BackendDbContext.cs` (added `DbSet<Song>` and indexes)
+  - `Karamel.Backend/Repositories/ISongRepository.cs`
+  - `Karamel.Backend/Repositories/EfSongRepository.cs`
+  - `Karamel.Backend/Controllers/LibraryController.cs`
+  - `Karamel.Backend/Controllers/LibraryDtos.cs`
+  - `Karamel.Backend/Hubs/PlaylistHub.cs` (added `GetLibraryPage` and `SearchLibrary` methods)
+  - `Karamel.Web/wwwroot/js/signalRBridge.js` (added `uploadLibraryToServer` helper)
+  - `Karamel.Web/Services/SessionService.cs` (added `UploadLibraryToServerAsync` interop)
+
+  Notes:
+  - The backend exposes REST endpoints `POST /api/sessions/{sessionId}/library/bulk`, `GET /api/sessions/{sessionId}/library`, and `GET /api/sessions/{sessionId}/library/{songId}`.
+  - SignalR methods `GetLibraryPage` and `SearchLibrary` are available on the existing `/hubs/playlist` hub for interactive use.
+  - The client-side main tab should call `UploadLibraryToServerAsync` after scanning the folder to upload a sanitized library payload (no file paths).
+  - Server-side validation for forbidden keys (e.g. `fullPath`) is enforced by shape (only allowed fields are accepted) and by limiting payload size. If you prefer explicit raw JSON scanning, I can add a model binder or custom middleware to reject malicious properties.
+
+
 ## Phase 8: Azure provisioning & Deployment (new)
 
 Goal: Prepare a minimal, low-friction Azure hosting setup for Karamel so the backend and frontend can be deployed and tested with low cost and simple operations.

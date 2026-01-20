@@ -4,10 +4,13 @@
 @using Karamel.Web.Store.Session
 @using Karamel.Web.Store.Library
 @using Microsoft.JSInterop
+@using System.Text.Json
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject IDispatcher Dispatcher
 @inject NavigationManager NavigationManager
+@inject Karamel.Web.Services.ISessionService SessionService
+@inject System.Net.Http.HttpClient Http
 
 <PageTitle>Karamel - Karaoke Session Setup</PageTitle>
 
@@ -329,7 +332,9 @@
 
         try
         {
-            // Create session ID
+            // IMPORTANT: Generate temporary session ID for initial configuration
+            // This will be REPLACED by the backend's authoritative session ID after POST /api/sessions
+            // The backend's session ID is used for token validation (HMAC-SHA256 of session ID)
             var sessionId = await _homeInteropModule.InvokeAsync<string>("generateSessionId");
 
             // Read current theme from themeToggle (if present)
@@ -366,18 +371,93 @@
                 return;
             }
 
-            // Initialize session in state
+            // Create server-side session and obtain link token
+            // CRITICAL: The backend generates the authoritative session ID and link token.
+            // The link token is an HMAC-SHA256 hash of the session ID, so they MUST match exactly.
+            // If the client uses a different session ID than the backend generated, all authenticated
+            // requests (library upload, heartbeat, etc.) will fail with 401 Unauthorized.
+            string? linkToken = null;
+            try
+            {
+                var createReq = new { RequireSingerName = _requireSingerName, PauseBetweenSongsSeconds = _pauseBetweenSongs };
+                var createRes = await Http.PostAsJsonAsync("/api/sessions", createReq);
+                if (createRes.IsSuccessStatusCode)
+                {
+                    var json = await createRes.Content.ReadFromJsonAsync<JsonElement>();
+                    Console.WriteLine($"Home.StartSession: Session creation response: {json}");
+                    
+                    // Extract link token from response
+                    if (json.TryGetProperty("linkToken", out var tokenProp))
+                    {
+                        linkToken = tokenProp.GetString();
+                    }
+                    
+                    // CRITICAL: ALWAYS replace the client-generated session ID with the backend's ID
+                    // Backend returns 'id' (lowercase), not 'sessionId'
+                    // The link token is derived from this ID, so using a mismatched ID causes 401 errors
+                    if (json.TryGetProperty("id", out var sidProp))
+                    {
+                        var backendSessionId = sidProp.GetString();
+                        if (!string.IsNullOrEmpty(backendSessionId))
+                        {
+                            Console.WriteLine($"Home.StartSession: Replacing client sessionId {sessionId} with backend sessionId {backendSessionId}");
+                            sessionId = backendSessionId;
+                            // CRITICAL: Also update the config object that was created with the old ID
+                            config.SessionId = backendSessionId;
+                        }
+                    }
+                }
+                else
+                {
+                    _startSessionError = $"Failed to create server session: {createRes.StatusCode}";
+                    _isStartingSession = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _startSessionError = $"Failed to create server session: {ex.Message}";
+                _isStartingSession = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Initialize session in local state (include same sessionId)
             var session = new Models.Session
             {
                 SessionId = Guid.Parse(sessionId),
-                LibraryPath = "Selected Library", // We don't have actual path from File System Access API
                 RequireSingerName = _requireSingerName,
-                PauseBetweenSongs = true, // Always enable pause screen between songs
+                PauseBetweenSongs = true,
                 PauseBetweenSongsSeconds = _pauseBetweenSongs,
                 FilenamePattern = _filenamePattern
             };
 
             Dispatcher.Dispatch(new InitializeSessionAction(session));
+
+            // Initialize SessionService as main tab with link token so SignalR can connect with the token
+            try
+            {
+                await SessionService.InitializeAsync(session.SessionId, true, linkToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Home.StartSession: SessionService.InitializeAsync failed: {ex.Message}");
+            }
+
+            // Upload sanitized catalog to server
+            try
+            {
+                if (_selectedSongs != null)
+                {
+                    var uploaded = await SessionService.UploadLibraryToServerAsync(session.SessionId, _selectedSongs, linkToken);
+                    Console.WriteLine($"Library upload to server result: {uploaded}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Home.StartSession: library upload failed: {ex.Message}");
+            }
 
             // Lock theme for this session so other tabs cannot change it
             _themeLocked = true;
@@ -385,7 +465,7 @@
 
             // Start karaoke session (opens tabs and returns navigation URL)
             var result = await _homeInteropModule.InvokeAsync<SessionStartResult>(
-                "startKaraokeSession", config, _selectedSongs);
+                "startKaraokeSession", config, _selectedSongs, linkToken);
 
             // Navigate current tab to NextSongView
             NavigationManager.NavigateTo(result.NextSongUrl, false);

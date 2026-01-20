@@ -20,10 +20,16 @@ public class SessionService : ISessionService
     private readonly IState<LibraryState> _libraryState;
     private readonly IState<PlaylistState> _playlistState;
     private readonly IDispatcher _dispatcher;
+    private readonly HttpClient _httpClient;
     private IJSObjectReference? _sessionBridgeModule;
     private bool _isInitialized;
     private bool _isMainTab;
     private DotNetObjectReference<SessionService>? _stateUpdateDotNetRef;
+
+    /// <summary>
+    /// Gets whether this tab is the main tab (has directory handle)
+    /// </summary>
+    public bool IsMainTab => _isMainTab;
 
     // Song (de)serialization helpers moved to Karamel.Web.Contracts.SongDto / SongConverters
 
@@ -32,13 +38,15 @@ public class SessionService : ISessionService
         IState<SessionState> sessionState,
         IState<LibraryState> libraryState,
         IState<PlaylistState> playlistState,
-        IDispatcher dispatcher)
+        IDispatcher dispatcher,
+        HttpClient httpClient)
     {
         _jsRuntime = jsRuntime;
         _sessionState = sessionState;
         _libraryState = libraryState;
         _playlistState = playlistState;
         _dispatcher = dispatcher;
+        _httpClient = httpClient;
     }
 
     /// <summary>
@@ -46,7 +54,7 @@ public class SessionService : ISessionService
     /// </summary>
     /// <param name="sessionId">Session GUID</param>
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
-    public async Task InitializeAsync(Guid sessionId, bool asMainTab)
+    public async Task InitializeAsync(Guid sessionId, bool asMainTab, string? linkToken = null)
     {
         if (_isInitialized)
             return;
@@ -55,7 +63,11 @@ public class SessionService : ISessionService
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./js/signalRBridge.js");
 
-        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab);
+        // Get backend base address for SignalR connection
+        var backendBase = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+
+        // Pass link token and backend URL if present so JS SignalR client can use them when connecting
+        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, linkToken, backendBase);
 
         // Load existing session state from sessionStorage
         if (!asMainTab)
@@ -71,19 +83,61 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
-    /// Save library to sessionStorage (main tab only, called once during session initialization)
+    /// Upload sanitized library to server-side API for paginated listing (main tab only)
     /// </summary>
-    public async Task SaveLibraryToSessionStorageAsync(Guid sessionId, IEnumerable<Song> songs)
+    public async Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null)
     {
         if (!_isMainTab || _sessionBridgeModule == null)
-            return;
+            return false;
 
         var data = new
         {
             songs = songs.Select(SongConverters.ConvertSongToDto).ToArray()
         };
 
-        await _sessionBridgeModule.InvokeVoidAsync("saveLibraryToSessionStorage", sessionId.ToString(), data);
+        try
+        {
+            return await _sessionBridgeModule.InvokeAsync<bool>("uploadLibraryToServer", sessionId.ToString(), data, new { linkToken });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: uploadLibraryToServer failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<System.Text.Json.JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
+    {
+        if (_sessionBridgeModule == null)
+            return default;
+
+        try
+        {
+            var result = await _sessionBridgeModule.InvokeAsync<System.Text.Json.JsonElement>("fetchLibraryPage", sessionId.ToString(), page, pageSize, search, sort);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: FetchLibraryPageAsync failed: {ex.Message}");
+            return default;
+        }
+    }
+
+    public async Task<System.Text.Json.JsonElement> SearchLibraryAsync(Guid sessionId, string query, int maxResults = 10)
+    {
+        if (_sessionBridgeModule == null)
+            return default;
+
+        try
+        {
+            var result = await _sessionBridgeModule.InvokeAsync<System.Text.Json.JsonElement>("searchLibrary", sessionId.ToString(), query, maxResults);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: SearchLibraryAsync failed: {ex.Message}");
+            return default;
+        }
     }
 
     /// <summary>
@@ -118,7 +172,6 @@ public class SessionService : ISessionService
         {
             sessionId = session.SessionId.ToString(),
             createdAt = session.CreatedAt,
-            libraryPath = session.LibraryPath,
             requireSingerName = session.RequireSingerName,
             pauseBetweenSongs = session.PauseBetweenSongs,
             pauseBetweenSongsSeconds = session.PauseBetweenSongsSeconds,
@@ -152,15 +205,15 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
-    /// Generate session URL with SessionId query parameter
+    /// Generate session URL with SessionId and LinkToken query parameters
     /// </summary>
-    public async Task<string> GenerateSessionUrlAsync(string path, Guid sessionId)
+    public async Task<string> GenerateSessionUrlAsync(string path, Guid sessionId, string? linkToken = null)
     {
         if (_sessionBridgeModule == null)
             throw new InvalidOperationException("Session bridge not initialized");
 
         return await _sessionBridgeModule.InvokeAsync<string>(
-            "generateSessionUrl", path, sessionId.ToString());
+            "generateSessionUrl", path, sessionId.ToString(), linkToken);
     }
 
     /// <summary>
@@ -215,6 +268,17 @@ public class SessionService : ISessionService
             // Now read from sessionStorage (which should have been updated by the sync)
             var stateJson = await _sessionBridgeModule.InvokeAsync<JsonElement>("getSessionStateForSession", sessionId.ToString());
 
+            // If SignalR is active, skip restoring the full library from sessionStorage
+            var signalRActive = false;
+            try
+            {
+                signalRActive = await _sessionBridgeModule.InvokeAsync<bool>("isUsingSignalR");
+            }
+            catch
+            {
+                // ignore
+            }
+
             Console.WriteLine($"SessionService: Got state from sessionStorage: {stateJson}");
 
             // Restore session settings
@@ -225,7 +289,6 @@ public class SessionService : ISessionService
                 var session = new Models.Session
                 {
                     SessionId = sessionId,
-                    LibraryPath = sessionData.GetProperty("libraryPath").GetString() ?? "",
                     RequireSingerName = sessionData.GetProperty("requireSingerName").GetBoolean(),
                     AllowSingersToReorder = sessionData.TryGetProperty("allowSingerReorder", out var allowReorder) ? allowReorder.GetBoolean() : false,
                     PauseBetweenSongs = sessionData.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) ? pauseEnabled.GetBoolean() : true,
@@ -241,21 +304,8 @@ public class SessionService : ISessionService
                 Console.WriteLine($"SessionService: No session data found in sessionStorage");
             }
 
-            // Restore library (saved by main tab during init)
-            if (stateJson.TryGetProperty("library", out var libraryData) && 
-                libraryData.ValueKind != JsonValueKind.Null &&
-                libraryData.TryGetProperty("songs", out var songsArray))
-            {
-                Console.WriteLine($"SessionService: Found library data with {songsArray.GetArrayLength()} songs");
-                var songs = songsArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-                
-                Console.WriteLine($"SessionService: Dispatching LoadLibrarySuccessAction with {songs.Count} songs");
-                _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
-            }
-            else
-            {
-                Console.WriteLine($"SessionService: No library data found in sessionStorage");
-            }
+            // Initialize library from server (no longer using sessionStorage)
+            await InitializeLibraryAsync(sessionId);
 
             // Note: Playlist state doesn't need to be restored here initially as it starts empty
             // It will be updated via broadcast when songs are added
@@ -307,6 +357,65 @@ public class SessionService : ISessionService
         }
     }
     
+    /// <summary>
+    /// Initialize library by fetching from server with retry logic
+    /// </summary>
+    private async Task InitializeLibraryAsync(Guid sessionId)
+    {
+        if (_sessionBridgeModule == null)
+            return;
+
+        const int maxRetries = 3;
+        var delays = new[] { 2000, 4000, 8000 }; // Exponential backoff: 2s, 4s, 8s
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                Console.WriteLine($"SessionService: Fetching library from server (attempt {attempt + 1}/{maxRetries + 1})");
+                
+                var pageResult = await _sessionBridgeModule.InvokeAsync<JsonElement>(
+                    "fetchLibraryPage", 
+                    sessionId.ToString(), 
+                    1, // page
+                    50, // pageSize
+                    null, // searchQuery
+                    null // sortBy
+                );
+                
+                if (pageResult.ValueKind != JsonValueKind.Undefined && pageResult.ValueKind != JsonValueKind.Null)
+                {
+                    if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
+                    {
+                        var songs = itemsArr.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
+                        _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                        Console.WriteLine($"SessionService: Successfully loaded {songs.Count} songs from server");
+                        return; // Success, exit retry loop
+                    }
+                }
+                
+                Console.WriteLine("SessionService: Empty or invalid response from server");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SessionService: Failed to fetch library (attempt {attempt + 1}): {ex.Message}");
+                
+                if (attempt < maxRetries)
+                {
+                    var delay = delays[attempt];
+                    Console.WriteLine($"SessionService: Retrying in {delay}ms...");
+                    await Task.Delay(delay);
+                }
+            }
+        }
+
+        // All retries failed
+        Console.WriteLine("SessionService: All retry attempts failed");
+        _dispatcher.Dispatch(new LoadLibraryFailureAction(
+            "Karaoke Session ended. Connect to new session via shown link."
+        ));
+    }
+
     /// <summary>
     /// Set up listener for ongoing state updates from main tab (secondary tabs only)
     /// </summary>

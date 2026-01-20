@@ -8,17 +8,41 @@
 
 @inject IState<LibraryState> LibraryState
 @inject IDispatcher Dispatcher
+@inject Karamel.Web.Services.ISessionService SessionService
+@inject IState<Karamel.Web.Store.Session.SessionState> SessionState
 
 <div class="library-search">
     <span class="spinner-border" style="display:none;" aria-hidden="true"></span>
-    <div class="search-box mb-3">
+    <div class="search-box mb-3 position-relative">
         <input 
             type="text" 
             class="form-control form-control-lg" 
             placeholder="Search by artist or title..."
             value="@LibraryState.Value.SearchFilter"
-            @oninput="OnSearchInput" />
+            @oninput="OnSearchInput"
+            @onkeydown="OnSearchKeyDown"
+            />
     </div>
+
+    @if (showSuggestions)
+    {
+        <ul class="list-group position-absolute shadow-sm" style="z-index:1000; max-height:200px; overflow:auto; width:100%;">
+            @for (int i = 0; i < suggestions.Count; i++)
+            {
+                var s = suggestions[i];
+                var selectedClass = i == selectedSuggestionIndex ? "active" : string.Empty;
+                <li class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @selectedClass"
+                    @onclick="() => OnSuggestionClick(s)"
+                    @onmouseover="() => OnSuggestionHover(i)">
+                    <div>
+                        <div class="fw-bold">@s.Artist</div>
+                        <div class="small text-muted">@s.Title</div>
+                    </div>
+                    <button class="btn btn-sm k-btn-outline" @onclick:stopPropagation="true" @onclick="() => AddToQueue(s)">Add</button>
+                </li>
+            }
+        </ul>
+    }
 
     @if (LibraryState.Value.IsLoading)
     {
@@ -153,11 +177,89 @@
             .OrderBy(s => s.Artist)
             .ThenBy(s => s.Title);
 
+    private List<Song> suggestions = new();
+    private bool showSuggestions = false;
+    private int selectedSuggestionIndex = -1;
+
     private void OnSearchInput(ChangeEventArgs e)
     {
         var searchText = e.Value?.ToString() ?? string.Empty;
-        Dispatcher.Dispatch(new FilterSongsAction(searchText));
+
+        // Debounce rapid input to avoid excessive server requests
+        _debounceCts?.Cancel();
+        _debounceCts = new System.Threading.CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(300, token);
+                if (token.IsCancellationRequested) return;
+
+                var session = SessionState.Value.CurrentSession;
+                if (session != null && !string.IsNullOrWhiteSpace(searchText))
+                {
+                    try
+                    {
+                        // Typeahead suggestions (small set)
+                        var searchRes = await SessionService.SearchLibraryAsync(session.SessionId, searchText, 8);
+                        List<Song> sug = new();
+                        if (searchRes.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            sug = searchRes.EnumerateArray().Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong).ToList();
+                        }
+                        else if (searchRes.ValueKind == System.Text.Json.JsonValueKind.Object && searchRes.TryGetProperty("items", out var it) && it.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            sug = it.EnumerateArray().Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong).ToList();
+                        }
+
+                        suggestions = sug;
+                        showSuggestions = suggestions.Count > 0;
+                        await InvokeAsync(StateHasChanged);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"LibrarySearch: SearchLibraryAsync failed: {ex.Message}");
+                        suggestions = new();
+                        showSuggestions = false;
+                    }
+                }
+
+                // Also fetch the page of full results (for list replacement)
+                try
+                {
+                    if (session != null)
+                    {
+                        var pageResult = await SessionService.FetchLibraryPageAsync(session.SessionId, 1, 50, searchText, null);
+                        if (pageResult.ValueKind != System.Text.Json.JsonValueKind.Undefined && pageResult.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        {
+                            if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            {
+                                var songs = itemsArr.EnumerateArray().Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong).ToList();
+                                Dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                                return;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"LibrarySearch: FetchLibraryPageAsync failed: {ex.Message}");
+                }
+
+                // Fallback to local filtering
+                Dispatcher.Dispatch(new FilterSongsAction(searchText));
+            }
+            catch (TaskCanceledException) { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"LibrarySearch debounce task failed: {ex.Message}");
+            }
+        });
     }
+
+    private System.Threading.CancellationTokenSource? _debounceCts;
 
     private async Task AddToQueue(Song song)
     {
@@ -171,6 +273,48 @@
             // Otherwise, dispatch directly (default behavior)
             Dispatcher.Dispatch(new AddToPlaylistAction(song));
             ShowSuccessToast($"'{song.Title}' by {song.Artist} added to queue!");
+        }
+    }
+
+    private async Task OnSuggestionClick(Song song)
+    {
+        showSuggestions = false;
+        selectedSuggestionIndex = -1;
+        await AddToQueue(song);
+    }
+
+    private void OnSuggestionHover(int index)
+    {
+        selectedSuggestionIndex = index;
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (!showSuggestions || suggestions.Count == 0) return;
+
+        if (e.Key == "ArrowDown")
+        {
+            selectedSuggestionIndex = Math.Min(suggestions.Count - 1, selectedSuggestionIndex + 1);
+            await InvokeAsync(StateHasChanged);
+        }
+        else if (e.Key == "ArrowUp")
+        {
+            selectedSuggestionIndex = Math.Max(0, selectedSuggestionIndex - 1);
+            await InvokeAsync(StateHasChanged);
+        }
+        else if (e.Key == "Enter")
+        {
+            if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.Count)
+            {
+                var s = suggestions[selectedSuggestionIndex];
+                await OnSuggestionClick(s);
+            }
+        }
+        else if (e.Key == "Escape")
+        {
+            showSuggestions = false;
+            selectedSuggestionIndex = -1;
+            await InvokeAsync(StateHasChanged);
         }
     }
 

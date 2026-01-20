@@ -63,7 +63,6 @@ public class PlaylistPageTests : SessionTestBase
         _testSession = new Session
         {
             SessionId = Guid.NewGuid(),
-            LibraryPath = "C:\\Karaoke",
             AllowSingersToReorder = false
         };
     }

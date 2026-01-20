@@ -169,6 +169,7 @@ Karamel-Web/                          # Solution root
 #### Multi-Session Architecture
 **CRITICAL**: The app supports **multiple independent karaoke sessions** in different browser tabs/windows simultaneously. Each session:
 - Has a unique `SessionId` GUID (passed via `?session={guid}` query parameter)
+- **Session ID MUST come from the backend** - The backend creates the session and generates a link token (HMAC-SHA256 hash of the session ID). If the client uses a different session ID than the backend generated, all authenticated requests (library upload, heartbeat) will fail with 401 Unauthorized because the token validation will fail
 - Uses SignalR session groups (server-backed) for real-time synchronization
 - Uses session-specific sessionStorage keys (`karamel-session-{guid}`) for persisted snapshot exchange
 - Has its own directory handle (kept in JavaScript module scope in the main tab)
