@@ -332,7 +332,9 @@
 
         try
         {
-            // Create session ID
+            // IMPORTANT: Generate temporary session ID for initial configuration
+            // This will be REPLACED by the backend's authoritative session ID after POST /api/sessions
+            // The backend's session ID is used for token validation (HMAC-SHA256 of session ID)
             var sessionId = await _homeInteropModule.InvokeAsync<string>("generateSessionId");
 
             // Read current theme from themeToggle (if present)
@@ -370,6 +372,10 @@
             }
 
             // Create server-side session and obtain link token
+            // CRITICAL: The backend generates the authoritative session ID and link token.
+            // The link token is an HMAC-SHA256 hash of the session ID, so they MUST match exactly.
+            // If the client uses a different session ID than the backend generated, all authenticated
+            // requests (library upload, heartbeat, etc.) will fail with 401 Unauthorized.
             string? linkToken = null;
             try
             {
@@ -378,13 +384,27 @@
                 if (createRes.IsSuccessStatusCode)
                 {
                     var json = await createRes.Content.ReadFromJsonAsync<JsonElement>();
+                    Console.WriteLine($"Home.StartSession: Session creation response: {json}");
+                    
+                    // Extract link token from response
                     if (json.TryGetProperty("linkToken", out var tokenProp))
                     {
                         linkToken = tokenProp.GetString();
                     }
-                    if (json.TryGetProperty("sessionId", out var sidProp) && string.IsNullOrEmpty(sessionId))
+                    
+                    // CRITICAL: ALWAYS replace the client-generated session ID with the backend's ID
+                    // Backend returns 'id' (lowercase), not 'sessionId'
+                    // The link token is derived from this ID, so using a mismatched ID causes 401 errors
+                    if (json.TryGetProperty("id", out var sidProp))
                     {
-                        sessionId = sidProp.GetString() ?? sessionId;
+                        var backendSessionId = sidProp.GetString();
+                        if (!string.IsNullOrEmpty(backendSessionId))
+                        {
+                            Console.WriteLine($"Home.StartSession: Replacing client sessionId {sessionId} with backend sessionId {backendSessionId}");
+                            sessionId = backendSessionId;
+                            // CRITICAL: Also update the config object that was created with the old ID
+                            config.SessionId = backendSessionId;
+                        }
                     }
                 }
                 else
@@ -447,7 +467,7 @@
 
             // Start karaoke session (opens tabs and returns navigation URL)
             var result = await _homeInteropModule.InvokeAsync<SessionStartResult>(
-                "startKaraokeSession", config, _selectedSongs);
+                "startKaraokeSession", config, _selectedSongs, linkToken);
 
             // Navigate current tab to NextSongView
             NavigationManager.NavigateTo(result.NextSongUrl, false);

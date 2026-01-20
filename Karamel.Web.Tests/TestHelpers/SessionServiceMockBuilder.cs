@@ -86,8 +86,8 @@ public class SessionServiceMockBuilder
     /// </summary>
     public SessionServiceMockBuilder WithGenerateUrl(string baseUrl = "http://localhost:5000")
     {
-        _mock.Setup(s => s.GenerateSessionUrlAsync(It.IsAny<string>(), It.IsAny<Guid>()))
-            .Returns((string path, Guid id) => Task.FromResult($"{baseUrl}{path}?sessionId={id}"));
+        _mock.Setup(s => s.GenerateSessionUrlAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<string?>()))
+            .Returns((string path, Guid id, string? linkToken) => Task.FromResult($"{baseUrl}{path}?sessionId={id}"));
         return this;
     }
 

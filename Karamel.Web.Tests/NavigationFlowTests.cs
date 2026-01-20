@@ -155,6 +155,8 @@ public class NavigationFlowTests : TestContext
         // Arrange - Home page doesn't need session
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
+        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
+        Services.AddSingleton(mockSessionService.Object);
         var navManager = SetupFluxorWithStates(sessionState, playlistState, "http://localhost/");
 
         // Act

@@ -96,6 +96,10 @@
     [SupplyParameterFromQuery(Name = "session")]
     public string? SessionParam { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? TokenParam { get; set; }
+
     private IJSObjectReference? qrcodeModule;
     private Song? nextSong;
     private Timer? autoAdvanceTimer;
@@ -355,6 +359,15 @@
 
         var sessionId = SessionState.Value.CurrentSession.SessionId;
         var baseUrl = NavigationManager.BaseUri.TrimEnd('/');
+        
+        // Include link token in URL so secondary tabs can authenticate
+        // CRITICAL: URL-encode the token because it contains characters like '+' that need escaping
+        if (!string.IsNullOrEmpty(TokenParam))
+        {
+            var encodedToken = Uri.EscapeDataString(TokenParam);
+            return $"{baseUrl}/singer?session={sessionId}&token={encodedToken}";
+        }
+        
         return $"{baseUrl}/singer?session={sessionId}";
     }
 

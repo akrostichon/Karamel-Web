@@ -131,16 +131,6 @@ if (app.Environment.IsDevelopment())
     Console.WriteLine("CORS enabled for development environment");
 }
 
-// Enable CORS in the request pipeline for development environment so the
-// frontend running on a different port can make API requests without preflight failures.
-// MUST be called before MapControllers and MapHub
-if (app.Environment.IsDevelopment())
-{
-    // Use the more permissive policy for troubleshooting
-    app.UseCors("DevCorsPermissive");
-    Console.WriteLine("CORS enabled for development environment");
-}
-
 app.MapGet("/health", () => Results.Text("Healthy", "text/plain"))
     .WithName("Health");
 

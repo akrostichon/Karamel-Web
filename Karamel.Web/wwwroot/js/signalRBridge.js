@@ -8,6 +8,8 @@ let currentSessionId = null;
 let tabId = null;
 let hubConnection = null;
 let usingSignalR = false;
+let backendBaseUrl = null;
+let currentLinkToken = null;
 
 function getChannelName(sessionId) {
 	return `karamel-session-${sessionId}`;
@@ -53,7 +55,7 @@ async function ensureSignalRLoaded() {
 	});
 }
 
-async function tryConnectSignalR(sessionId, linkToken) {
+async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 	try {
 		const ok = await ensureSignalRLoaded();
 		if (!ok) return false;
@@ -66,8 +68,11 @@ async function tryConnectSignalR(sessionId, linkToken) {
 			urlOptions.headers = { 'X-Link-Token': linkToken };
 		}
 
+		// Use backend URL if provided, otherwise use relative path
+		const hubUrl = backendUrl ? `${backendUrl}/hubs/playlist` : '/hubs/playlist';
+
 		hubConnection = new signalR.HubConnectionBuilder()
-			.withUrl('/hubs/playlist', urlOptions)
+			.withUrl(hubUrl, urlOptions)
 			.withAutomaticReconnect()
 			.build();
 
@@ -116,11 +121,17 @@ async function tryConnectSignalR(sessionId, linkToken) {
 /**
  * Initialize session bridge (SignalR preferred, BroadcastChannel fallback)
  */
-export function initializeSession(sessionId, asMainTab, linkToken) {
+export function initializeSession(sessionId, asMainTab, linkToken, backendUrl) {
 	if (!sessionId) throw new Error('sessionId is required');
+
+	console.log(`signalRBridge.initializeSession called: sessionId=${sessionId}, linkToken=${linkToken ? '(present)' : '(null)'}, backendUrl=${backendUrl}`);
 
 	currentSessionId = sessionId;
 	isMainTab = !!asMainTab;
+	backendBaseUrl = backendUrl || null;
+	currentLinkToken = linkToken || null;
+
+	console.log(`signalRBridge: Stored currentLinkToken=${currentLinkToken ? '(present)' : '(null)'}`);
 	try {
 		tabId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('tab-' + Math.random().toString(36).slice(2));
 	} catch (e) {
@@ -174,7 +185,7 @@ export function initializeSession(sessionId, asMainTab, linkToken) {
 	}
 
 	// Attempt SignalR connection in background; do not block initialization
-	tryConnectSignalR(sessionId, linkToken).catch(() => {});
+	tryConnectSignalR(sessionId, linkToken, backendUrl).catch(() => {});
 
 	console.log(`Session bridge initialized as ${isMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId} (signalR=${usingSignalR})`);
 }
@@ -319,14 +330,26 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 
 	// REST fallback
 	try {
+		console.log(`fetchLibraryPage REST fallback: currentLinkToken=${currentLinkToken ? '(present)' : '(null)'}`);
 		const params = new URLSearchParams();
 		params.set('page', String(page));
 		params.set('pageSize', String(pageSize));
 		if (search) params.set('search', search);
 		if (sort) params.set('sort', sort);
 
-		const url = `/api/sessions/${sessionId}/library?${params.toString()}`;
-		const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+		// Use backend URL if available, otherwise use relative path
+		const baseUrl = backendBaseUrl || '';
+		const url = `${baseUrl}/api/sessions/${sessionId}/library?${params.toString()}`;
+		const headers = { 'Accept': 'application/json' };
+		
+		// Always use stored currentLinkToken for library fetches
+		if (currentLinkToken) {
+			headers['X-Link-Token'] = currentLinkToken;
+			console.log(`fetchLibraryPage: Added X-Link-Token header`);
+		} else {
+			console.warn(`fetchLibraryPage: No currentLinkToken available!`);
+		}
+		const resp = await fetch(url, { method: 'GET', headers });
 		if (!resp.ok) {
 			console.warn('fetchLibraryPage REST failed', resp.status, await resp.text());
 			return { items: [], page, pageSize, totalCount: 0 };
@@ -359,8 +382,14 @@ export async function searchLibrary(sessionId, query, maxResults = 10) {
 		params.set('search', query);
 		params.set('page', '1');
 		params.set('pageSize', String(maxResults));
-		const url = `/api/sessions/${sessionId}/library?${params.toString()}`;
-		const resp = await fetch(url);
+		// Use backend URL if available, otherwise use relative path
+		const baseUrl = backendBaseUrl || '';
+		const url = `${baseUrl}/api/sessions/${sessionId}/library?${params.toString()}`;
+		const headers = {};
+		if (currentLinkToken) {
+			headers['X-Link-Token'] = currentLinkToken;
+		}
+		const resp = await fetch(url, { headers });
 		if (!resp.ok) return [];
 		const items = await resp.json();
 		return items;
@@ -373,10 +402,19 @@ export async function searchLibrary(sessionId, query, maxResults = 10) {
 export async function uploadLibraryToServer(sessionId, libraryData, options = {}) {
 	try {
 		if (!sessionId) throw new Error('sessionId is required');
-		const url = `/api/sessions/${sessionId}/library/bulk`;
+		// Use backend URL if available, otherwise use relative path
+		const baseUrl = backendBaseUrl || '';
+		const url = `${baseUrl}/api/sessions/${sessionId}/library/bulk`;
 		const headers = { 'Content-Type': 'application/json' };
-		if (options.linkToken) {
-			headers['X-Link-Token'] = options.linkToken;
+		
+		// Use provided token or fall back to stored currentLinkToken
+		const tokenToUse = options.linkToken || currentLinkToken;
+		console.log(`uploadLibraryToServer: options.linkToken=${options.linkToken ? '(present)' : '(null)'}, currentLinkToken=${currentLinkToken ? '(present)' : '(null)'}, using=${tokenToUse ? '(present)' : '(null)'}`);
+		if (tokenToUse) {
+			headers['X-Link-Token'] = tokenToUse;
+			console.log(`uploadLibraryToServer: X-Link-Token header set`);
+		} else {
+			console.warn('uploadLibraryToServer: No link token available - request will likely fail');
 		}
 
 		// Prepare sanitized payload: array of { artist, title, metadataJson }
@@ -435,9 +473,12 @@ export function clearSessionState() {
 	}
 }
 
-export function generateSessionUrl(path, sessionId) {
+export function generateSessionUrl(path, sessionId, linkToken = null) {
 	const url = new URL(path, window.location.origin);
 	url.searchParams.set('session', sessionId);
+	if (linkToken) {
+		url.searchParams.set('token', linkToken);
+	}
 	return url.toString();
 }
 

@@ -128,6 +128,10 @@
     [SupplyParameterFromQuery(Name = "session")]
     public string? SessionParam { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? TokenParam { get; set; }
+
     private string singerName = string.Empty;
     private string tempSingerName = string.Empty;
     private string nameError = string.Empty;
@@ -169,11 +173,12 @@
         if (firstRender && !string.IsNullOrWhiteSpace(SessionParam) && Guid.TryParse(SessionParam, out var sessionGuid))
         {
             Console.WriteLine($"SingerView: Initializing session for GUID: {sessionGuid}");
+            Console.WriteLine($"SingerView: TokenParam from URL: '{TokenParam}'");
             Console.WriteLine($"SingerView: Current session state before init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
             
             // Initialize session as secondary tab and load state from sessionStorage
             isInitializing = true;
-            await SessionService.InitializeAsync(sessionGuid, false);
+            await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
 
             // If SignalR is active, prefetch the first page from server
             try

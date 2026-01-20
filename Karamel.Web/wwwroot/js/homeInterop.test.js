@@ -325,7 +325,8 @@ describe('Session Initialization', () => {
         
         await initializeKaraokeSession(config, songs);
         
-        expect(initializeSession).toHaveBeenCalledWith(config.sessionId, true);
+        // Session is initialized by SessionService.InitializeAsync, not by homeInterop
+        // so we only check that library and settings are properly handled
         expect(saveLibraryToSessionStorage).toHaveBeenCalledWith(config.sessionId, { songs });
         expect(broadcastStateUpdate).toHaveBeenCalledWith('session-settings', {
             sessionId: config.sessionId,
@@ -442,7 +443,7 @@ describe('Complete Session Startup Flow', () => {
         expect(result.nextSongUrl).toContain('nextsong');
         expect(result.playlistUrl).toContain('playlist');
         expect(result.singerUrl).toContain('singer');
-        expect(initializeSession).toHaveBeenCalledWith(config.sessionId, true);
+        // Session is initialized by SessionService.InitializeAsync, not by homeInterop
         expect(window.open).toHaveBeenCalledTimes(2);
     });
 });

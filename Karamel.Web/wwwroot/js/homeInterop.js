@@ -4,7 +4,7 @@
  */
 
 import { pickLibraryDirectory } from './fileAccess.js';
-import { initializeSession, saveLibraryToSessionStorage, broadcastStateUpdate } from './signalRBridge.js';
+import { saveLibraryToSessionStorage, broadcastStateUpdate } from './signalRBridge.js';
 import { validatePattern } from './metadata.js';
 
 /**
@@ -40,7 +40,7 @@ export function generateSessionId() {
  * @param {string} sessionId - Session GUID
  * @returns {string} Complete URL with session ID
  */
-export function generateSessionUrl(path, sessionId) {
+export function generateSessionUrl(path, sessionId, linkToken = null) {
     if (!path) {
         throw new Error('path is required');
     }
@@ -55,7 +55,9 @@ export function generateSessionUrl(path, sessionId) {
     const origin = window.location.origin;
     const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
     
-    return `${origin}${basePath}${cleanPath}?session=${sessionId}`;
+    // Add linkToken to query string if provided
+    const params = `session=${sessionId}${linkToken ? `&token=${linkToken}` : ''}`;
+    return `${origin}${basePath}${cleanPath}?${params}`;
 }
 
 /**
@@ -153,8 +155,8 @@ export async function initializeKaraokeSession(config, songs) {
         throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
     }
     
-    // Initialize session as main tab
-    initializeSession(config.sessionId, true);
+    // Session is already initialized by SessionService.InitializeAsync in Home.razor
+    // with proper linkToken and backendUrl parameters, so we don't call initializeSession here
     
     // Save library to sessionStorage
     await saveLibraryToSessionStorage(config.sessionId, { songs });
@@ -183,15 +185,16 @@ export async function initializeKaraokeSession(config, songs) {
 /**
  * Open new tabs for playlist and singer views
  * @param {string} sessionId - Session GUID
+ * @param {string|null} linkToken - Link token for authentication
  * @returns {object} Result with URLs (window references not returned to avoid circular JSON)
  */
-export function openSessionTabs(sessionId) {
+export function openSessionTabs(sessionId, linkToken = null) {
     if (!sessionId) {
         throw new Error('sessionId is required');
     }
     
-    const playlistUrl = generateSessionUrl('playlist', sessionId);
-    const singerUrl = generateSessionUrl('singer', sessionId);
+    const playlistUrl = generateSessionUrl('playlist', sessionId, linkToken);
+    const singerUrl = generateSessionUrl('singer', sessionId, linkToken);
     
     // Open new tabs/windows in background (don't switch focus)
     window.open(playlistUrl, '_blank');
@@ -209,31 +212,33 @@ export function openSessionTabs(sessionId) {
 /**
  * Get navigation URL for current tab (NextSongView)
  * @param {string} sessionId - Session GUID
+ * @param {string|null} linkToken - Link token for authentication
  * @returns {string} NextSongView URL with session ID
  */
-export function getNextSongViewUrl(sessionId) {
+export function getNextSongViewUrl(sessionId, linkToken = null) {
     if (!sessionId) {
         throw new Error('sessionId is required');
     }
     
-    return generateSessionUrl('nextsong', sessionId);
+    return generateSessionUrl('nextsong', sessionId, linkToken);
 }
 
 /**
  * Complete session startup flow
  * @param {object} config - Session configuration
  * @param {Array} songs - Library songs
+ * @param {string|null} linkToken - Link token for authentication
  * @returns {Promise<object>} Result with navigation URL and opened tabs info
  */
-export async function startKaraokeSession(config, songs) {
+export async function startKaraokeSession(config, songs, linkToken = null) {
     // Initialize session
     await initializeKaraokeSession(config, songs);
     
-    // Open new tabs
-    const tabsResult = openSessionTabs(config.sessionId);
+    // Open new tabs with linkToken
+    const tabsResult = openSessionTabs(config.sessionId, linkToken);
     
-    // Get navigation URL for current tab
-    const nextSongUrl = getNextSongViewUrl(config.sessionId);
+    // Get navigation URL for current tab with linkToken
+    const nextSongUrl = getNextSongViewUrl(config.sessionId, linkToken);
     
     return {
         sessionId: config.sessionId,

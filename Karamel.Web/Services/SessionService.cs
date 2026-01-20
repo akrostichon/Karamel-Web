@@ -20,6 +20,7 @@ public class SessionService : ISessionService
     private readonly IState<LibraryState> _libraryState;
     private readonly IState<PlaylistState> _playlistState;
     private readonly IDispatcher _dispatcher;
+    private readonly HttpClient _httpClient;
     private IJSObjectReference? _sessionBridgeModule;
     private bool _isInitialized;
     private bool _isMainTab;
@@ -32,13 +33,15 @@ public class SessionService : ISessionService
         IState<SessionState> sessionState,
         IState<LibraryState> libraryState,
         IState<PlaylistState> playlistState,
-        IDispatcher dispatcher)
+        IDispatcher dispatcher,
+        HttpClient httpClient)
     {
         _jsRuntime = jsRuntime;
         _sessionState = sessionState;
         _libraryState = libraryState;
         _playlistState = playlistState;
         _dispatcher = dispatcher;
+        _httpClient = httpClient;
     }
 
     /// <summary>
@@ -55,8 +58,11 @@ public class SessionService : ISessionService
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./js/signalRBridge.js");
 
-        // Pass link token if present so JS SignalR client can use it when connecting
-        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, linkToken);
+        // Get backend base address for SignalR connection
+        var backendBase = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+
+        // Pass link token and backend URL if present so JS SignalR client can use them when connecting
+        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, linkToken, backendBase);
 
         // Load existing session state from sessionStorage
         if (!asMainTab)
@@ -235,15 +241,15 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
-    /// Generate session URL with SessionId query parameter
+    /// Generate session URL with SessionId and LinkToken query parameters
     /// </summary>
-    public async Task<string> GenerateSessionUrlAsync(string path, Guid sessionId)
+    public async Task<string> GenerateSessionUrlAsync(string path, Guid sessionId, string? linkToken = null)
     {
         if (_sessionBridgeModule == null)
             throw new InvalidOperationException("Session bridge not initialized");
 
         return await _sessionBridgeModule.InvokeAsync<string>(
-            "generateSessionUrl", path, sessionId.ToString());
+            "generateSessionUrl", path, sessionId.ToString(), linkToken);
     }
 
     /// <summary>

@@ -46,9 +46,9 @@ public interface ISessionService : IAsyncDisposable
     Task BroadcastCurrentSongAsync(Song? song, string? singerName);
 
     /// <summary>
-    /// Generate session URL with SessionId query parameter
+    /// Generate session URL with SessionId and LinkToken query parameters
     /// </summary>
-    Task<string> GenerateSessionUrlAsync(string path, Guid sessionId);
+    Task<string> GenerateSessionUrlAsync(string path, Guid sessionId, string? linkToken = null);
 
     /// <summary>
     /// Get SessionId from current URL query parameter

@@ -10,3 +10,4 @@
 **/_gen/
 prompts/
 *.db
+*.log
