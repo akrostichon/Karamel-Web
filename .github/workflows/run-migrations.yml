@@ -29,23 +29,6 @@ jobs:
       - name: Login to Azure (VM Managed Identity)
         run: az login --identity
 
-      - name: Get VM public IP
-        id: get-ip
-        run: |
-          VM_PUBLIC_IP=$(curl -s https://api.ipify.org)
-          echo "VM_PUBLIC_IP=$VM_PUBLIC_IP" >> $GITHUB_ENV
-          echo "VM Public IP: $VM_PUBLIC_IP"
-
-      - name: Add firewall rule for VM
-        run: |
-          echo "Adding firewall rule for VM IP: $VM_PUBLIC_IP"
-          az sql server firewall-rule create \
-            --resource-group ${{ github.event.inputs.resource_group }} \
-            --server ${{ github.event.inputs.sql_server_name }} \
-            --name "github-runner-temp-${{ github.run_id }}" \
-            --start-ip-address $VM_PUBLIC_IP \
-            --end-ip-address $VM_PUBLIC_IP
-
       - name: Install dotnet SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -61,25 +44,21 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "SQL_ACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
 
-      - name: Run migrations (AAD auth)
+      - name: Run migrations (AAD auth via Private Endpoint)
         run: |
-          # Build connection string with AAD token
+          # Build connection string with AAD token (using private endpoint)
+          # Note: SQL Server is configured with public access disabled, so this uses the private endpoint
           export ConnectionStrings__DefaultConnection="Server=tcp:${{ github.event.inputs.sql_server_name }}.database.windows.net,1433;Database=${{ github.event.inputs.sql_database_name }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
           
-          # Run migrations (EF Core will use DefaultAzureCredential from environment)
+          echo "Connecting via private endpoint with managed identity authentication..."
+          
+          # Run migrations (EF Core will use DefaultAzureCredential from VM's managed identity)
           cd ${{ github.event.inputs.project_path }}
           dotnet ef database update --no-build || {
-            echo "Migration failed!"
+            echo "Migration failed! Check that:"
+            echo "1. VM has network connectivity to SQL Server private endpoint"
+            echo "2. VM's managed identity has appropriate SQL permissions"
             exit 1
           }
         env:
           AZURE_ACCESS_TOKEN: ${{ env.SQL_ACCESS_TOKEN }}
-
-      - name: Remove firewall rule
-        if: always()
-        run: |
-          echo "Removing temporary firewall rule..."
-          az sql server firewall-rule delete \
-            --resource-group ${{ github.event.inputs.resource_group }} \
-            --server ${{ github.event.inputs.sql_server_name }} \
-            --name "github-runner-temp-${{ github.run_id }}" || echo "Rule may have been already removed"
