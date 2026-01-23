@@ -31,6 +31,7 @@ jobs:
 
       - name: Verify .NET SDK installation
         run: |
+          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
           dotnet --version || {
             echo "ERROR: .NET SDK not found on self-hosted runner!"
             echo "Please install .NET SDK 10.0 on the runner VM:"
@@ -43,7 +44,7 @@ jobs:
       - name: Install/Update EF Core tools
         run: |
           # Ensure .NET tools path is in PATH
-          export PATH="$PATH:$HOME/.dotnet/tools"
+          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
           
           # Install or update dotnet-ef (local to user, not global)
           if ! command -v dotnet-ef &> /dev/null; then
@@ -66,6 +67,9 @@ jobs:
 
       - name: Run migrations (AAD auth via Private Endpoint)
         run: |
+          # Ensure .NET and tools are in PATH
+          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
+          
           # Build connection string with AAD token (using private endpoint)
           # Note: SQL Server is configured with public access disabled, so this uses the private endpoint
           export ConnectionStrings__DefaultConnection="Server=tcp:${{ github.event.inputs.sql_server_name }}.database.windows.net,1433;Database=${{ github.event.inputs.sql_database_name }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
