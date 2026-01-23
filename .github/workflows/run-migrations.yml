@@ -29,13 +29,33 @@ jobs:
       - name: Login to Azure (VM Managed Identity)
         run: az login --identity
 
-      - name: Install dotnet SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
+      - name: Verify .NET SDK installation
+        run: |
+          dotnet --version || {
+            echo "ERROR: .NET SDK not found on self-hosted runner!"
+            echo "Please install .NET SDK 10.0 on the runner VM:"
+            echo "  wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh"
+            echo "  chmod +x dotnet-install.sh"
+            echo "  sudo ./dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet"
+            exit 1
+          }
 
-      - name: Install EF Core tools
-        run: dotnet tool install --global dotnet-ef
+      - name: Install/Update EF Core tools
+        run: |
+          # Ensure .NET tools path is in PATH
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          
+          # Install or update dotnet-ef (local to user, not global)
+          if ! command -v dotnet-ef &> /dev/null; then
+            echo "Installing dotnet-ef..."
+            dotnet tool install --global dotnet-ef
+          else
+            echo "Updating dotnet-ef..."
+            dotnet tool update --global dotnet-ef
+          fi
+          
+          # Verify installation
+          dotnet ef --version
 
       - name: Get access token for SQL
         id: get-token
