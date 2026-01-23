@@ -65,6 +65,13 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "SQL_ACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
 
+      - name: Build backend project
+        run: |
+          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
+          cd ${{ github.event.inputs.project_path }}
+          dotnet restore
+          dotnet build --no-restore --configuration Release
+
       - name: Run migrations (AAD auth via Private Endpoint)
         run: |
           # Ensure .NET and tools are in PATH
@@ -78,7 +85,7 @@ jobs:
           
           # Run migrations (EF Core will use DefaultAzureCredential from VM's managed identity)
           cd ${{ github.event.inputs.project_path }}
-          dotnet ef database update --no-build || {
+          dotnet ef database update || {
             echo "Migration failed! Check that:"
             echo "1. VM has network connectivity to SQL Server private endpoint"
             echo "2. VM's managed identity has appropriate SQL permissions"
