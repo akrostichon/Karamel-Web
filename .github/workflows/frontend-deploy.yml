@@ -12,38 +12,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-      - name: Install dependencies
+          node-version: '20'
+      - name: Install npm dependencies
         working-directory: Karamel.Web/wwwroot
-        run: |
-          npm ci
-      - name: Run JS tests
+        run: npm ci
+      - name: Run JavaScript tests
         working-directory: Karamel.Web/wwwroot
-        run: |
-          npm run test:run
+        run: npm run test:run
+      - name: Build Blazor WASM
+        run: dotnet build Karamel.Web -c Release
 
-  deploy-staticweb:
+  deploy-to-static-web-app:
     needs: build-and-test
     runs-on: [self-hosted, linux, rg-karamel-prod-runner]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-
-      - name: Build Blazor WASM
-        run: |
-          dotnet publish Karamel.Web -c Release -o artifact
-      - name: Deploy to Azure Static Web Apps
+          submodules: true
+      
+      - name: Build And Deploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: 'upload'
-          app_location: '/' 
-          output_location: 'artifact/wwwroot'
+          action: "upload"
+          app_location: "Karamel.Web"
+          output_location: "wwwroot"

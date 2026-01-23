@@ -30,12 +30,25 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - name: Publish
+      
+      - name: Login to Azure (Managed Identity)
+        run: az login --identity
+      
+      - name: Publish backend
         run: |
-          dotnet publish Karamel.Backend -c Release -o publish
-      - name: 'Azure WebApp Deploy'
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: publish
+          dotnet publish Karamel.Backend -c Release -o ./publish
+          cd publish
+          zip -r ../deploy.zip .
+      
+      - name: Deploy to App Service
+        run: |
+          az webapp deployment source config-zip \
+            --resource-group rg-karamel-prod \
+            --name rg-karamel-prod-api \
+            --src deploy.zip
+      
+      - name: Verify deployment
+        run: |
+          echo "Waiting for app to restart..."
+          sleep 30
+          curl -f https://rg-karamel-prod-api.azurewebsites.net/health || echo "Health check failed"
