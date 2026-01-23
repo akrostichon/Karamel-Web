@@ -1,62 +1,81 @@
-name: Infra Deploy (Bicep)
+name: Deploy Azure Infrastructure
 
 on:
   workflow_dispatch:
     inputs:
-      rg:
-        description: 'Resource group to deploy into'
+      environment:
+        description: 'Environment (e.g., prod)'
         required: true
-        default: 'rg-karamel-prod'
-      namePrefix:
-        description: 'Resource name prefix'
-        required: true
-        default: 'rg-karamel-prod'
+        default: 'prod'
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  deploy-infrastructure:
+    runs-on: [self-hosted, linux, rg-karamel-prod-runner]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Login to Azure (Managed Identity)
+        run: az login --identity
 
-      - name: Deploy Bicep
+      - name: Deploy Bicep template
+        id: deploy
         run: |
           az deployment group create \
-            --resource-group ${{ github.event.inputs.rg }} \
+            --resource-group rg-karamel-prod \
             --template-file infra/azure/main.bicep \
-            --parameters namePrefix=${{ github.event.inputs.namePrefix }} sqlAdminUser=karameladmin sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}
+            --parameters @infra/azure/parameters.json \
+            --parameters sqlAdminPassword='${{ secrets.SQL_ADMIN_PASSWORD }}' \
+            --query properties.outputs -o json > deployment-outputs.json
+          
+          cat deployment-outputs.json
 
-      - name: Ensure Key Vault secret exists
-        id: kv
+      - name: Ensure KARAMEL-TOKEN-SECRET exists
         run: |
-          set -e
-          KV_NAME="${{ github.event.inputs.namePrefix }}-kv"
-          echo "KV_NAME=$KV_NAME" >> $GITHUB_OUTPUT
-          # Generate strong secret if not provided
-          if [ -z "${{ secrets.KARAMEL-TOKEN-SECRET }}" ]; then
-            TOKEN_SECRET=$(openssl rand -base64 48)
-            echo "Generated TOKEN_SECRET"
+          KV_NAME=$(jq -r '.keyVaultName.value' deployment-outputs.json)
+          
+          # Check if secret exists
+          if az keyvault secret show --vault-name $KV_NAME --name KARAMEL-TOKEN-SECRET &>/dev/null; then
+            echo "✓ KARAMEL-TOKEN-SECRET already exists"
           else
-            TOKEN_SECRET=${{ secrets.KARAMEL-TOKEN-SECRET }}
+            echo "! Creating KARAMEL-TOKEN-SECRET..."
+            if [ -n "${{ secrets.KARAMEL_TOKEN_SECRET }}" ]; then
+              az keyvault secret set \
+                --vault-name $KV_NAME \
+                --name KARAMEL-TOKEN-SECRET \
+                --value '${{ secrets.KARAMEL_TOKEN_SECRET }}'
+            else
+              # Generate random secret
+              TOKEN_SECRET=$(openssl rand -base64 48)
+              az keyvault secret set \
+                --vault-name $KV_NAME \
+                --name KARAMEL-TOKEN-SECRET \
+                --value "$TOKEN_SECRET"
+              echo "⚠️ Generated random secret. Store securely!"
+            fi
           fi
-          az keyvault secret set --vault-name "$KV_NAME" --name "KARAMEL-TOKEN-SECRET" --value "$TOKEN_SECRET"
 
-      - name: Assign Key Vault access to Web App (managed identity)
+      - name: Configure App Service settings
         run: |
-          set -e
-          RG=${{ github.event.inputs.rg }}
-          PREFIX=${{ github.event.inputs.namePrefix }}
-          WEBAPP_NAME="${PREFIX}-api"
-          KV_NAME="${PREFIX}-kv"
-          # Get principal id for the web app's system identity (requires identity to be enabled after web app creation)
-          PRINCIPAL_ID=$(az webapp identity show --name $WEBAPP_NAME --resource-group $RG --query principalId -o tsv || true)
-          if [ -z "$PRINCIPAL_ID" ]; then
-            echo "Web App managed identity not enabled or not available yet. Skipping access grant."
-          else
-            az keyvault set-policy --name $KV_NAME --object-id $PRINCIPAL_ID --secret-permissions get list
-            echo "Granted Key Vault access to web app identity"
-          fi
+          WEBAPP_NAME=$(jq -r '.webAppName.value' deployment-outputs.json)
+          KV_NAME=$(jq -r '.keyVaultName.value' deployment-outputs.json)
+          SQL_SERVER=$(jq -r '.sqlServerName.value' deployment-outputs.json)
+          SQL_DB=$(jq -r '.sqlDatabaseName.value' deployment-outputs.json)
+          
+          # Set app settings with Key Vault reference
+          az webapp config appsettings set \
+            --resource-group rg-karamel-prod \
+            --name $WEBAPP_NAME \
+            --settings \
+              "KARAMEL-TOKEN-SECRET=@Microsoft.KeyVault(SecretUri=https://$KV_NAME.vault.azure.net/secrets/KARAMEL-TOKEN-SECRET/)" \
+              "DB_PROVIDER=SqlServer" \
+              "DB_USE_AAD=true" \
+              "ASPNETCORE_ENVIRONMENT=Production" \
+              "ConnectionStrings__DefaultConnection=Server=tcp:$SQL_SERVER.database.windows.net,1433;Database=$SQL_DB;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+          
+          echo "✓ App Service configured"
+
+      - name: Upload deployment outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-outputs
+          path: deployment-outputs.json
