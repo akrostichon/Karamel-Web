@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Karamel.Backend.Data;
 using Karamel.Backend.Models;
@@ -22,7 +23,7 @@ namespace Karamel.Backend.Tests
         public async Task Add_And_Get_Session_By_Id()
         {
             using var db = CreateInMemoryContext();
-            var repo = new SessionRepository(db);
+            var repo = new SessionRepository(db, NullLogger<SessionRepository>.Instance);
 
             var session = new Session { Id = Guid.NewGuid(), LinkToken = "token123", CreatedAt = DateTime.UtcNow };
             await repo.AddAsync(session);
@@ -36,7 +37,7 @@ namespace Karamel.Backend.Tests
         public async Task Get_By_LinkToken_Returns_Session()
         {
             using var db = CreateInMemoryContext();
-            var repo = new SessionRepository(db);
+            var repo = new SessionRepository(db, NullLogger<SessionRepository>.Instance);
 
             var session = new Session { Id = Guid.NewGuid(), LinkToken = "link-abc", CreatedAt = DateTime.UtcNow };
             await repo.AddAsync(session);

@@ -2,8 +2,23 @@
 
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        <ErrorBoundary>
+            <ChildContent>
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </ChildContent>
+            <ErrorContent Context="exception">
+                <div class="alert alert-danger m-3" role="alert">
+                    <h4 class="alert-heading">An error occurred</h4>
+                    <p>Something went wrong. Please try refreshing the page.</p>
+                    @if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                    {
+                        <hr />
+                        <p class="mb-0 small">@exception.Message</p>
+                    }
+                </div>
+            </ErrorContent>
+        </ErrorBoundary>
     </Found>
     <NotFound>
         <PageTitle>Not Found</PageTitle>

@@ -69,6 +69,9 @@ builder.Services.AddSignalR(options =>
     options.AddFilter<Karamel.Backend.Filters.LinkTokenHubFilter>();
 });
 
+// Add Application Insights telemetry
+builder.Services.AddApplicationInsightsTelemetry();
+
 // Allow cross-origin requests from the frontend during local development so
 // the browser can POST/OPTIONS to the API when frontend is served from a
 // different origin/port. This policy is permissive for localhost dev only.

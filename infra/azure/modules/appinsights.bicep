@@ -13,3 +13,4 @@ resource ai 'Microsoft.Insights/components@2020-02-02' = {
 
 output appInsightsName string = ai.name
 output appInsightsId string = ai.id
+output connectionString string = ai.properties.ConnectionString

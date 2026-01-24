@@ -12,10 +12,12 @@ namespace Karamel.Backend.Repositories
     public class EfSongRepository : ISongRepository
     {
         private readonly BackendDbContext _db;
+        private readonly ILogger<EfSongRepository> _logger;
 
-        public EfSongRepository(BackendDbContext db)
+        public EfSongRepository(BackendDbContext db, ILogger<EfSongRepository> logger)
         {
             _db = db;
+            _logger = logger;
         }
 
         public async Task BulkUpsertAsync(Guid sessionId, IEnumerable<SongUploadDto> songs)
@@ -28,36 +30,54 @@ namespace Karamel.Backend.Repositories
 
             if (!list.Any()) return;
 
-            // Deduplicate uploads by Artist+Title
-            var keys = list.Select(s => new { s.Artist, s.Title }).Distinct().ToList();
-
-            // Get existing songs for session
-            var existing = await _db.Songs.Where(s => s.SessionId == sessionId)
-                                         .ToListAsync();
-
-            var existingKeys = existing.Select(e => new { e.Artist, e.Title }).ToHashSet();
-
-            var toAdd = new List<Song>();
-            foreach (var s in keys)
+            try
             {
-                if (!existingKeys.Contains(new { s.Artist, s.Title }))
+                _logger.LogInformation("BulkUpsert: Processing {Count} songs for session {SessionId}", list.Count, sessionId);
+
+                // Deduplicate uploads by Artist+Title
+                var keys = list.Select(s => new { s.Artist, s.Title }).Distinct().ToList();
+                _logger.LogDebug("BulkUpsert: {UniqueCount} unique songs after deduplication", keys.Count);
+
+                // Get existing songs for session
+                var existing = await _db.Songs.Where(s => s.SessionId == sessionId)
+                                             .ToListAsync();
+                _logger.LogDebug("BulkUpsert: Found {ExistingCount} existing songs in database", existing.Count);
+
+                var existingKeys = existing.Select(e => new { e.Artist, e.Title }).ToHashSet();
+
+                var toAdd = new List<Song>();
+                foreach (var s in keys)
                 {
-                    toAdd.Add(new Song
+                    if (!existingKeys.Contains(new { s.Artist, s.Title }))
                     {
-                        Id = Guid.NewGuid(),
-                        SessionId = sessionId,
-                        Artist = s.Artist,
-                        Title = s.Title,
-                        MetadataJson = list.FirstOrDefault(x => x.Artist == s.Artist && x.Title == s.Title)?.MetadataJson,
-                        AddedAt = DateTime.UtcNow
-                    });
+                        toAdd.Add(new Song
+                        {
+                            Id = Guid.NewGuid(),
+                            SessionId = sessionId,
+                            Artist = s.Artist,
+                            Title = s.Title,
+                            MetadataJson = list.FirstOrDefault(x => x.Artist == s.Artist && x.Title == s.Title)?.MetadataJson,
+                            AddedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                if (toAdd.Any())
+                {
+                    _logger.LogInformation("BulkUpsert: Adding {NewCount} new songs to database", toAdd.Count);
+                    await _db.Songs.AddRangeAsync(toAdd);
+                    await _db.SaveChangesAsync();
+                    _logger.LogInformation("BulkUpsert: Successfully saved {NewCount} songs for session {SessionId}", toAdd.Count, sessionId);
+                }
+                else
+                {
+                    _logger.LogInformation("BulkUpsert: No new songs to add (all duplicates) for session {SessionId}", sessionId);
                 }
             }
-
-            if (toAdd.Any())
+            catch (Exception ex)
             {
-                await _db.Songs.AddRangeAsync(toAdd);
-                await _db.SaveChangesAsync();
+                _logger.LogError(ex, "BulkUpsert failed for session {SessionId}. Attempted to add songs from {TotalCount} input items", sessionId, list.Count);
+                throw;
             }
         }
 
