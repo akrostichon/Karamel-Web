@@ -103,7 +103,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("ProductionCors", policy =>
     {
         var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
-            ?? new[] { "https://karamel-prod-static.azurestaticapps.net" };
+            ?? new[] { "https://polite-grass-037bbc503.2.azurestaticapps.net" };
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
