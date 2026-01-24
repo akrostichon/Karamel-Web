@@ -98,6 +98,17 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod()
         .AllowCredentials();
     });
+    
+    // Production CORS policy for Azure Static Web App
+    options.AddPolicy("ProductionCors", policy =>
+    {
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
+            ?? new[] { "https://karamel-prod-static.azurestaticapps.net" };
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 // Register controllers for API endpoints
 builder.Services.AddControllers();
@@ -132,6 +143,12 @@ if (app.Environment.IsDevelopment())
     // Use the more permissive policy for troubleshooting
     app.UseCors("DevCorsPermissive");
     Console.WriteLine("CORS enabled for development environment");
+}
+else
+{
+    // Production CORS for Azure Static Web App
+    app.UseCors("ProductionCors");
+    Console.WriteLine("CORS enabled for production environment");
 }
 
 app.MapGet("/health", () => Results.Text("Healthy", "text/plain"))

@@ -11,3 +11,4 @@
 prompts/
 *.db
 *.log
+/FIX_*.md
