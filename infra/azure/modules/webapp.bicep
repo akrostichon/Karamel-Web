@@ -33,6 +33,7 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
   properties: {
     serverFarmId: plan.id
     siteConfig: {
+      linuxFxVersion: 'DOTNETCORE|10.0'
       appSettings: [
         {
           name: 'WEBSITES_ENABLE_WEBSOCKETS'
