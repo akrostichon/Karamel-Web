@@ -21,64 +21,123 @@ on:
         default: 'Karamel.Backend'
 
 jobs:
-  run-migrations:
-    runs-on: [self-hosted, linux, rg-karamel-prod-runner]
+  build:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to Azure (VM Managed Identity)
-        run: az login --identity
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
-      - name: Verify .NET SDK installation
-        run: |
-          dotnet --version || {
-            echo "ERROR: .NET SDK not found on self-hosted runner!"
-            echo "Please install .NET SDK 10.0 on the runner VM:"
-            echo "  wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh"
-            echo "  chmod +x dotnet-install.sh"
-            echo "  sudo ./dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet"
-            exit 1
-          }
+      - name: Restore dependencies
+        run: dotnet restore ${{ github.event.inputs.project_path }} -r linux-x64
 
-      - name: Install/Update EF Core tools
+      - name: Build backend project
+        run: dotnet build ${{ github.event.inputs.project_path }} --no-restore --configuration Release -r linux-x64
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Create EF migration bundle
         run: |
-          # Ensure .NET tools path is in PATH
           export PATH="$PATH:$HOME/.dotnet/tools"
-          
-          # Install or update dotnet-ef (local to user, not global)
-          if ! command -v dotnet-ef &> /dev/null; then
-            echo "Installing dotnet-ef..."
-            dotnet tool install --global dotnet-ef
-          else
-            echo "Updating dotnet-ef..."
-            dotnet tool update --global dotnet-ef
-          fi
-          
-          # Verify installation
-          dotnet ef --version
+          cd ${{ github.event.inputs.project_path }}
+          dotnet ef migrations bundle --configuration Release --self-contained --runtime linux-x64 --output ./efbundle
+          chmod +x ./efbundle
+          ls -lh ./efbundle
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          DB_PROVIDER: SqlServer
+          ConnectionStrings__DefaultConnection: "Server=placeholder.database.windows.net;Database=placeholder;Authentication=Active Directory Default;Encrypt=True;"
+        
+      - name: Upload migration bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-bundle
+          path: ${{ github.event.inputs.project_path }}/efbundle
+
+  run-migrations:
+    needs: build
+    runs-on: [self-hosted, linux, rg-karamel-prod-runner]
+    steps:
+      - name: Download migration bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-bundle
+          path: ./bundle
+
+      - name: Make bundle executable
+        run: |
+          chmod +x ./bundle/efbundle
+          ls -lh ./bundle/efbundle
+          echo "Bundle size: $(du -h ./bundle/efbundle | cut -f1)"
+
+      - name: Login to Azure (VM Managed Identity)
+        run: |
+          echo "Logging in with VM managed identity..."
+          az login --identity
+          echo "✓ Azure login successful"
 
       - name: Get access token for SQL
         id: get-token
         run: |
+          echo "Requesting SQL access token..."
           TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: Failed to get access token"
+            exit 1
+          fi
+          echo "✓ Access token obtained (length: ${#TOKEN})"
           echo "::add-mask::$TOKEN"
           echo "SQL_ACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
 
-      - name: Run migrations (AAD auth via Private Endpoint)
+      - name: Test SQL connectivity via Private Endpoint
         run: |
-          # Build connection string with AAD token (using private endpoint)
-          # Note: SQL Server is configured with public access disabled, so this uses the private endpoint
-          export ConnectionStrings__DefaultConnection="Server=tcp:${{ github.event.inputs.sql_server_name }}.database.windows.net,1433;Database=${{ github.event.inputs.sql_database_name }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+          echo "Testing connectivity to SQL Server private endpoint..."
+          echo "Server: ${{ github.event.inputs.sql_server_name }}.database.windows.net"
           
-          echo "Connecting via private endpoint with managed identity authentication..."
+          # Test DNS resolution
+          nslookup ${{ github.event.inputs.sql_server_name }}.database.windows.net || echo "⚠ DNS resolution issue"
           
-          # Run migrations (EF Core will use DefaultAzureCredential from VM's managed identity)
-          cd ${{ github.event.inputs.project_path }}
-          dotnet ef database update --no-build || {
-            echo "Migration failed! Check that:"
-            echo "1. VM has network connectivity to SQL Server private endpoint"
-            echo "2. VM's managed identity has appropriate SQL permissions"
+          # Test TCP connectivity
+          timeout 5 bash -c "cat < /dev/null > /dev/tcp/${{ github.event.inputs.sql_server_name }}.database.windows.net/1433" && echo "✓ Port 1433 is reachable" || echo "✗ Cannot reach port 1433"
+
+      - name: Run migration bundle
+        run: |
+          echo "=========================================="
+          echo "Running EF Core migration bundle"
+          echo "=========================================="
+          echo "Server: ${{ github.event.inputs.sql_server_name }}.database.windows.net"
+          echo "Database: ${{ github.event.inputs.sql_database_name }}"
+          echo "Authentication: Azure AD Managed Identity"
+          echo "Connection: Private Endpoint"
+          echo "=========================================="
+          
+          # Set environment for SQL Server provider (used by IDesignTimeDbContextFactory)
+          export DB_PROVIDER=SqlServer
+          
+          # Build connection string for Azure SQL with managed identity
+          export ConnectionStrings__DefaultConnection="Server=tcp:${{ github.event.inputs.sql_server_name }}.database.windows.net,1433;Database=${{ github.event.inputs.sql_database_name }};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+          
+          # Run the bundle with verbose output
+          # Note: The bundle now uses IDesignTimeDbContextFactory which doesn't require ASPNETCORE_ENVIRONMENT or token secrets
+          ./bundle/efbundle --verbose || {
+            echo ""
+            echo "=========================================="
+            echo "❌ MIGRATION FAILED"
+            echo "=========================================="
+            echo "Troubleshooting steps:"
+            echo "1. Check VM network access to private endpoint"
+            echo "2. Verify VM managed identity has SQL permissions"
+            echo "3. Check SQL Server firewall/private endpoint config"
+            echo "4. Review connection string format"
+            echo "=========================================="
             exit 1
           }
-        env:
-          AZURE_ACCESS_TOKEN: ${{ env.SQL_ACCESS_TOKEN }}
+          
+          echo ""
+          echo "=========================================="
+          echo "✓ MIGRATIONS COMPLETED SUCCESSFULLY"
+          echo "=========================================="
