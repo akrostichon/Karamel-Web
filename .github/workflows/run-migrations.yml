@@ -75,6 +75,16 @@ jobs:
           
           dotnet ef --version
 
+      - name: Setup .NET on VM
+        run: |
+          export PATH="$PATH:/usr/share/dotnet"
+          dotnet --version
+
+      - name: Restore dependencies only (fast)
+        run: |
+          export PATH="$PATH:/usr/share/dotnet"
+          dotnet restore ${{ github.event.inputs.project_path }}
+
       - name: Get access token for SQL
         id: get-token
         run: |
@@ -95,7 +105,7 @@ jobs:
           
           # Run migrations (EF Core will use DefaultAzureCredential from VM's managed identity)
           cd ${{ github.event.inputs.project_path }}
-          dotnet ef database update || {
+          dotnet ef database update --no-build || {
             echo "Migration failed! Check that:"
             echo "1. VM has network connectivity to SQL Server private endpoint"
             echo "2. VM's managed identity has appropriate SQL permissions"
