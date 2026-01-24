@@ -39,7 +39,7 @@ Application Insights telemetry has been successfully integrated into Karamel-Web
 
 ### 1. Check Live Metrics
 
-1. Open Azure Portal → Application Insights → `karamel-prod-ai`
+1. Open Azure Portal → Application Insights → `rg-karamel-prod-ai`
 2. Navigate to **Live Metrics**
 3. Make a request to your app (e.g., create a session, upload library)
 4. Verify you see:
@@ -211,17 +211,17 @@ If you start seeing costs:
 
 1. **Check connection string**:
    ```powershell
-   az webapp config appsettings list -g rg-karamel-prod -n karamel-prod-api | grep APPLICATIONINSIGHTS
+   az webapp config appsettings list -g rg-karamel-prod -n rg-karamel-prod-api | grep APPLICATIONINSIGHTS
    ```
 
 2. **Check App Insights status**:
    ```powershell
-   az monitor app-insights component show -g rg-karamel-prod -n karamel-prod-ai --query "ingestionMode"
+   az monitor app-insights component show -g rg-karamel-prod -n rg-karamel-prod-ai --query "ingestionMode"
    ```
 
 3. **Check backend logs** (stdout):
    ```powershell
-   az webapp log tail -g rg-karamel-prod -n karamel-prod-api
+   az webapp log tail -g rg-karamel-prod -n rg-karamel-prod-api
    ```
    Look for messages like `[Microsoft.ApplicationInsights]` on startup
 

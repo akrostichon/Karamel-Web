@@ -72,6 +72,39 @@ Guidance:
 - If you need a non-production environment, request the creation of a separate resource group and update the infra parameters accordingly.
 - Double-check parameters files (for example, infra/azure/parameters.dev.json) and ensure they reference `rg-karamel-prod` before running any deployment commands.
 
+## Azure Resource Names
+
+**CRITICAL**: Use these exact resource names when interacting with Azure resources. All resource names use the `rg-karamel-prod` prefix pattern.
+
+### Production Resources
+- **Resource Group**: `rg-karamel-prod`
+- **App Service (Backend API)**: `rg-karamel-prod-api`
+  - URL: `https://rg-karamel-prod-api.azurewebsites.net`
+- **App Service Plan**: `rg-karamel-prod-plan`
+- **SQL Server**: `rg-karamel-prod-sqlsrv`
+- **SQL Database**: `rg-karamel-prod-sqldb`
+- **Application Insights**: `rg-karamel-prod-ai`
+- **Key Vault**: `rg-karamel-prod-kv`
+- **Virtual Network (SQL)**: `rg-karamel-prod-sql-vnet`
+- **Static Web App**: (name varies, check Azure portal)
+- **GitHub Runner**: `rg-karamel-prod-runner` (self-hosted)
+
+### Common Mistakes to Avoid
+- ❌ `karamel-prod-api` → ✅ `rg-karamel-prod-api`
+- ❌ `karamel-prod-ai` → ✅ `rg-karamel-prod-ai`
+- ❌ `karamel-prod-sqlsrv` → ✅ `rg-karamel-prod-sqlsrv`
+
+### Resource Naming Convention
+All resources follow the pattern: `${namePrefix}-${resourceType}` where `namePrefix = "rg-karamel-prod"`
+
+This is defined in [infra/azure/main.bicep](infra/azure/main.bicep):
+```bicep
+var sqlServerName = '${namePrefix}-sqlsrv'
+var sqlDbName = '${namePrefix}-sqldb'
+var webAppName = '${namePrefix}-api'
+var appInsightsName = '${namePrefix}-ai'
+```
+
 
 ## Development Workflow
 
@@ -201,7 +234,7 @@ Karamel-Web/                          # Solution root
 **Frontend (Karamel.Web)**:
 - Application Insights JavaScript SDK in index.html (client-side telemetry)
 - ErrorBoundary component in App.razor catches unhandled Blazor exceptions
-- Console.WriteLine used in development (89 occurrences across pages/components)
+- Console.WriteLine used in development
 
 **Viewing Logs**:
 - Azure Portal → Application Insights → Live Metrics (real-time)
