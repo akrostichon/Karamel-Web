@@ -1,7 +1,14 @@
 {
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"],
+      "rewrite": "https://karamel-prod-api.azurewebsites.net/api/{*path}"
+    }
+  ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/_framework/*", "/css/*", "/js/*", "/lib/*", "/*.{css,js,json,png,jpg,jpeg,gif,svg,ico}"]
+    "exclude": ["/_framework/*", "/css/*", "/js/*", "/lib/*", "/*.{css,js,json,png,jpg,jpeg,gif,svg,ico}", "/api/*"]
   },
   "responseOverrides": {
     "404": {
