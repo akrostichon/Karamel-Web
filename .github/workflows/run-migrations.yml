@@ -48,6 +48,7 @@ jobs:
           chmod +x ./efbundle
           ls -lh ./efbundle
         env:
+          ASPNETCORE_ENVIRONMENT: Production
           DB_PROVIDER: SqlServer
           ConnectionStrings__DefaultConnection: "Server=placeholder.database.windows.net;Database=placeholder;Authentication=Active Directory Default;Encrypt=True;"
         
