@@ -12,3 +12,5 @@ prompts/
 *.db
 *.log
 /FIX_*.md
+publish/
+app.zip
