@@ -10,50 +10,22 @@ After deploying the infrastructure with Bicep, you must manually grant the App S
 
 ## Steps
 
-### 1. Get the App Service Principal ID
+### 1. In azure powershell cli
 
-From deployment output or run:
+Install-Module -Name SqlServer -Scope CurrentUser -Force
+$token = (az account get-access-token --resource https://database.windows.net --query accessToken -o tsv)
+Invoke-Sqlcmd `
+   -ServerInstance "rg-karamel-prod-sqlsrv.database.windows.net" `
+   -Database "rg-karamel-prod-sqldb" `
+   -AccessToken $token `
+   -Query @"
+ CREATE USER [rg-karamel-prod-api] FROM EXTERNAL PROVIDER;
+ ALTER ROLE db_datareader ADD MEMBER [rg-karamel-prod-api];
+ ALTER ROLE db_datawriter ADD MEMBER [rg-karamel-prod-api];
+ ALTER ROLE db_ddladmin ADD MEMBER [rg-karamel-prod-api];
+ "@
 
-```powershell
-az webapp identity show --name rg-karamel-prod-api --resource-group rg-karamel-prod --query principalId -o tsv
-```
-
-### 2. Connect to SQL Database
-
-Option A - Azure Portal Query Editor:
-1. Go to Azure Portal
-2. Navigate to `rg-karamel-prod-sqldb` database
-3. Click "Query editor (preview)"
-4. Login with SQL admin credentials
-
-Option B - Azure Data Studio or SSMS:
-```powershell
-# Get connection string
-az sql db show-connection-string --client ado.net --name rg-karamel-prod-sqldb --server rg-karamel-prod-sqlsrv
-```
-
-### 3. Create Database User and Grant Permissions
-
-Run this SQL script in the database (replace `rg-karamel-prod-api` with your actual web app name):
-
-```sql
--- Create user for the App Service managed identity
--- The name MUST match the App Service name exactly
-CREATE USER [rg-karamel-prod-api] FROM EXTERNAL PROVIDER;
-
--- Grant necessary permissions for EF Core operations
-ALTER ROLE db_datareader ADD MEMBER [rg-karamel-prod-api];
-ALTER ROLE db_datawriter ADD MEMBER [rg-karamel-prod-api];
-ALTER ROLE db_ddladmin ADD MEMBER [rg-karamel-prod-api];
-GO
-
--- Verify the user was created
-SELECT name, type_desc, create_date 
-FROM sys.database_principals 
-WHERE name = 'rg-karamel-prod-api';
-```
-
-### 4. Verify Connection
+### 2. Verify Connection
 
 After granting permissions, restart the App Service and test:
 
@@ -96,7 +68,3 @@ This step cannot be fully automated in Bicep because:
 
 Consider using Azure DevOps pipeline with SQL scripts or a post-deployment script that uses `sqlcmd` if full automation is needed.
 
-## Reference
-
-- [Use managed identities with Azure SQL Database](https://learn.microsoft.com/en-us/azure/app-service/tutorial-connect-msi-sql-database)
-- [EF Core with Azure SQL and Managed Identity](https://learn.microsoft.com/en-us/azure/azure-sql/database/authentication-azure-ad-user-assigned-managed-identity)
