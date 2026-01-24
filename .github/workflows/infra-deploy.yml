@@ -62,6 +62,7 @@ jobs:
           SQL_DB=$(jq -r '.sqlDatabaseName.value' deployment-outputs.json)
           
           # Set app settings with Key Vault reference
+          # Note: Connection string is configured in Bicep template (webapp.bicep) with Managed Identity
           az webapp config appsettings set \
             --resource-group rg-karamel-prod \
             --name $WEBAPP_NAME \
@@ -69,8 +70,7 @@ jobs:
               "KARAMEL-TOKEN-SECRET=@Microsoft.KeyVault(SecretUri=https://$KV_NAME.vault.azure.net/secrets/KARAMEL-TOKEN-SECRET/)" \
               "DB_PROVIDER=SqlServer" \
               "DB_USE_AAD=true" \
-              "ASPNETCORE_ENVIRONMENT=Production" \
-              "ConnectionStrings__DefaultConnection=Server=tcp:$SQL_SERVER.database.windows.net,1433;Database=$SQL_DB;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+              "ASPNETCORE_ENVIRONMENT=Production"
           
           echo "✓ App Service configured"
 
