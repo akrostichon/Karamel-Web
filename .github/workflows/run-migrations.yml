@@ -32,10 +32,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore ${{ github.event.inputs.project_path }}
+        run: dotnet restore ${{ github.event.inputs.project_path }} -r linux-x64
 
       - name: Build backend project
-        run: dotnet build ${{ github.event.inputs.project_path }} --no-restore --configuration Release
+        run: dotnet build ${{ github.event.inputs.project_path }} --no-restore --configuration Release -r linux-x64
 
       - name: Install EF Core tools
         run: dotnet tool install --global dotnet-ef
