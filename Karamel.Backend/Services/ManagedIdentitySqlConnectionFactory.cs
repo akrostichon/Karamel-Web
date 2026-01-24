@@ -1,5 +1,3 @@
-using System;
-using System.Data.Common;
 using Microsoft.Data.SqlClient;
 using Azure.Identity;
 using Azure.Core;
@@ -10,21 +8,12 @@ namespace Karamel.Backend.Services
     {
         public static System.Data.Common.DbConnection Create(string connectionString)
         {
-            // Normalize connection string: replace "Server=" with "Data Source=" for Azure AD compatibility
-            var normalized = connectionString
-                .Replace("Server=", "Data Source=", StringComparison.OrdinalIgnoreCase)
-                .Replace("server=", "Data Source=", StringComparison.Ordinal);
-            
-            // Remove SQL auth properties when using AAD
-            var builder = new SqlConnectionStringBuilder(normalized)
-            {
-                // Clear SQL authentication properties
-                UserID = string.Empty,
-                Password = string.Empty,
-                IntegratedSecurity = false
-            };
-            
-            var conn = new SqlConnection(builder.ConnectionString);
+            // Use the connection string directly - it's already correctly formatted from Bicep/Azure config
+            // Do NOT use SqlConnectionStringBuilder as it throws ArgumentException when parsing
+            // a connection string with "Authentication=Active Directory Default" that has any
+            // SQL auth keywords (UserID/Password), even if empty. The constructor validates
+            // this before we can set properties to clear them.
+            var conn = new SqlConnection(connectionString);
             try
             {
                 var credential = new DefaultAzureCredential();

@@ -67,7 +67,7 @@ jobs:
             --resource-group rg-karamel-prod \
             --name $WEBAPP_NAME \
             --settings \
-              "KARAMEL-TOKEN-SECRET=@Microsoft.KeyVault(SecretUri=https://$KV_NAME.vault.azure.net/secrets/KARAMEL-TOKEN-SECRET/)" \
+              "Karamel__TokenSecret=@Microsoft.KeyVault(SecretUri=https://$KV_NAME.vault.azure.net/secrets/KARAMEL-TOKEN-SECRET/)" \
               "DB_PROVIDER=SqlServer" \
               "DB_USE_AAD=true" \
               "ASPNETCORE_ENVIRONMENT=Production"

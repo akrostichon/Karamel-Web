@@ -23,6 +23,10 @@ Invoke-Sqlcmd `
  ALTER ROLE db_datareader ADD MEMBER [rg-karamel-prod-api];
  ALTER ROLE db_datawriter ADD MEMBER [rg-karamel-prod-api];
  ALTER ROLE db_ddladmin ADD MEMBER [rg-karamel-prod-api];
+  CREATE USER [karamel-runner-1] FROM EXTERNAL PROVIDER;
+  ALTER ROLE db_datareader ADD MEMBER [karamel-runner-1];
+  ALTER ROLE db_datawriter ADD MEMBER [karamel-runner-1];
+  ALTER ROLE db_ddladmin ADD MEMBER [karamel-runner-1];
  "@
 
 ### 2. Verify Connection

@@ -26,7 +26,7 @@ resource sqlServer 'Microsoft.Sql/servers@2023-08-01' = {
     administratorLogin: administratorLogin
     administratorLoginPassword: administratorPassword
     minimalTlsVersion: '1.2'
-    publicNetworkAccess: 'Disabled'
+    publicNetworkAccess: 'Enabled'
   }
 }
 
