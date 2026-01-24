@@ -59,7 +59,7 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
       connectionStrings: [
         {
           name: 'DefaultConnection'
-          connectionString: 'Data Source=${sqlServerFqdn};Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;'
+          connectionString: 'Server=tcp:${sqlServerFqdn},1433;Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
           type: 'SQLAzure'
         }
       ]
