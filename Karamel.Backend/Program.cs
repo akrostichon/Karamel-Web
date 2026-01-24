@@ -15,13 +15,25 @@ if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
         builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>((serviceProvider, options) =>
         {
             var conn = Karamel.Backend.Services.ManagedIdentitySqlConnectionFactory.Create(connectionString);
-            options.UseSqlServer(conn);
+            options.UseSqlServer(conn, sqlOptions =>
+            {
+                sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 2,
+                    maxRetryDelay: TimeSpan.FromSeconds(10),
+                    errorNumbersToAdd: null);
+            });
         });
     }
     else
     {
         builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
-            options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;"));
+            options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;", sqlOptions =>
+            {
+                sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 2,
+                    maxRetryDelay: TimeSpan.FromSeconds(10),
+                    errorNumbersToAdd: null);
+            }));
     }
 }
 else
