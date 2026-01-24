@@ -3,7 +3,7 @@
     {
       "route": "/api/*",
       "allowedRoles": ["anonymous"],
-      "rewrite": "https://karamel-prod-api.azurewebsites.net/api/{*path}"
+      "rewrite": "https://rg-karamel-prod-api.azurewebsites.net/api/{*path}"
     }
   ],
   "navigationFallback": {
