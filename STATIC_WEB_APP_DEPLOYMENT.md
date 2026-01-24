@@ -33,7 +33,7 @@ Two complementary approaches:
 2. **`wwwroot/appsettings.Production.json`** (NEW)
    ```json
    {
-     "BackendBase": "https://karamel-prod-api.azurewebsites.net"
+     "BackendBase": "https://rg-karamel-prod-api.azurewebsites.net"
    }
    ```
 
@@ -68,7 +68,7 @@ dotnet publish -c Release -o ./publish
 # Deploy to Azure App Service
 az webapp deploy `
   --resource-group rg-karamel-prod `
-  --name karamel-prod-api `
+  --name rg-karamel-prod-api `
   --src-path ./publish `
   --type zip `
   --async true
@@ -76,7 +76,7 @@ az webapp deploy `
 # Verify CORS configuration is applied
 az webapp config appsettings list `
   --resource-group rg-karamel-prod `
-  --name karamel-prod-api `
+  --name rg-karamel-prod-api `
   --query "[?name=='Cors__AllowedOrigins__0'].value"
 ```
 
@@ -95,7 +95,7 @@ Azure Static Web Apps can link to an external API (App Service):
 # Get backend API URL
 $backendUrl = az webapp show `
   --resource-group rg-karamel-prod `
-  --name karamel-prod-api `
+  --name rg-karamel-prod-api `
   --query "defaultHostName" `
   --output tsv
 
@@ -106,14 +106,14 @@ az extension add --name staticwebapp
 az staticwebapp backends link `
   --name karamel-prod-static `
   --resource-group rg-karamel-prod `
-  --backend-resource-id "/subscriptions/<YOUR-SUB-ID>/resourceGroups/rg-karamel-prod/providers/Microsoft.Web/sites/karamel-prod-api" `
+  --backend-resource-id "/subscriptions/<YOUR-SUB-ID>/resourceGroups/rg-karamel-prod/providers/Microsoft.Web/sites/rg-karamel-prod-api" `
   --region northeurope
 ```
 
 **Alternative**: Manually configure in Azure Portal:
 1. Open Static Web App → Settings → APIs
 2. Click **Link an existing API**
-3. Select your App Service (`karamel-prod-api`)
+3. Select your App Service (`rg-karamel-prod-api`)
 4. Save
 
 ### 3. Deploy Frontend (Static Web App)
@@ -139,7 +139,7 @@ az staticwebapp update `
 
 #### Test Backend Health
 ```powershell
-curl https://karamel-prod-api.azurewebsites.net/health
+curl https://rg-karamel-prod-api.azurewebsites.net/health
 # Expected: "Healthy"
 ```
 
@@ -149,7 +149,7 @@ curl -I `
   -H "Origin: https://karamel-prod-static.azurestaticapps.net" `
   -H "Access-Control-Request-Method: POST" `
   -X OPTIONS `
-  https://karamel-prod-api.azurewebsites.net/api/sessions
+  https://rg-karamel-prod-api.azurewebsites.net/api/sessions
   
 # Expected headers:
 # Access-Control-Allow-Origin: https://karamel-prod-static.azurestaticapps.net
@@ -194,7 +194,7 @@ curl -X POST `
   -H "Content-Type: application/json" `
   -H "Origin: https://karamel-prod-static.azurestaticapps.net" `
   -d $body `
-  https://karamel-prod-api.azurewebsites.net/api/sessions
+  https://rg-karamel-prod-api.azurewebsites.net/api/sessions
 ```
 
 ### CORS Errors (403/401)
