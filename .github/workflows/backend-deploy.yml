@@ -23,35 +23,75 @@ jobs:
       - name: Run backend tests
         run: |
           dotnet test Karamel.Backend.Tests -c Release --no-build
+      
+      - name: Publish backend
+        run: |
+          dotnet publish Karamel.Backend -c Release -o ./publish
+          ls -lh ./publish
+      
+      - name: Upload published backend
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-app
+          path: ./publish
 
   deploy-to-appservice:
     needs: build-and-test
     runs-on: [self-hosted, linux, rg-karamel-prod-runner]
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - name: Download published backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-app
+          path: ./publish
       
-      - name: Install required tools
-        run: sudo apt-get update && sudo apt-get install -y zip
+      - name: Verify downloaded files
+        run: |
+          echo "Published backend files:"
+          ls -lh ./publish
+          echo "Total size: $(du -sh ./publish | cut -f1)"
       
       - name: Login to Azure (Managed Identity)
-        run: az login --identity
-      
-      - name: Publish backend
         run: |
-          dotnet publish Karamel.Backend -c Release -o ./publish
+          echo "Logging in with VM managed identity..."
+          az login --identity
+          echo "✓ Azure login successful"
+      
+      - name: Create deployment package
+        run: |
           cd publish
           zip -r ../deploy.zip .
+          cd ..
+          echo "Deployment package size: $(du -h deploy.zip | cut -f1)"
       
       - name: Deploy to App Service
         run: |
+          echo "=========================================="
+          echo "Deploying to App Service"
+          echo "=========================================="
+          echo "Resource Group: rg-karamel-prod"
+          echo "App Service: rg-karamel-prod-api"
+          echo "=========================================="
+          
           az webapp deployment source config-zip \
             --resource-group rg-karamel-prod \
             --name rg-karamel-prod-api \
-            --src deploy.zip
+            --src deploy.zip \
+            --timeout 600
+          
+          echo "✓ Deployment completed"
       
       - name: Verify deployment
         run: |
           echo "Waiting for app to restart..."
           sleep 30
-          curl -f https://rg-karamel-prod-api.azurewebsites.net/health || echo "Health check failed"
+          
+          echo "Testing health endpoint..."
+          if curl -f -s https://rg-karamel-prod-api.azurewebsites.net/health; then
+            echo ""
+            echo "✓ Health check passed"
+          else
+            echo ""
+            echo "⚠ Health check failed - app may still be starting"
+          fi
