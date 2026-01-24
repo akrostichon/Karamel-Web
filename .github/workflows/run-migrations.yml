@@ -37,79 +37,99 @@ jobs:
       - name: Build backend project
         run: dotnet build ${{ github.event.inputs.project_path }} --no-restore --configuration Release
 
-      - name: Publish build artifacts
-        run: dotnet publish ${{ github.event.inputs.project_path }} --no-build --configuration Release --output ./publish
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef
 
-      - name: Upload artifacts
+      - name: Create EF migration bundle
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          cd ${{ github.event.inputs.project_path }}
+          dotnet ef migrations bundle --configuration Release --self-contained --runtime linux-x64 --output ./efbundle
+          chmod +x ./efbundle
+          ls -lh ./efbundle
+        
+      - name: Upload migration bundle
         uses: actions/upload-artifact@v4
         with:
-          name: backend-build
-          path: ./publish
+          name: migration-bundle
+          path: ${{ github.event.inputs.project_path }}/efbundle
 
   run-migrations:
     needs: build
     runs-on: [self-hosted, linux, rg-karamel-prod-runner]
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Download build artifacts
+      - name: Download migration bundle
         uses: actions/download-artifact@v4
         with:
-          name: backend-build
-          path: ./publish
+          name: migration-bundle
+          path: ./bundle
+
+      - name: Make bundle executable
+        run: |
+          chmod +x ./bundle/efbundle
+          ls -lh ./bundle/efbundle
+          echo "Bundle size: $(du -h ./bundle/efbundle | cut -f1)"
 
       - name: Login to Azure (VM Managed Identity)
-        run: az login --identity
-
-      - name: Install/Update EF Core tools
         run: |
-          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
-          
-          if ! command -v dotnet-ef &> /dev/null; then
-            echo "Installing dotnet-ef..."
-            dotnet tool install --global dotnet-ef
-          else
-            echo "Updating dotnet-ef..."
-            dotnet tool update --global dotnet-ef
-          fi
-          
-          dotnet ef --version
-
-      - name: Setup .NET on VM
-        run: |
-          export PATH="$PATH:/usr/share/dotnet"
-          dotnet --version
-
-      - name: Restore dependencies only (fast)
-        run: |
-          export PATH="$PATH:/usr/share/dotnet"
-          dotnet restore ${{ github.event.inputs.project_path }}
+          echo "Logging in with VM managed identity..."
+          az login --identity
+          echo "✓ Azure login successful"
 
       - name: Get access token for SQL
         id: get-token
         run: |
+          echo "Requesting SQL access token..."
           TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: Failed to get access token"
+            exit 1
+          fi
+          echo "✓ Access token obtained (length: ${#TOKEN})"
           echo "::add-mask::$TOKEN"
           echo "SQL_ACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
 
-      - name: Run migrations (AAD auth via Private Endpoint)
+      - name: Test SQL connectivity via Private Endpoint
         run: |
-          # Ensure .NET and tools are in PATH
-          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
+          echo "Testing connectivity to SQL Server private endpoint..."
+          echo "Server: ${{ github.event.inputs.sql_server_name }}.database.windows.net"
           
-          # Build connection string with AAD token (using private endpoint)
-          # Note: SQL Server is configured with public access disabled, so this uses the private endpoint
-          export ConnectionStrings__DefaultConnection="Server=tcp:${{ github.event.inputs.sql_server_name }}.database.windows.net,1433;Database=${{ github.event.inputs.sql_database_name }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+          # Test DNS resolution
+          nslookup ${{ github.event.inputs.sql_server_name }}.database.windows.net || echo "⚠ DNS resolution issue"
           
-          echo "Connecting via private endpoint with managed identity authentication..."
+          # Test TCP connectivity
+          timeout 5 bash -c "cat < /dev/null > /dev/tcp/${{ github.event.inputs.sql_server_name }}.database.windows.net/1433" && echo "✓ Port 1433 is reachable" || echo "✗ Cannot reach port 1433"
+
+      - name: Run migration bundle
+        run: |
+          echo "=========================================="
+          echo "Running EF Core migration bundle"
+          echo "=========================================="
+          echo "Server: ${{ github.event.inputs.sql_server_name }}.database.windows.net"
+          echo "Database: ${{ github.event.inputs.sql_database_name }}"
+          echo "Authentication: Azure AD Managed Identity"
+          echo "Connection: Private Endpoint"
+          echo "=========================================="
           
-          # Run migrations (EF Core will use DefaultAzureCredential from VM's managed identity)
-          cd ${{ github.event.inputs.project_path }}
-          dotnet ef database update --no-build || {
-            echo "Migration failed! Check that:"
-            echo "1. VM has network connectivity to SQL Server private endpoint"
-            echo "2. VM's managed identity has appropriate SQL permissions"
+          # Build connection string for Azure SQL with managed identity
+          export ConnectionStrings__DefaultConnection="Server=tcp:${{ github.event.inputs.sql_server_name }}.database.windows.net,1433;Database=${{ github.event.inputs.sql_database_name }};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+          
+          # Run the bundle with verbose output
+          ./bundle/efbundle --verbose || {
+            echo ""
+            echo "=========================================="
+            echo "❌ MIGRATION FAILED"
+            echo "=========================================="
+            echo "Troubleshooting steps:"
+            echo "1. Check VM network access to private endpoint"
+            echo "2. Verify VM managed identity has SQL permissions"
+            echo "3. Check SQL Server firewall/private endpoint config"
+            echo "4. Review connection string format"
+            echo "=========================================="
             exit 1
           }
-        env:
-          AZURE_ACCESS_TOKEN: ${{ env.SQL_ACCESS_TOKEN }}
+          
+          echo ""
+          echo "=========================================="
+          echo "✓ MIGRATIONS COMPLETED SUCCESSFULLY"
+          echo "=========================================="
