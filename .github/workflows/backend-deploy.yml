@@ -74,11 +74,13 @@ jobs:
           echo "App Service: rg-karamel-prod-api"
           echo "=========================================="
           
-          az webapp deployment source config-zip \
+          az webapp deploy \
             --resource-group rg-karamel-prod \
             --name rg-karamel-prod-api \
-            --src deploy.zip \
-            --timeout 600
+            --src-path deploy.zip \
+            --type zip \
+            --timeout 600 \
+            --async false
           
           echo "✓ Deployment completed"
       
