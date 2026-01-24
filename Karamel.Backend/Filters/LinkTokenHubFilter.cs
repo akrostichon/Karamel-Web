@@ -11,10 +11,12 @@ namespace Karamel.Backend.Filters
     public class LinkTokenHubFilter : IHubFilter
     {
         private readonly ITokenService _tokenService;
+        private readonly ILogger<LinkTokenHubFilter> _logger;
 
-        public LinkTokenHubFilter(ITokenService tokenService)
+        public LinkTokenHubFilter(ITokenService tokenService, ILogger<LinkTokenHubFilter> logger)
         {
             _tokenService = tokenService;
+            _logger = logger;
         }
 
         public async ValueTask<object?> InvokeMethodAsync(
@@ -35,6 +37,8 @@ namespace Karamel.Backend.Filters
 
             if (string.IsNullOrEmpty(token))
             {
+                _logger.LogWarning("Missing X-Link-Token for hub method {MethodName} from connection {ConnectionId}", 
+                    invocationContext.HubMethodName, invocationContext.Context.ConnectionId);
                 throw new HubException("Missing X-Link-Token header");
             }
 
@@ -42,11 +46,15 @@ namespace Karamel.Backend.Filters
             if (invocationContext.HubMethodArguments.Count == 0 ||
                 invocationContext.HubMethodArguments[0] is not Guid sessionId)
             {
+                _logger.LogWarning("Invalid method signature for hub method {MethodName}: sessionId required as first parameter", 
+                    invocationContext.HubMethodName);
                 throw new HubException("Invalid method signature: sessionId required as first parameter");
             }
 
             if (!_tokenService.ValidateLinkToken(sessionId, token))
             {
+                _logger.LogWarning("Invalid link token for session {SessionId} in hub method {MethodName} from connection {ConnectionId}", 
+                    sessionId, invocationContext.HubMethodName, invocationContext.Context.ConnectionId);
                 throw new HubException("Invalid or expired link token");
             }
 

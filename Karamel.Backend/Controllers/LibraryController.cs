@@ -13,29 +13,47 @@ namespace Karamel.Backend.Controllers
     public class LibraryController : ControllerBase
     {
         private readonly ISongRepository _songRepo;
+        private readonly ILogger<LibraryController> _logger;
 
-        public LibraryController(ISongRepository songRepo)
+        public LibraryController(ISongRepository songRepo, ILogger<LibraryController> logger)
         {
             _songRepo = songRepo;
+            _logger = logger;
         }
 
         // Bulk upload sanitized library entries for a session
         [HttpPost("bulk")]
         public async Task<IActionResult> BulkUpsert(Guid sessionId, [FromBody] IEnumerable<SongUploadDto> songs)
         {
-            if (songs == null) return BadRequest("Payload missing");
-
-            // Security: Ensure payload does not contain forbidden fields
-            // Since model binding already mapped allowed fields, we defensively inspect raw JSON is not available here.
-            // Basic validation: reject if count is excessive
-            var list = songs.ToList();
-            if (list.Count > 5000)
+            try
             {
-                return BadRequest("Too many songs in single upload");
-            }
+                if (songs == null)
+                {
+                    _logger.LogWarning("BulkUpsert called with null payload for session {SessionId}", sessionId);
+                    return BadRequest("Payload missing");
+                }
 
-            await _songRepo.BulkUpsertAsync(sessionId, list);
-            return Accepted();
+                // Security: Ensure payload does not contain forbidden fields
+                // Since model binding already mapped allowed fields, we defensively inspect raw JSON is not available here.
+                // Basic validation: reject if count is excessive
+                var list = songs.ToList();
+                if (list.Count > 5000)
+                {
+                    _logger.LogWarning("BulkUpsert rejected: Too many songs ({Count}) for session {SessionId}", list.Count, sessionId);
+                    return BadRequest("Too many songs in single upload");
+                }
+
+                _logger.LogInformation("Starting bulk upsert of {Count} songs for session {SessionId}", list.Count, sessionId);
+                await _songRepo.BulkUpsertAsync(sessionId, list);
+                _logger.LogInformation("Successfully completed bulk upsert for session {SessionId}", sessionId);
+                
+                return Accepted();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during bulk upsert for session {SessionId}", sessionId);
+                return StatusCode(500, "Failed to upload library");
+            }
         }
 
         // GET paginated library

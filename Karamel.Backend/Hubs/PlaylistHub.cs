@@ -14,6 +14,7 @@ namespace Karamel.Backend.Hubs
         private readonly IPlaylistRepository _playlistRepo;
         private readonly ISessionRepository _sessionRepo;
         private readonly Karamel.Backend.Repositories.ISongRepository _songRepo;
+        private readonly ILogger<PlaylistHub> _logger;
 
         // Per-session semaphores to serialize mutations and avoid races.
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, System.Threading.SemaphoreSlim> _sessionLocks
@@ -22,11 +23,12 @@ namespace Karamel.Backend.Hubs
         private static System.Threading.SemaphoreSlim GetSessionLock(Guid sessionId) =>
             _sessionLocks.GetOrAdd(sessionId, _ => new System.Threading.SemaphoreSlim(1, 1));
 
-        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo, Karamel.Backend.Repositories.ISongRepository songRepo)
+        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo, Karamel.Backend.Repositories.ISongRepository songRepo, ILogger<PlaylistHub> logger)
         {
             _playlistRepo = playlistRepo;
             _sessionRepo = sessionRepo;
             _songRepo = songRepo;
+            _logger = logger;
         }
 
         /// <summary>
@@ -80,15 +82,21 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                _logger.LogInformation("Adding item to playlist {PlaylistId} in session {SessionId}: {Artist} - {Title} (Singer: {SingerName})", 
+                    playlistId, sessionId, artist, title, singerName ?? "None");
+
                 var session = await _sessionRepo.GetByIdAsync(sessionId);
                 if (session == null)
                 {
+                    _logger.LogWarning("AddItem failed: Session {SessionId} not found", sessionId);
                     throw new HubException("Session not found");
                 }
 
                 var playlist = await _playlistRepo.GetAsync(playlistId);
                 if (playlist == null || playlist.SessionId != sessionId)
                 {
+                    _logger.LogWarning("AddItem failed: Playlist {PlaylistId} not found or does not belong to session {SessionId}", 
+                        playlistId, sessionId);
                     throw new HubException("Playlist not found or does not belong to session");
                 }
 
@@ -105,8 +113,19 @@ namespace Karamel.Backend.Hubs
                 playlist.Items.Add(item);
                 await _playlistRepo.UpdateAsync(playlist);
 
+                _logger.LogInformation("Successfully added item {ItemId} to playlist {PlaylistId}", item.Id, playlistId);
+
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
+            }
+            catch (HubException)
+            {
+                throw; // Re-throw HubException without additional logging
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding item to playlist {PlaylistId} in session {SessionId}", playlistId, sessionId);
+                throw new HubException("Failed to add item to playlist");
             }
             finally
             {
@@ -125,15 +144,21 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                _logger.LogInformation("Removing item {ItemId} from playlist {PlaylistId} in session {SessionId}", 
+                    itemId, playlistId, sessionId);
+
                 var playlist = await _playlistRepo.GetAsync(playlistId);
                 if (playlist == null || playlist.SessionId != sessionId)
                 {
+                    _logger.LogWarning("RemoveItem failed: Playlist {PlaylistId} not found or does not belong to session {SessionId}", 
+                        playlistId, sessionId);
                     throw new HubException("Playlist not found or does not belong to session");
                 }
 
                 var item = playlist.Items.FirstOrDefault(i => i.Id == itemId);
                 if (item == null)
                 {
+                    _logger.LogWarning("RemoveItem failed: Item {ItemId} not found in playlist {PlaylistId}", itemId, playlistId);
                     throw new HubException("Item not found in playlist");
                 }
 
@@ -147,8 +172,20 @@ namespace Karamel.Backend.Hubs
 
                 await _playlistRepo.UpdateAsync(playlist);
 
+                _logger.LogInformation("Successfully removed item {ItemId} from playlist {PlaylistId}", itemId, playlistId);
+
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
+            }
+            catch (HubException)
+            {
+                throw; // Re-throw HubException without additional logging
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing item {ItemId} from playlist {PlaylistId} in session {SessionId}", 
+                    itemId, playlistId, sessionId);
+                throw new HubException("Failed to remove item from playlist");
             }
             finally
             {
@@ -167,14 +204,21 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                _logger.LogInformation("Reordering playlist {PlaylistId} in session {SessionId}: from {From} to {To}", 
+                    playlistId, sessionId, from, to);
+
                 var playlist = await _playlistRepo.GetAsync(playlistId);
                 if (playlist == null || playlist.SessionId != sessionId)
                 {
+                    _logger.LogWarning("Reorder failed: Playlist {PlaylistId} not found or does not belong to session {SessionId}", 
+                        playlistId, sessionId);
                     throw new HubException("Playlist not found or does not belong to session");
                 }
 
                 if (from < 0 || from >= playlist.Items.Count || to < 0 || to >= playlist.Items.Count)
                 {
+                    _logger.LogWarning("Reorder failed: Invalid indices from={From} to={To} for playlist with {Count} items", 
+                        from, to, playlist.Items.Count);
                     throw new HubException("Invalid reorder indices");
                 }
 
@@ -190,8 +234,19 @@ namespace Karamel.Backend.Hubs
 
                 await _playlistRepo.UpdateAsync(playlist);
 
+                _logger.LogInformation("Successfully reordered playlist {PlaylistId}", playlistId);
+
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
+            }
+            catch (HubException)
+            {
+                throw; // Re-throw HubException without additional logging
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reordering playlist {PlaylistId} in session {SessionId}", playlistId, sessionId);
+                throw new HubException("Failed to reorder playlist");
             }
             finally
             {
