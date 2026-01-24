@@ -21,32 +21,50 @@ on:
         default: 'Karamel.Backend'
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ github.event.inputs.project_path }}
+
+      - name: Build backend project
+        run: dotnet build ${{ github.event.inputs.project_path }} --no-restore --configuration Release
+
+      - name: Publish build artifacts
+        run: dotnet publish ${{ github.event.inputs.project_path }} --no-build --configuration Release --output ./publish
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: ./publish
+
   run-migrations:
+    needs: build
     runs-on: [self-hosted, linux, rg-karamel-prod-runner]
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-build
+          path: ./publish
+
       - name: Login to Azure (VM Managed Identity)
         run: az login --identity
 
-      - name: Verify .NET SDK installation
-        run: |
-          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
-          dotnet --version || {
-            echo "ERROR: .NET SDK not found on self-hosted runner!"
-            echo "Please install .NET SDK 10.0 on the runner VM:"
-            echo "  wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh"
-            echo "  chmod +x dotnet-install.sh"
-            echo "  sudo ./dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet"
-            exit 1
-          }
-
       - name: Install/Update EF Core tools
         run: |
-          # Ensure .NET tools path is in PATH
           export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
           
-          # Install or update dotnet-ef (local to user, not global)
           if ! command -v dotnet-ef &> /dev/null; then
             echo "Installing dotnet-ef..."
             dotnet tool install --global dotnet-ef
@@ -55,7 +73,6 @@ jobs:
             dotnet tool update --global dotnet-ef
           fi
           
-          # Verify installation
           dotnet ef --version
 
       - name: Get access token for SQL
@@ -64,13 +81,6 @@ jobs:
           TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
           echo "::add-mask::$TOKEN"
           echo "SQL_ACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
-
-      - name: Build backend project
-        run: |
-          export PATH="$PATH:/usr/share/dotnet:$HOME/.dotnet/tools"
-          cd ${{ github.event.inputs.project_path }}
-          dotnet restore
-          dotnet build --no-restore --configuration Release
 
       - name: Run migrations (AAD auth via Private Endpoint)
         run: |
