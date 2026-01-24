@@ -44,11 +44,12 @@ jobs:
         run: |
           export PATH="$PATH:$HOME/.dotnet/tools"
           cd ${{ github.event.inputs.project_path }}
-          dotnet ef migrations bundle --configuration Release --self-contained --runtime linux-x64 --output ./efbundle --connection "Server=placeholder;Database=placeholder;Authentication=Active Directory Default;Encrypt=True;"
+          dotnet ef migrations bundle --configuration Release --self-contained --runtime linux-x64 --output ./efbundle
           chmod +x ./efbundle
           ls -lh ./efbundle
         env:
           ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__DefaultConnection: "Server=placeholder.database.windows.net;Database=placeholder;Authentication=Active Directory Default;Encrypt=True;"
         
       - name: Upload migration bundle
         uses: actions/upload-artifact@v4
