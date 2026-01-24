@@ -47,6 +47,8 @@ jobs:
           dotnet ef migrations bundle --configuration Release --self-contained --runtime linux-x64 --output ./efbundle
           chmod +x ./efbundle
           ls -lh ./efbundle
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
         
       - name: Upload migration bundle
         uses: actions/upload-artifact@v4
