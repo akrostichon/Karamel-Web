@@ -187,6 +187,33 @@ Karamel-Web/                          # Solution root
 2. Validate session ID matches `SessionState.Value.CurrentSession.SessionId`
 3. Show error message if validation fails
 
+### Logging & Observability
+
+**Application Insights Integration**: Production telemetry enabled for both backend and frontend.
+
+**Backend (Karamel.Backend)**:
+- Uses `ILogger<T>` with structured logging throughout
+- Logged components: PlaylistHub, LibraryController, SessionsController, LinkTokenActionFilter, LinkTokenHubFilter
+- Pattern: `_logger.LogInformation("Message with {Param1} and {Param2}", value1, value2)` (structured, NOT string interpolation)
+- Error handling: Try-catch blocks with `_logger.LogError(ex, "Context message", contextData)`
+- Auth failures logged at Warning level with session IDs and IP addresses
+
+**Frontend (Karamel.Web)**:
+- Application Insights JavaScript SDK in index.html (client-side telemetry)
+- ErrorBoundary component in App.razor catches unhandled Blazor exceptions
+- Console.WriteLine used in development (89 occurrences across pages/components)
+
+**Viewing Logs**:
+- Azure Portal → Application Insights → Live Metrics (real-time)
+- Logs (Kusto queries): `requests`, `exceptions`, `traces`, `dependencies`
+- See APPLICATION_INSIGHTS_DEPLOYMENT.md for query examples
+
+**When Adding New Features**:
+- Inject `ILogger<YourClass>` in constructors
+- Log at appropriate levels: Information (normal flow), Warning (validation failures), Error (exceptions)
+- Wrap risky operations in try-catch with structured logging
+- Never log sensitive data (passwords, full tokens)
+
 ### CSS Architecture
 - Component-scoped CSS: `*.razor.css` files (e.g., `PlayerView.razor.css`)
 - Follow **STYLING_GUIDE.md** for colors, typography, and responsive design

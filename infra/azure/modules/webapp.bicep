@@ -8,6 +8,8 @@ param planSkuName string = 'F1'
 param planSkuTier string = 'Free'
 @description('Plan capacity')
 param planSkuCapacity int = 1
+@description('Application Insights connection string')
+param appInsightsConnectionString string = ''
 
 resource plan 'Microsoft.Web/serverfarms@2025-03-01' = {
   name: planName
@@ -35,6 +37,10 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
         {
           name: 'WEBSITES_ENABLE_WEBSOCKETS'
           value: '1'
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
         }
       ]
     }

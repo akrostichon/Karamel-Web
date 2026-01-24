@@ -11,29 +11,42 @@ namespace Karamel.Backend.Controllers
     {
         private readonly ISessionRepository _repo;
         private readonly ITokenService _tokenService;
+        private readonly ILogger<SessionsController> _logger;
 
-        public SessionsController(ISessionRepository repo, ITokenService tokenService)
+        public SessionsController(ISessionRepository repo, ITokenService tokenService, ILogger<SessionsController> logger)
         {
             _repo = repo;
             _tokenService = tokenService;
+            _logger = logger;
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateSessionRequest req)
         {
-            var session = new Session
+            try
             {
-                Id = Guid.NewGuid(),
-                CreatedAt = DateTime.UtcNow,
-                RequireSingerName = req.RequireSingerName,
-                PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds
-            };
+                var session = new Session
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow,
+                    RequireSingerName = req.RequireSingerName,
+                    PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds
+                };
 
-            session.LinkToken = _tokenService.GenerateLinkToken(session.Id);
+                session.LinkToken = _tokenService.GenerateLinkToken(session.Id);
 
-            await _repo.AddAsync(session);
+                await _repo.AddAsync(session);
 
-            return CreatedAtAction(nameof(Get), new { id = session.Id }, new { session.Id, linkToken = session.LinkToken });
+                _logger.LogInformation("Created new session {SessionId} with RequireSingerName={RequireSingerName}", 
+                    session.Id, req.RequireSingerName);
+
+                return CreatedAtAction(nameof(Get), new { id = session.Id }, new { session.Id, linkToken = session.LinkToken });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating session");
+                return StatusCode(500, "Failed to create session");
+            }
         }
 
         [HttpGet("{id:guid}")]

@@ -80,6 +80,7 @@ module webModule 'modules/webapp.bicep' = {
     planSkuName: appServicePlanSkuName
     planSkuTier: appServicePlanSkuTier
     planSkuCapacity: appServicePlanSkuCapacity
+    appInsightsConnectionString: aiModule.outputs.connectionString
   }
 }
 
