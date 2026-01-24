@@ -48,6 +48,7 @@ jobs:
           chmod +x ./efbundle
           ls -lh ./efbundle
         env:
+          ASPNETCORE_ENVIRONMENT: Production
           DB_PROVIDER: SqlServer
           ConnectionStrings__DefaultConnection: "Server=placeholder.database.windows.net;Database=placeholder;Authentication=Active Directory Default;Encrypt=True;"
         
@@ -113,6 +114,10 @@ jobs:
           echo "Authentication: Azure AD Managed Identity"
           echo "Connection: Private Endpoint"
           echo "=========================================="
+          
+          # Set environment for SQL Server provider
+          export ASPNETCORE_ENVIRONMENT=Production
+          export DB_PROVIDER=SqlServer
           
           # Build connection string for Azure SQL with managed identity
           export ConnectionStrings__DefaultConnection="Server=tcp:${{ github.event.inputs.sql_server_name }}.database.windows.net,1433;Database=${{ github.event.inputs.sql_database_name }};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
