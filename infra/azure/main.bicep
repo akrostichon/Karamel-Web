@@ -81,6 +81,8 @@ module webModule 'modules/webapp.bicep' = {
     planSkuTier: appServicePlanSkuTier
     planSkuCapacity: appServicePlanSkuCapacity
     appInsightsConnectionString: aiModule.outputs.connectionString
+    sqlServerFqdn: sqlModule.outputs.sqlServerFullyQualifiedDomainName
+    sqlDatabaseName: sqlModule.outputs.sqlDatabaseName
   }
 }
 
@@ -96,6 +98,7 @@ output keyVaultName string = kvModule.outputs.keyVaultName
 output sqlServer string = sqlModule.outputs.sqlServerName
 output sqlDatabase string = sqlModule.outputs.sqlDatabaseName
 output webAppName string = webModule.outputs.webAppName
+output webAppPrincipalId string = webModule.outputs.webAppPrincipalId
 // Role assignment: grant Key Vault Secrets User to web app managed identity
 // Built-in role definition ID for 'Key Vault Secrets User'
 var keyVaultSecretsUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')

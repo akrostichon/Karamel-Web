@@ -10,6 +10,10 @@ param planSkuTier string = 'Free'
 param planSkuCapacity int = 1
 @description('Application Insights connection string')
 param appInsightsConnectionString string = ''
+@description('SQL Server fully qualified domain name')
+param sqlServerFqdn string = ''
+@description('SQL Database name')
+param sqlDatabaseName string = ''
 
 resource plan 'Microsoft.Web/serverfarms@2025-03-01' = {
   name: planName
@@ -42,6 +46,21 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsightsConnectionString
+        }
+        {
+          name: 'DB_PROVIDER'
+          value: 'SqlServer'
+        }
+        {
+          name: 'DB_USE_AAD'
+          value: 'true'
+        }
+      ]
+      connectionStrings: [
+        {
+          name: 'DefaultConnection'
+          connectionString: 'Data Source=${sqlServerFqdn};Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;'
+          type: 'SQLAzure'
         }
       ]
     }
