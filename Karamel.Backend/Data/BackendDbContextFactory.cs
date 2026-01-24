@@ -19,6 +19,12 @@ public class BackendDbContextFactory : IDesignTimeDbContextFactory<BackendDbCont
         var dbProvider = Environment.GetEnvironmentVariable("DB_PROVIDER") ?? "Sqlite";
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 
+        // Suppress the pending model changes warning when applying migrations.
+        // The model snapshot was created with SQLite type annotations, but migrations
+        // are provider-agnostic and work correctly on both SQLite and SQL Server.
+        optionsBuilder.ConfigureWarnings(warnings =>
+            warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+
         if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
         {
             // For Azure SQL with managed identity, use the connection string directly
