@@ -37,10 +37,22 @@ namespace Karamel.Backend.Filters
                 return;
             }
 
+            // Generate expected token for comparison and logging
+            var expectedToken = tokenService.GenerateLinkToken(sessionId);
+            
+            // Log token details for Application Insights diagnostics (mask tokens for security)
+            var receivedTokenMasked = token.Length > 8 ? $"{token.Substring(0, 8)}..." : "***";
+            var expectedTokenMasked = expectedToken.Length > 8 ? $"{expectedToken.Substring(0, 8)}..." : "***";
+            
+            logger?.LogInformation(
+                "Token validation for session {SessionId}: ReceivedLength={ReceivedLength}, ExpectedLength={ExpectedLength}, ReceivedPrefix={ReceivedPrefix}, ExpectedPrefix={ExpectedPrefix}",
+                sessionId, token.Length, expectedToken.Length, receivedTokenMasked, expectedTokenMasked);
+            
             if (!tokenService.ValidateLinkToken(sessionId, token))
             {
-                logger?.LogWarning("Invalid link token for session {SessionId} from {RemoteIP}", 
-                    sessionId, context.HttpContext.Connection.RemoteIpAddress);
+                logger?.LogWarning(
+                    "Invalid link token for session {SessionId} from {RemoteIP}. ReceivedToken={ReceivedToken}, ExpectedToken={ExpectedToken}", 
+                    sessionId, context.HttpContext.Connection.RemoteIpAddress, receivedTokenMasked, expectedTokenMasked);
                 context.Result = new UnauthorizedObjectResult(new { error = "Invalid or expired link token" });
                 return;
             }
