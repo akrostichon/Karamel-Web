@@ -480,15 +480,15 @@ Actionable tasks (high-level):
   - `ASPNETCORE_ENVIRONMENT` = `Development`/`Production`
   - `DB_PROVIDER` = `SqlServer`
   - `ConnectionStrings__DefaultConnection` (use Key Vault or App Service setting)
-  - `KARAMEL-TOKEN-SECRET` via Key Vault reference
-  - `WEBSITES_ENABLE_WEBSOCKETS` = `1` (SignalR in-app)
-5. Create Azure Static Web App `staticweb-<env>-karamel` and connect it to the repo branch for automatic builds/publish of the Blazor `wwwroot` assets.
+  - `KARAMEL_TOKEN_SECRET` via Key Vault reference
+  - `WEBSITES_ENABLE_WEBSOCKETS` = `1` (SignalR in-app) ✅ COMPLETED
+5. Create Azure Static Web App `staticweb-<env>-karamel` and connect it to the repo branch for automatic builds/publish of the Blazor `wwwroot` assets. ✅ COMPLETED
 6. Setup GitHub Actions:
   - Frontend: build Blazor WASM and deploy to Static Web Apps
   - Backend: build, run tests, deploy to App Service (ZIP or container)
-  - Migrations: a gated job to run EF Core migrations (`dotnet ef database update`) using secrets from Key Vault (run as a separate step, with a manual approval for production)
-7. Configure Application Insights and add basic alert rules (failed requests, high CPU, App Service restarts).
-8. (Optional) Add Private Endpoint for Azure SQL and restrict Key Vault access to only the App Service identity and authorized users.
+  - Migrations: a gated job to run EF Core migrations (`dotnet ef database update`) using secrets from Key Vault (run as a separate step, with a manual approval for production) ✅ COMPLETED
+7. Configure Application Insights and add basic alert rules (failed requests, high CPU, App Service restarts). ✅ COMPLETED
+8. (Optional) Add Private Endpoint for Azure SQL and restrict Key Vault access to only the App Service identity and authorized users. ✅ COMPLETED
 
 Notes and caveats:
 - - Hosting SignalR in-app is easiest initially — move to Azure SignalR Service later when scale or reliability requires it.
