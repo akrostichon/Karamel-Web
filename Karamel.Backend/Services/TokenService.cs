@@ -17,7 +17,11 @@ namespace Karamel.Backend.Services
         {
             using var hmac = new HMACSHA256(_secret);
             var bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(sessionId.ToString()));
-            return Convert.ToBase64String(bytes).TrimEnd('=');
+            // Use URL-safe base64 encoding: replace + with -, / with _, and remove padding =
+            return Convert.ToBase64String(bytes)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
         }
 
         public bool ValidateLinkToken(Guid sessionId, string token)
