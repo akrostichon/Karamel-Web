@@ -62,6 +62,14 @@
                     }
                 </div>
 
+                @if (isTimerActive && remainingSeconds > 0)
+                {
+                    <div class="countdown-progress">
+                        <div class="progress-bar" style="width: @(progressPercentage)%"></div>
+                        <span class="countdown-text">@Math.Ceiling(remainingSeconds) s</span>
+                    </div>
+                }
+
                 <!-- Lower-left area for microphone icon + QR code when there is a next song -->
                 <div class="qrcode-area qrcode-section">
                     <div class="qrcode-content">
@@ -124,12 +132,19 @@
     private Song? nextSong;
     private Timer? autoAdvanceTimer;
     private Timer? heartbeatTimer;
+    private Timer? countdownTimer;
     private bool isDisposed = false;
     private Queue<Song>? previousQueue;
     private bool isSessionValid = false;
     private bool isLocalhost = false;
     private bool _showAdminMenu = false;
     private IJSObjectReference? _protectionModule;
+    private double remainingSeconds;
+    private bool isTimerActive;
+    private int totalSeconds;
+    private DateTime countdownStart;
+
+    private double progressPercentage => totalSeconds > 0 ? (remainingSeconds / totalSeconds) * 100 : 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -240,6 +255,12 @@
         await base.OnAfterRenderAsync(firstRender);
 
         Console.WriteLine($"NextSongView: OnAfterRenderAsync firstRender={firstRender}. isSessionValid={isSessionValid}. QueueCount={PlaylistState.Value.Queue?.Count ?? 0}");
+
+        if (isSessionValid && !isLocalhost)
+        {
+            await GenerateQRCodeAsync();
+        }
+        
         if (firstRender && isSessionValid && !isLocalhost)
         {
             await InitializeMainTabAsync();
@@ -271,6 +292,24 @@
         }
     }
 
+    private async Task GenerateQRCodeAsync()
+    {
+        try
+        {
+            // Ensure qrcodeModule is loaded
+            if (qrcodeModule == null)
+            {
+                qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/qrcode.js");
+            }
+            var sessionUrl = GenerateSessionUrl();
+            await qrcodeModule.InvokeVoidAsync("generateQRCode", "qrcode-container", sessionUrl);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NextSongView: Failed to generate QR code: {ex.Message}");
+        }
+    }
+
     private async Task InitializeMainTabAsync()
     {
         try
@@ -285,21 +324,6 @@
         catch (Exception ex)
         {
             Console.WriteLine($"NextSongView: Failed to initialize SessionService as main tab: {ex.Message}");
-        }
-
-        // Load QR code module only if not on localhost
-        try
-        {
-            if (!isLocalhost)
-            {
-                qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/qrcode.js");
-                var sessionUrl = GenerateSessionUrl();
-                await qrcodeModule.InvokeVoidAsync("generateQRCode", "qrcode-container", sessionUrl);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"NextSongView: Failed to initialize QR code module: {ex.Message}");
         }
 
         // Start timer if appropriate
@@ -348,23 +372,47 @@
 
     private void StartAutoAdvanceTimer()
     {
-        // Cancel existing timer
+        // Cancel existing timers
         autoAdvanceTimer?.Dispose();
+        countdownTimer?.Dispose();
         autoAdvanceTimer = null;
+        countdownTimer = null;
 
         // Only start timer if queue has songs and pause is enabled
         if (PlaylistState.Value.Queue.Count > 0 && 
             SessionState.Value.CurrentSession?.PauseBetweenSongs == true)
         {
-            var pauseSeconds = SessionState.Value.CurrentSession.PauseBetweenSongsSeconds;
-            
+            totalSeconds = SessionState.Value.CurrentSession.PauseBetweenSongsSeconds;
+            remainingSeconds = totalSeconds;
+            isTimerActive = true;
+            countdownStart = DateTime.UtcNow;
+
+            // Start countdown timer (updates every 100ms)
+            countdownTimer = new Timer(_ =>
+            {
+                var elapsed = (DateTime.UtcNow - countdownStart).TotalSeconds;
+                remainingSeconds = Math.Max(0, totalSeconds - elapsed);
+                if (remainingSeconds <= 0)
+                {
+                    isTimerActive = false;
+                    countdownTimer?.Dispose();
+                    countdownTimer = null;
+                }
+                InvokeAsync(StateHasChanged);
+            }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+
+            // Start auto-advance timer
             autoAdvanceTimer = new Timer(_ =>
             {
                 if (!isDisposed)
                 {
                     NavigateToPlayer();
                 }
-            }, null, TimeSpan.FromSeconds(pauseSeconds), Timeout.InfiniteTimeSpan);
+            }, null, TimeSpan.FromSeconds(totalSeconds), Timeout.InfiniteTimeSpan);
+        }
+        else
+        {
+            isTimerActive = false;
         }
     }
 
@@ -450,7 +498,9 @@
 
             // Dispose timer
             autoAdvanceTimer?.Dispose();
+            countdownTimer?.Dispose();
             autoAdvanceTimer = null;
+            countdownTimer = null;
 
             // Unsubscribe from playlist state changes
             try
