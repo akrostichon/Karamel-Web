@@ -521,6 +521,143 @@ describe('signalRBridge', () => {
         });
     });
 
+    describe('SignalR playlist updates', () => {
+        it('should preserve songId field when receiving ReceivePlaylistUpdated', async () => {
+            // This test ensures the bug fix: songId must be preserved for library enrichment
+            // Previously, the handler was using playlist item ID instead of song ID
+            
+            // Mock SignalR library before importing signalRBridge
+            const mockHubConnection = {
+                handlers: {},
+                on: function(eventName, handler) {
+                    this.handlers[eventName] = handler;
+                },
+                start: vi.fn().mockResolvedValue(undefined),
+                invoke: vi.fn().mockResolvedValue(undefined),
+                stop: vi.fn().mockResolvedValue(undefined)
+            };
+
+            global.signalR = {
+                HubConnectionBuilder: class {
+                    withUrl() { return this; }
+                    withAutomaticReconnect() { return this; }
+                    build() { return mockHubConnection; }
+                }
+            };
+
+            // Dynamic import to pick up the mocked signalR
+            const signalRModule = await import('./signalRBridge.js?t=' + Date.now());
+            
+            // Initialize session with SignalR
+            await signalRModule.initializeSession(TEST_SESSION_ID, true, 'test-token', 'http://backend:5000');
+
+            // Wait for SignalR connection to be established
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            // Ensure handler was registered
+            expect(mockHubConnection.handlers['ReceivePlaylistUpdated']).toBeDefined();
+
+            // Simulate backend sending ReceivePlaylistUpdated with songId
+            const backendDto = {
+                playlistId: 'playlist-123',
+                sessionId: TEST_SESSION_ID,
+                items: [
+                    {
+                        id: 'playlist-item-id-1',      // Playlist item ID (not used for enrichment)
+                        songId: 'song-guid-abc-123',   // Song ID (MUST be preserved for library lookup)
+                        artist: 'Test Artist',
+                        title: 'Test Song',
+                        singerName: 'John Doe',
+                        position: 0
+                    },
+                    {
+                        id: 'playlist-item-id-2',
+                        songId: 'song-guid-def-456',
+                        artist: 'Another Artist',
+                        title: 'Another Song',
+                        singerName: null,
+                        position: 1
+                    }
+                ]
+            };
+
+            // Trigger the handler
+            mockHubConnection.handlers['ReceivePlaylistUpdated'](backendDto);
+
+            // Allow async processing (event dispatching)
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            // Verify: sessionStorage contains queue with correct songId (not playlist item ID)
+            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
+            expect(stored).toBeDefined();
+            expect(stored.playlist).toBeDefined();
+            expect(stored.playlist.queue).toHaveLength(2);
+            expect(stored.playlist.queue[0].id).toBe('song-guid-abc-123');  // Song ID, not 'playlist-item-id-1'
+            expect(stored.playlist.queue[0].artist).toBe('Test Artist');
+            expect(stored.playlist.queue[0].title).toBe('Test Song');
+            expect(stored.playlist.queue[0].addedBySinger).toBe('John Doe');
+            
+            expect(stored.playlist.queue[1].id).toBe('song-guid-def-456');  // Song ID, not 'playlist-item-id-2'
+            expect(stored.playlist.queue[1].artist).toBe('Another Artist');
+            expect(stored.playlist.queue[1].addedBySinger).toBeNull();
+
+            // Verify: custom event was dispatched with correct data
+            expect(mockWindow.dispatchEvent).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'session-state-updated',
+                    detail: expect.objectContaining({
+                        type: 'playlist-updated',
+                        data: expect.objectContaining({
+                            queue: expect.arrayContaining([
+                                expect.objectContaining({
+                                    id: 'song-guid-abc-123',
+                                    artist: 'Test Artist'
+                                })
+                            ])
+                        })
+                    })
+                })
+            );
+        });
+
+        it('should handle case variations in DTO property names', async () => {
+            // Backend may send PascalCase (Items) or camelCase (items) - both should work
+            const mockHubConnection = {
+                handlers: {},
+                on: function(eventName, handler) {
+                    this.handlers[eventName] = handler;
+                },
+                start: vi.fn().mockResolvedValue(undefined),
+                invoke: vi.fn().mockResolvedValue(undefined)
+            };
+
+            global.signalR = {
+                HubConnectionBuilder: class {
+                    withUrl() { return this; }
+                    withAutomaticReconnect() { return this; }
+                    build() { return mockHubConnection; }
+                }
+            };
+
+            const { initializeSession } = await import('./signalRBridge.js');
+            await initializeSession(TEST_SESSION_ID, true, 'test-token', 'http://backend:5000');
+
+            // Test with PascalCase (C# backend convention)
+            const pascalCaseDto = {
+                Items: [
+                    { SongId: 'song-1', Artist: 'Artist1', Title: 'Title1', SingerName: 'Singer1' }
+                ]
+            };
+
+            mockHubConnection.handlers['ReceivePlaylistUpdated'](pascalCaseDto);
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            const stored = JSON.parse(mockSessionStorage.getItem(`karamel-session-${TEST_SESSION_ID}`));
+            expect(stored.playlist.queue[0].id).toBe('song-1');
+            expect(stored.playlist.queue[0].artist).toBe('Artist1');
+        });
+    });
+
     describe('uploadLibraryToServer', () => {
         let fetchMock;
 
