@@ -76,15 +76,12 @@ namespace Karamel.Backend.Hubs
         /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// </summary>
-        public async Task AddItemAsync(Guid sessionId, Guid playlistId, string artist, string title, string? singerName)
+        public async Task AddItemAsync(Guid sessionId, string artist, string title, string? singerName)
         {
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
             {
-                _logger.LogInformation("Adding item to playlist {PlaylistId} in session {SessionId}: {Artist} - {Title} (Singer: {SingerName})", 
-                    playlistId, sessionId, artist, title, singerName ?? "None");
-
                 var session = await _sessionRepo.GetByIdAsync(sessionId);
                 if (session == null)
                 {
@@ -92,13 +89,16 @@ namespace Karamel.Backend.Hubs
                     throw new HubException("Session not found");
                 }
 
-                var playlist = await _playlistRepo.GetAsync(playlistId);
-                if (playlist == null || playlist.SessionId != sessionId)
+                // Look up the playlist for this session (each session has exactly one playlist)
+                var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
+                if (playlist == null)
                 {
-                    _logger.LogWarning("AddItem failed: Playlist {PlaylistId} not found or does not belong to session {SessionId}", 
-                        playlistId, sessionId);
-                    throw new HubException("Playlist not found or does not belong to session");
+                    _logger.LogWarning("AddItem failed: Playlist not found for session {SessionId}", sessionId);
+                    throw new HubException("Playlist not found for session");
                 }
+
+                _logger.LogInformation("Adding item to playlist {PlaylistId} in session {SessionId}: {Artist} - {Title} (Singer: {SingerName})", 
+                    playlist.Id, sessionId, artist, title, singerName ?? "None");
 
                 var item = new PlaylistItem
                 {
@@ -113,7 +113,7 @@ namespace Karamel.Backend.Hubs
                 playlist.Items.Add(item);
                 await _playlistRepo.UpdateAsync(playlist);
 
-                _logger.LogInformation("Successfully added item {ItemId} to playlist {PlaylistId}", item.Id, playlistId);
+                _logger.LogInformation("Successfully added item {ItemId} to playlist {PlaylistId}", item.Id, playlist.Id);
 
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
@@ -124,7 +124,7 @@ namespace Karamel.Backend.Hubs
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding item to playlist {PlaylistId} in session {SessionId}", playlistId, sessionId);
+                _logger.LogError(ex, "Error adding item to playlist in session {SessionId}", sessionId);
                 throw new HubException("Failed to add item to playlist");
             }
             finally

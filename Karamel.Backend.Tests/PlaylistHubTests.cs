@@ -57,7 +57,7 @@ namespace Karamel.Backend.Tests
             await _connection.InvokeAsync("JoinSession", created.Id.ToString());
 
             // Add an item via the hub mutation (with token provided on connection)
-            await _connection.InvokeAsync("AddItemAsync", created.Id, playlist!.id, "X", "Y", "Z");
+            await _connection.InvokeAsync("AddItemAsync", created.Id, "X", "Y", "Z");
 
             // Expect a broadcast
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -112,7 +112,7 @@ namespace Karamel.Backend.Tests
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
 
             // Call hub mutation method
-            await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1");
+            await _connection.InvokeAsync("AddItemAsync", session.Id, "Artist1", "Title1", "Singer1");
 
             // Verify broadcast received
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -147,7 +147,7 @@ namespace Karamel.Backend.Tests
 
             // Attempt to call mutation method without token should throw
             var exception = await Assert.ThrowsAsync<HubException>(async () =>
-                await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1"));
+                await _connection.InvokeAsync("AddItemAsync", session.Id, "Artist1", "Title1", "Singer1"));
 
             Assert.Contains("Missing X-Link-Token", exception.Message);
         }
@@ -174,7 +174,7 @@ namespace Karamel.Backend.Tests
 
             // Attempt to call mutation method with invalid token should throw
             var exception = await Assert.ThrowsAsync<HubException>(async () =>
-                await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1"));
+                await _connection.InvokeAsync("AddItemAsync", session.Id, "Artist1", "Title1", "Singer1"));
 
             Assert.Contains("Invalid or expired link token", exception.Message);
         }
@@ -276,11 +276,11 @@ namespace Karamel.Backend.Tests
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
 
             // Add first item
-            await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1");
+            await _connection.InvokeAsync("AddItemAsync", session.Id, "Artist1", "Title1", "Singer1");
             await Task.Delay(500); // Wait for broadcast
 
             // Add second item
-            await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist2", "Title2", "Singer2");
+            await _connection.InvokeAsync("AddItemAsync", session.Id, "Artist2", "Title2", "Singer2");
             await Task.Delay(500); // Wait for broadcast
 
             // Verify we got 2 broadcasts with cumulative state
