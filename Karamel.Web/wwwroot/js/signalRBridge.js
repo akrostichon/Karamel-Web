@@ -81,8 +81,10 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 			// Map DTO shape to legacy session-state expected by client
 			try {
 				const items = (dto.items || dto.Items || []).map(i => ({
-					id: i.id || i.Id || i.Id, artist: i.artist || i.Artist || i.Artist,
-					title: i.title || i.Title || i.Title, addedBySinger: i.singerName || i.SingerName || null
+					id: i.songId || i.SongId,  // Use Song ID (for library lookup), not playlist item ID
+					artist: i.artist || i.Artist,
+					title: i.title || i.Title,
+					addedBySinger: i.singerName || i.SingerName || null
 				}));
 
 				const data = {
