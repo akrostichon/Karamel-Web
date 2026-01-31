@@ -126,7 +126,9 @@ else
 
     private async Task OpenPlaylistManager()
     {
-        var url = $"/playlist?session={SessionParam}&token={TokenParam}";
+        var baseUrl = NavigationManager.BaseUri.TrimEnd('/');
+        var encodedToken = Uri.EscapeDataString(TokenParam ?? "");
+        var url = $"{baseUrl}/playlist?session={SessionParam}&token={encodedToken}";
         try
         {
             var opened = await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
@@ -143,7 +145,9 @@ else
 
     private async Task OpenSingerView()
     {
-        var url = $"/singer?session={SessionParam}&token={TokenParam}";
+        var baseUrl = NavigationManager.BaseUri.TrimEnd('/');
+        var encodedToken = Uri.EscapeDataString(TokenParam ?? "");
+        var url = $"{baseUrl}/singer?session={SessionParam}&token={encodedToken}";
         try
         {
             var opened = await JSRuntime.InvokeAsync<bool>("open", url, "_blank");

@@ -180,33 +180,6 @@ export async function initializeKaraokeSession(config, songs) {
 }
 
 /**
- * Open new tabs for playlist and singer views
- * @param {string} sessionId - Session GUID
- * @param {string|null} linkToken - Link token for authentication
- * @returns {object} Result with URLs (window references not returned to avoid circular JSON)
- */
-export function openSessionTabs(sessionId, linkToken = null) {
-    if (!sessionId) {
-        throw new Error('sessionId is required');
-    }
-    
-    const playlistUrl = generateSessionUrl('playlist', sessionId, linkToken);
-    const singerUrl = generateSessionUrl('singer', sessionId, linkToken);
-    
-    // Open new tabs/windows in background (don't switch focus)
-    window.open(playlistUrl, '_blank');
-    window.open(singerUrl, '_blank');
-    
-    // Refocus the current window to stay on this tab
-    window.focus();
-    
-    return {
-        playlistUrl,
-        singerUrl
-    };
-}
-
-/**
  * Get navigation URL for current tab (NextSongView)
  * @param {string} sessionId - Session GUID
  * @param {string|null} linkToken - Link token for authentication
