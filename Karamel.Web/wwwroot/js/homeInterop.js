@@ -212,12 +212,12 @@ export function openSessionTabs(sessionId, linkToken = null) {
  * @param {string|null} linkToken - Link token for authentication
  * @returns {string} NextSongView URL with session ID
  */
-export function getNextSongViewUrl(sessionId, linkToken = null) {
+export function getSessionSetupUrl(sessionId, linkToken = null) {
     if (!sessionId) {
         throw new Error('sessionId is required');
     }
     
-    return generateSessionUrl('nextsong', sessionId, linkToken);
+    return generateSessionUrl('session-setup', sessionId, linkToken);
 }
 
 /**
@@ -231,15 +231,11 @@ export async function startKaraokeSession(config, songs, linkToken = null) {
     // Initialize session
     await initializeKaraokeSession(config, songs);
     
-    // Open new tabs with linkToken
-    const tabsResult = openSessionTabs(config.sessionId, linkToken);
-    
-    // Get navigation URL for current tab with linkToken
-    const nextSongUrl = getNextSongViewUrl(config.sessionId, linkToken);
+    // Get navigation URL for session setup page with linkToken
+    const setupUrl = getSessionSetupUrl(config.sessionId, linkToken);
     
     return {
         sessionId: config.sessionId,
-        nextSongUrl,
-        ...tabsResult
+        nextSongUrl: setupUrl  // Keep property name for backward compatibility
     };
 }

@@ -1,0 +1,186 @@
+@page "/session-setup"
+@using Fluxor
+@using Fluxor.Blazor.Web.Components
+@using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Library
+@using Karamel.Web.Services
+@inherits FluxorComponent
+
+@inject IState<SessionState> SessionState
+@inject IState<LibraryState> LibraryState
+@inject ISessionService SessionService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Session Setup - Karamel Karaoke</PageTitle>
+
+@if (!_isSessionValid)
+{
+    <div class="error-message">
+        <p>⚠️ Invalid session. Please start a new session from the Home page.</p>
+    </div>
+}
+else
+{
+    <div class="session-setup-container">
+        <div class="warning-box">
+            <p class="warning-title">⚠️ KEEP THIS TAB OPEN</p>
+            <p class="warning-text">
+                This is your <strong>MAIN SESSION tab</strong>. Closing it will end the session for all singers.
+            </p>
+            <label class="warning-checkbox">
+                <input type="checkbox" @bind="_acknowledgedWarning" />
+                <span>I understand</span>
+            </label>
+        </div>
+
+        <div class="setup-content">
+            <h1>🎤 Session Ready - Let's Set Up!</h1>
+            
+            <p class="library-info">
+                Library: <strong>@LibraryState.Value.Songs.Count</strong> songs loaded
+            </p>
+
+            <div class="setup-actions">
+                <button class="action-button open-playlist-button" @onclick="OpenPlaylistManager">
+                    📋 Open Playlist Manager
+                </button>
+
+                <button class="action-button open-singer-button" @onclick="OpenSingerView">
+                    🎤 Open Singer View
+                </button>
+            </div>
+
+            <details class="faq-section">
+                <summary>▼ Frequently Asked Questions</summary>
+                <div class="faq-content">
+                    <div class="faq-item">
+                        <p class="faq-question">❓ How do I reopen Playlist if I accidentally close it?</p>
+                        <p class="faq-answer">Use the gear icon (⚙️) in the top-right corner of NextSongView or PlayerView.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <p class="faq-question">❓ What happens if I close the player/next song tab?</p>
+                        <p class="faq-answer">⚠️ The session CANNOT be recovered. You'll need to start a new session, re-scan your library, and singers must rejoin with a new QR code. Keep this tab open!</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <p class="faq-question">❓ How do I skip/pause songs or manage the queue?</p>
+                        <p class="faq-answer">Open the Playlist Manager tab. You can drag-drop to reorder songs, remove songs, or click the current song to skip it.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <p class="faq-question">❓ Can I restart my session if something goes wrong?</p>
+                        <p class="faq-answer">No. The main tab holds your karaoke library. If you close it, start fresh from the Home page.</p>
+                    </div>
+                </div>
+            </details>
+
+            <button class="start-button" 
+                    disabled="@(!_acknowledgedWarning)" 
+                    @onclick="StartSinging">
+                ▶ Start Singing
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "session")]
+    public string? SessionParam { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? TokenParam { get; set; }
+
+    private bool _isSessionValid = false;
+    private bool _acknowledgedWarning = false;
+    private IJSObjectReference? _protectionModule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        // Validate session parameter
+        if (Guid.TryParse(SessionParam, out var sessionId))
+        {
+            _isSessionValid = SessionState.Value.CurrentSession.SessionId == sessionId;
+        }
+
+        // Load session protection module and enable protection
+        if (_isSessionValid && SessionService.IsMainTab)
+        {
+            try
+            {
+                _protectionModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/sessionProtection.js");
+                await _protectionModule.InvokeVoidAsync("setMainTabProtection", 
+                    "⚠️ Closing this tab will end the karaoke session for all participants. Are you sure?");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to load session protection: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task OpenPlaylistManager()
+    {
+        var url = $"/playlist?session={SessionParam}&token={TokenParam}";
+        try
+        {
+            var opened = await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
+            if (!opened)
+            {
+                Console.WriteLine($"Failed to open Playlist Manager. URL: {url}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening Playlist Manager: {ex.Message}");
+        }
+    }
+
+    private async Task OpenSingerView()
+    {
+        var url = $"/singer?session={SessionParam}&token={TokenParam}";
+        try
+        {
+            var opened = await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
+            if (!opened)
+            {
+                Console.WriteLine($"Failed to open Singer View. URL: {url}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening Singer View: {ex.Message}");
+        }
+    }
+
+    private void StartSinging()
+    {
+        if (_acknowledgedWarning && _isSessionValid)
+        {
+            NavigationManager.NavigateTo($"/nextsong?session={SessionParam}&token={TokenParam}");
+        }
+    }
+
+    protected override async ValueTask DisposeAsyncCore(bool disposing)
+    {
+        if (disposing && _protectionModule != null)
+        {
+            try
+            {
+                await _protectionModule.InvokeVoidAsync("removeMainTabProtection");
+                await _protectionModule.DisposeAsync();
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+        }
+
+        await base.DisposeAsyncCore(disposing);
+    }
+}
