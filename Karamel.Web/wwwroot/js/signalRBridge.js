@@ -242,18 +242,36 @@ export function broadcastStateUpdate(type, data) {
 }
 
 // RPC helpers: call server hub methods when connected, otherwise persist locally and broadcast
-export async function addItemToPlaylist(item) {
+// Updated signature: addItemToPlaylist(songId, singerName)
+// Matches backend PlaylistHub.AddItemAsync(sessionId, songId, singerName)
+// Uses one-playlist-per-session architecture (no playlistId parameter needed)
+export async function addItemToPlaylist(songId, singerName) {
+	if (!currentSessionId) {
+		console.error('addItemToPlaylist: No current session ID');
+		return false;
+	}
+
 	if (usingSignalR && hubConnection) {
 		try {
-			await hubConnection.invoke('AddItemAsync', item);
+			// PlaylistHub.AddItemAsync(Guid sessionId, Guid songId, string? singerName)
+			// One playlist per session - no playlistId parameter needed
+			await hubConnection.invoke('AddItemAsync', currentSessionId, songId, singerName || null);
 			return true;
 		} catch (e) {
 			console.warn('AddItemAsync via SignalR failed, falling back to local broadcast:', e);
 		}
 	}
 
-	// Fallback: update local storage and broadcast
-	broadcastStateUpdate('playlist-updated', { queue: [item] });
+	// Fallback: create a minimal item object for local broadcast
+	// Note: This fallback doesn't have full song metadata, just ID
+	const fallbackItem = {
+		id: crypto.randomUUID(),
+		songId: songId,
+		addedBySinger: singerName || null,
+		artist: '', // Will be enriched by main tab
+		title: ''   // Will be enriched by main tab
+	};
+	broadcastStateUpdate('playlist-updated', { queue: [fallbackItem] });
 	return false;
 }
 
@@ -405,8 +423,8 @@ export async function uploadLibraryToServer(sessionId, libraryData, options = {}
 			console.warn('uploadLibraryToServer: No link token available - request will likely fail');
 		}
 
-		// Prepare sanitized payload: array of { artist, title, metadataJson }
-		const songs = (libraryData && libraryData.songs) ? libraryData.songs.map(s => ({ artist: s.artist || s.artistName || s.artistName, title: s.title || s.track || s.title, metadataJson: s.metadataJson || null })) : [];
+		// Prepare sanitized payload: array of { id, artist, title, metadataJson }
+		const songs = (libraryData && libraryData.songs) ? libraryData.songs.map(s => ({ id: s.id, artist: s.artist || s.artistName || '', title: s.title || s.track || '', metadataJson: s.metadataJson || null })) : [];
 
 		const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(songs) });
 		if (!resp.ok) {

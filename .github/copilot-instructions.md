@@ -132,6 +132,40 @@ git push origin feature/your-feature-name
 
 ## Project Architecture
 
+### Session and Playlist Architecture
+
+**CRITICAL: One Session = One Playlist**
+
+The system uses a **one-to-one relationship** between sessions and playlists:
+- Each session has exactly one playlist
+- The `playlistId` equals the `sessionId` (enforced at repository level)
+- Backend `PlaylistHub` methods (AddItemAsync, RemoveItemAsync, ReorderAsync) only require `sessionId` parameter
+- The playlist is automatically created when first accessed via `GetBySessionIdAsync`
+- This simplifies the architecture for local single-user scenarios and multi-tab synchronization
+
+**Repository Pattern**:
+- `IPlaylistRepository.GetBySessionIdAsync(sessionId)` - Gets or creates playlist for session
+- Creates playlist with `Id = sessionId` if it doesn't exist
+- All SignalR hub operations use this method to retrieve the session's playlist
+
+**SignalR Hub Signatures** (Note: NO playlistId parameter):
+```csharp
+Task AddItemAsync(Guid sessionId, Guid songId, string? singerName)
+Task RemoveItemAsync(Guid sessionId, Guid itemId)
+Task ReorderAsync(Guid sessionId, int from, int to)
+```
+
+**JavaScript Bridge** (signalRBridge.js):
+```javascript
+// Passes only sessionId (derived from currentSessionId module variable)
+await hubConnection.invoke('AddItemAsync', currentSessionId, songId, singerName);
+```
+
+**Database Schema**:
+- `Playlists` table: `Id` (PK), `SessionId` (FK to Sessions)
+- `PlaylistItems` table: `PlaylistId` (FK to Playlists), `SongId` (nullable FK to Songs)
+- Playlist cleanup happens automatically via session TTL (30 minutes)
+
 ### Directory Structure
 ```
 Karamel-Web/                          # Solution root

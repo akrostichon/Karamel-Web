@@ -40,6 +40,9 @@ namespace Karamel.Backend.Tests
             var playlist = await CreatePlaylistAsync(created.Id, created.linkToken);
             Assert.NotNull(playlist);
 
+            // Create a song in the database to get a valid songId
+            var songId = await CreateSongAsync(created.Id, "X", "Y");
+
             // start a SignalR client and join the session group
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
             _connection = new HubConnectionBuilder()
@@ -57,7 +60,7 @@ namespace Karamel.Backend.Tests
             await _connection.InvokeAsync("JoinSession", created.Id.ToString());
 
             // Add an item via the hub mutation (with token provided on connection)
-            await _connection.InvokeAsync("AddItemAsync", created.Id, playlist!.id, "X", "Y", "Z");
+            await _connection.InvokeAsync("AddItemAsync", created.Id, songId, "Z");
 
             // Expect a broadcast
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -95,6 +98,9 @@ namespace Karamel.Backend.Tests
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
 
+            // Create a song in the database to get a valid songId
+            var songId = await CreateSongAsync(session.Id, "Artist1", "Title1");
+
             // Connect to hub with token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
             _connection = new HubConnectionBuilder()
@@ -112,9 +118,9 @@ namespace Karamel.Backend.Tests
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
 
             // Call hub mutation method
-            await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1");
+            await _connection.InvokeAsync("AddItemAsync", session.Id, songId, "Singer1");
 
-            // Verify broadcast received
+            // Verify broadcast received and includes SongId
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             var received = await tcs.Task.WaitAsync(cts.Token);
             Assert.NotNull(received);
@@ -123,6 +129,7 @@ namespace Karamel.Backend.Tests
             Assert.Equal("Artist1", received.Items[0].Artist);
             Assert.Equal("Title1", received.Items[0].Title);
             Assert.Equal("Singer1", received.Items[0].SingerName);
+            Assert.Equal(songId, received.Items[0].SongId);
         }
 
         [Fact]
@@ -131,6 +138,9 @@ namespace Karamel.Backend.Tests
             // Create session and playlist
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+
+            // Create a song in the database to get a valid songId
+            var songId = await CreateSongAsync(session.Id, "Artist1", "Title1");
 
             // Connect to hub WITHOUT token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
@@ -147,7 +157,7 @@ namespace Karamel.Backend.Tests
 
             // Attempt to call mutation method without token should throw
             var exception = await Assert.ThrowsAsync<HubException>(async () =>
-                await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1"));
+                await _connection.InvokeAsync("AddItemAsync", session.Id, songId, "Singer1"));
 
             Assert.Contains("Missing X-Link-Token", exception.Message);
         }
@@ -158,6 +168,9 @@ namespace Karamel.Backend.Tests
             // Create session and playlist
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+
+            // Create a song in the database to get a valid songId
+            var songId = await CreateSongAsync(session.Id, "Artist1", "Title1");
 
             // Connect to hub with INVALID token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
@@ -174,18 +187,47 @@ namespace Karamel.Backend.Tests
 
             // Attempt to call mutation method with invalid token should throw
             var exception = await Assert.ThrowsAsync<HubException>(async () =>
-                await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1"));
+                await _connection.InvokeAsync("AddItemAsync", session.Id, songId, "Singer1"));
 
             Assert.Contains("Invalid or expired link token", exception.Message);
         }
 
         [Fact]
-        public async Task Hub_RemoveItemAsync_WithValidToken_Succeeds_And_Broadcasts()
+        public async Task Hub_AddItemAsync_WithInvalidSongId_ThrowsHubException()
         {
-            // Create session and playlist, add one item via REST
+            // Create session and playlist
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
-            var itemId = await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, "Artist1", "Title1", "Singer1");
+
+            // Connect to hub with valid token
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Attempt to add item with non-existent songId
+            var nonExistentSongId = Guid.NewGuid();
+            var exception = await Assert.ThrowsAsync<HubException>(async () =>
+                await _connection.InvokeAsync("AddItemAsync", session.Id, nonExistentSongId, "Singer1"));
+
+            Assert.Contains("Song not found in session library", exception.Message);
+        }
+
+        [Fact]
+        public async Task Hub_RemoveItemAsync_WithValidToken_Succeeds_And_Broadcasts()
+        {
+            // Create session and playlist, add one item via repository
+            var session = await CreateSessionAsync();
+            var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+            var songId = await CreateSongAsync(session.Id, "Artist1", "Title1");
+            var itemId = await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, songId, "Singer1");
 
             // Connect to hub with token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
@@ -203,8 +245,8 @@ namespace Karamel.Backend.Tests
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
 
-            // Remove item via hub
-            await _connection.InvokeAsync("RemoveItemAsync", session.Id, playlist.id, itemId);
+            // Remove item via hub (no playlistId parameter)
+            await _connection.InvokeAsync("RemoveItemAsync", session.Id, itemId);
 
             // Verify broadcast received and playlist is empty
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -219,8 +261,10 @@ namespace Karamel.Backend.Tests
             // Create session and playlist, add two items
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
-            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, "Artist1", "Title1", "Singer1");
-            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, "Artist2", "Title2", "Singer2");
+            var songId1 = await CreateSongAsync(session.Id, "Artist1", "Title1");
+            var songId2 = await CreateSongAsync(session.Id, "Artist2", "Title2");
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, songId1, "Singer1");
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, songId2, "Singer2");
 
             // Connect to hub with token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
@@ -238,8 +282,8 @@ namespace Karamel.Backend.Tests
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
 
-            // Reorder: move item at position 1 to position 0
-            await _connection.InvokeAsync("ReorderAsync", session.Id, playlist.id, 1, 0);
+            // Reorder: move item at position 1 to position 0 (no playlistId parameter)
+            await _connection.InvokeAsync("ReorderAsync", session.Id, 1, 0);
 
             // Verify broadcast received and order changed
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -259,6 +303,10 @@ namespace Karamel.Backend.Tests
             var session = await CreateSessionAsync();
             var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
 
+            // Create songs in the database
+            var songId1 = await CreateSongAsync(session.Id, "Artist1", "Title1");
+            var songId2 = await CreateSongAsync(session.Id, "Artist2", "Title2");
+
             // Connect to hub with token
             var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
             _connection = new HubConnectionBuilder()
@@ -276,11 +324,11 @@ namespace Karamel.Backend.Tests
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
 
             // Add first item
-            await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist1", "Title1", "Singer1");
+            await _connection.InvokeAsync("AddItemAsync", session.Id, songId1, "Singer1");
             await Task.Delay(500); // Wait for broadcast
 
             // Add second item
-            await _connection.InvokeAsync("AddItemAsync", session.Id, playlist.id, "Artist2", "Title2", "Singer2");
+            await _connection.InvokeAsync("AddItemAsync", session.Id, songId2, "Singer2");
             await Task.Delay(500); // Wait for broadcast
 
             // Verify we got 2 broadcasts with cumulative state
@@ -303,32 +351,51 @@ namespace Karamel.Backend.Tests
         private async Task<PlaylistDto> CreatePlaylistAsync(Guid sessionId, string token)
         {
             // Create playlist directly in the test database via repository (controller removed in product)
+            // CRITICAL: playlistId MUST equal sessionId (one-to-one relationship)
             using var scope = _factory.Services.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<IPlaylistRepository>();
-            var playlist = new Playlist { Id = Guid.NewGuid(), SessionId = sessionId };
+            var playlist = new Playlist { Id = sessionId, SessionId = sessionId };
             await repo.AddAsync(playlist);
             return new PlaylistDto(playlist.Id, playlist.SessionId);
         }
 
-        private async Task<Guid> AddPlaylistItemAsync(Guid sessionId, Guid playlistId, string token, string artist, string title, string? singerName)
+        private async Task<Guid> AddPlaylistItemAsync(Guid sessionId, Guid playlistId, string token, Guid songId, string? singerName)
         {
             // Add item directly using repository (simulates an external actor adding an item)
             using var scope = _factory.Services.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<IPlaylistRepository>();
+            var songRepo = scope.ServiceProvider.GetRequiredService<ISongRepository>();
             var playlist = await repo.GetAsync(playlistId);
             Assert.NotNull(playlist);
+            
+            // Get song details (GetByIdAsync returns SongListItemDto)
+            var songDto = await songRepo.GetByIdAsync(sessionId, songId);
+            Assert.NotNull(songDto);
+            
             var item = new PlaylistItem
             {
                 Id = Guid.NewGuid(),
                 PlaylistId = playlistId,
                 Position = playlist!.Items.Count,
-                Artist = artist,
-                Title = title,
-                SingerName = singerName
+                Artist = songDto!.Artist,
+                Title = songDto.Title,
+                SingerName = singerName,
+                SongId = songId
             };
             playlist.Items.Add(item);
             await repo.UpdateAsync(playlist!);
             return item.Id;
+        }
+
+        private async Task<Guid> CreateSongAsync(Guid sessionId, string artist, string title)
+        {
+            // Create song in database to get a valid songId using BulkUpsertAsync
+            using var scope = _factory.Services.CreateScope();
+            var songRepo = scope.ServiceProvider.GetRequiredService<ISongRepository>();
+            var songId = Guid.NewGuid();
+            var songDto = new Karamel.Backend.Controllers.SongUploadDto(songId, artist, title, null);
+            await songRepo.BulkUpsertAsync(sessionId, new[] { songDto });
+            return songId;
         }
 
         public async ValueTask DisposeAsync()
@@ -342,7 +409,7 @@ namespace Karamel.Backend.Tests
 
         private record CreateResponse(Guid Id, string linkToken);
         private record PlaylistDto(Guid id, Guid sessionId);
-        private record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position);
+        private record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId);
         private record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, List<PlaylistItemDto> Items);
     }
 }
