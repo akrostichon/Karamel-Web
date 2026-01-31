@@ -240,6 +240,25 @@
         await base.OnAfterRenderAsync(firstRender);
 
         Console.WriteLine($"NextSongView: OnAfterRenderAsync firstRender={firstRender}. isSessionValid={isSessionValid}. QueueCount={PlaylistState.Value.Queue?.Count ?? 0}");
+
+        if (isSessionValid && !isLocalhost)
+        {
+            try
+            {
+                // Ensure qrcodeModule is loaded
+                if (qrcodeModule == null)
+                {
+                    qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/qrcode.js");
+                }
+                var sessionUrl = GenerateSessionUrl();
+                await qrcodeModule.InvokeVoidAsync("generateQRCode", "qrcode-container", sessionUrl);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"NextSongView: Failed to generate QR code: {ex.Message}");
+            }
+        }
+
         if (firstRender && isSessionValid && !isLocalhost)
         {
             await InitializeMainTabAsync();
@@ -285,21 +304,6 @@
         catch (Exception ex)
         {
             Console.WriteLine($"NextSongView: Failed to initialize SessionService as main tab: {ex.Message}");
-        }
-
-        // Load QR code module only if not on localhost
-        try
-        {
-            if (!isLocalhost)
-            {
-                qrcodeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/qrcode.js");
-                var sessionUrl = GenerateSessionUrl();
-                await qrcodeModule.InvokeVoidAsync("generateQRCode", "qrcode-container", sessionUrl);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"NextSongView: Failed to initialize QR code module: {ex.Message}");
         }
 
         // Start timer if appropriate
