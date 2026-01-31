@@ -104,6 +104,9 @@ namespace Karamel.Backend.Hubs
                     throw new HubException("Song not found in session library");
                 }
 
+                _logger.LogInformation("Adding item to playlist {PlaylistId} in session {SessionId}: {SongId}(Singer: {SingerName})", 
+                    playlist.Id, sessionId, songId, singerName ?? "None");
+
                 var item = new PlaylistItem
                 {
                     Id = Guid.NewGuid(),
