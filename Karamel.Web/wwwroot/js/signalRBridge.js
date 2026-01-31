@@ -245,7 +245,13 @@ export function broadcastStateUpdate(type, data) {
 export async function addItemToPlaylist(item) {
 	if (usingSignalR && hubConnection) {
 		try {
-			await hubConnection.invoke('AddItemAsync', item);
+			// Extract individual parameters from SongDto - hub expects (sessionId, artist, title, singerName)
+			const sessionId = currentSessionId;
+			const artist = item.artist;
+			const title = item.title;
+			const singerName = item.addedBySinger || null;
+			
+			await hubConnection.invoke('AddItemAsync', sessionId, artist, title, singerName);
 			return true;
 		} catch (e) {
 			console.warn('AddItemAsync via SignalR failed, falling back to local broadcast:', e);
