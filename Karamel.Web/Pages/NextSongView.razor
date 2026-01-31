@@ -66,7 +66,7 @@
                 {
                     <div class="countdown-progress">
                         <div class="progress-bar" style="width: @(progressPercentage)%"></div>
-                        <span class="countdown-text">@remainingSeconds s</span>
+                        <span class="countdown-text">@Math.Ceiling(remainingSeconds) s</span>
                     </div>
                 }
 
@@ -139,11 +139,12 @@
     private bool isLocalhost = false;
     private bool _showAdminMenu = false;
     private IJSObjectReference? _protectionModule;
-    private int remainingSeconds;
+    private double remainingSeconds;
     private bool isTimerActive;
     private int totalSeconds;
+    private DateTime countdownStart;
 
-    private double progressPercentage => totalSeconds > 0 ? (totalSeconds - remainingSeconds) / (double)totalSeconds * 100 : 0;
+    private double progressPercentage => totalSeconds > 0 ? (remainingSeconds / totalSeconds) * 100 : 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -384,11 +385,13 @@
             totalSeconds = SessionState.Value.CurrentSession.PauseBetweenSongsSeconds;
             remainingSeconds = totalSeconds;
             isTimerActive = true;
+            countdownStart = DateTime.UtcNow;
 
             // Start countdown timer (updates every 100ms)
             countdownTimer = new Timer(_ =>
             {
-                remainingSeconds--;
+                var elapsed = (DateTime.UtcNow - countdownStart).TotalSeconds;
+                remainingSeconds = Math.Max(0, totalSeconds - elapsed);
                 if (remainingSeconds <= 0)
                 {
                     isTimerActive = false;
