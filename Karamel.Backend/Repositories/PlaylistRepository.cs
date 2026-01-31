@@ -20,9 +20,22 @@ namespace Karamel.Backend.Repositories
             return await _db.Playlists.Include(p => p.Items).FirstOrDefaultAsync(p => p.Id == id);
         }
 
-        public async Task<Playlist?> GetBySessionIdAsync(Guid sessionId)
+        public async Task<Playlist> GetBySessionIdAsync(Guid sessionId)
         {
-            return await _db.Playlists.Include(p => p.Items).FirstOrDefaultAsync(p => p.SessionId == sessionId);
+            // One session = one playlist: Use sessionId as playlistId for simplicity
+            var playlist = await _db.Playlists
+                .Include(p => p.Items)
+                .FirstOrDefaultAsync(p => p.Id == sessionId);
+            
+            if (playlist == null)
+            {
+                // Create playlist with Id = sessionId (one-to-one mapping)
+                playlist = new Playlist { Id = sessionId, SessionId = sessionId };
+                await _db.Playlists.AddAsync(playlist);
+                await _db.SaveChangesAsync();
+            }
+            
+            return playlist;
         }
 
         public async Task UpdateAsync(Playlist playlist)

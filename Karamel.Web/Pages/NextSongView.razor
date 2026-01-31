@@ -21,6 +21,26 @@
 <PageTitle>Next Song - Karamel Karaoke</PageTitle>
 
 <div class="nextsong-view">
+    @* Admin gear icon (persistent, subtle) *@
+    @if (isSessionValid)
+    {
+        <div class="admin-gear-button" @onclick="ToggleAdminMenu" @onclick:stopPropagation="true">
+            ⚙️
+        </div>
+
+        @if (_showAdminMenu)
+        {
+            <div class="admin-dropdown" @onclick:stopPropagation="true">
+                <div class="admin-dropdown-item open-playlist" @onclick="OpenPlaylistManager">
+                    📋 Open Playlist Manager
+                </div>
+                <div class="admin-dropdown-item open-singer" @onclick="OpenSingerView">
+                    🎤 Open Singer View
+                </div>
+            </div>
+        }
+    }
+
     @if (!isSessionValid)
     {
         <div class="alert alert-danger m-4" role="alert">
@@ -108,6 +128,8 @@
     private Queue<Song>? previousQueue;
     private bool isSessionValid = false;
     private bool isLocalhost = false;
+    private bool _showAdminMenu = false;
+    private IJSObjectReference? _protectionModule;
 
     protected override async Task OnInitializedAsync()
     {
@@ -133,6 +155,22 @@
             // Start heartbeat immediately for NextSongView presence
             await SendHeartbeatAsync();
             StartHeartbeatTimer();
+            
+            // Enable main tab protection if this is the main tab
+            var sessionService = ServiceProvider.GetService<ISessionService>();
+            if (sessionService?.IsMainTab == true)
+            {
+                try
+                {
+                    _protectionModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/sessionProtection.js");
+                    await _protectionModule.InvokeVoidAsync("setMainTabProtection", 
+                        "⚠️ Closing this tab will end the karaoke session for all participants. Are you sure?");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to load session protection: {ex.Message}");
+                }
+            }
         }
     }
 
@@ -371,6 +409,39 @@
         return $"{baseUrl}/singer?session={sessionId}";
     }
 
+    private void ToggleAdminMenu()
+    {
+        _showAdminMenu = !_showAdminMenu;
+    }
+
+    private async Task OpenPlaylistManager()
+    {
+        var url = $"/playlist?session={SessionParam}&token={TokenParam}";
+        try
+        {
+            await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening Playlist Manager: {ex.Message}");
+        }
+        _showAdminMenu = false;
+    }
+
+    private async Task OpenSingerView()
+    {
+        var url = $"/singer?session={SessionParam}&token={TokenParam}";
+        try
+        {
+            await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening Singer View: {ex.Message}");
+        }
+        _showAdminMenu = false;
+    }
+
     protected override async ValueTask DisposeAsyncCore(bool disposing)
     {
         if (disposing)
@@ -388,10 +459,23 @@
             }
             catch { }
 
-            // Dispose JS module
+            // Dispose JS modules
             if (qrcodeModule != null)
             {
                 await qrcodeModule.DisposeAsync();
+            }
+
+            if (_protectionModule != null)
+            {
+                try
+                {
+                    await _protectionModule.InvokeVoidAsync("removeMainTabProtection");
+                    await _protectionModule.DisposeAsync();
+                }
+                catch
+                {
+                    // Ignore disposal errors
+                }
             }
         }
 

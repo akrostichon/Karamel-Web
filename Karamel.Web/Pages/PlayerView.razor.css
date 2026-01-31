@@ -179,3 +179,49 @@
         font-size: 2rem;
     }
 }
+
+/* Admin controls gear button and dropdown (nearly invisible on PlayerView) */
+.admin-gear-button {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    color: rgba(180, 180, 180, 0.3); /* Very faint gray, nearly invisible */
+    cursor: pointer;
+    z-index: 1000; /* Above video canvas */
+    transition: color 0.2s ease, transform 0.2s ease;
+    user-select: none;
+}
+
+.admin-gear-button:hover {
+    color: rgba(100, 100, 100, 0.9); /* Grey, more visible on hover */
+    transform: scale(1.2);
+}
+
+.admin-dropdown {
+    position: absolute;
+    top: 40px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(234, 174, 99, 0.3);
+    border-radius: 8px;
+    padding: 8px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+    min-width: 200px;
+}
+
+.admin-dropdown-item {
+    padding: 10px 16px;
+    color: #FFFFFF;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    user-select: none;
+}
+
+.admin-dropdown-item:hover {
+    background-color: rgba(234, 174, 99, 0.2);
+}

@@ -6,8 +6,7 @@ import {
     validateConfiguration,
     selectLibrary,
     initializeKaraokeSession,
-    openSessionTabs,
-    getNextSongViewUrl,
+    getSessionSetupUrl,
     startKaraokeSession
 } from './homeInterop.js';
 
@@ -376,36 +375,15 @@ describe('Tab Management', () => {
         };
     });
     
-    it('should open playlist and singer tabs', () => {
+    it('should return SessionSetup URL', () => {
         const sessionId = '550e8400-e29b-41d4-a716-446655440000';
-        const result = openSessionTabs(sessionId);
+        const url = getSessionSetupUrl(sessionId);
         
-        expect(window.open).toHaveBeenCalledTimes(2);
-        expect(window.open).toHaveBeenCalledWith(
-            'http://localhost:5000/karaoke/playlist?session=550e8400-e29b-41d4-a716-446655440000',
-            '_blank'
-        );
-        expect(window.open).toHaveBeenCalledWith(
-            'http://localhost:5000/karaoke/singer?session=550e8400-e29b-41d4-a716-446655440000',
-            '_blank'
-        );
-        expect(result.playlistUrl).toContain('playlist');
-        expect(result.singerUrl).toContain('singer');
+        expect(url).toBe('http://localhost:5000/karaoke/session-setup?session=550e8400-e29b-41d4-a716-446655440000');
     });
     
-    it('should throw error if sessionId is missing', () => {
-        expect(() => openSessionTabs('')).toThrow('sessionId is required');
-    });
-    
-    it('should return NextSongView URL', () => {
-        const sessionId = '550e8400-e29b-41d4-a716-446655440000';
-        const url = getNextSongViewUrl(sessionId);
-        
-        expect(url).toBe('http://localhost:5000/karaoke/nextsong?session=550e8400-e29b-41d4-a716-446655440000');
-    });
-    
-    it('should throw error when getting NextSongView URL without sessionId', () => {
-        expect(() => getNextSongViewUrl('')).toThrow('sessionId is required');
+    it('should throw error when getting SessionSetup URL without sessionId', () => {
+        expect(() => getSessionSetupUrl('')).toThrow('sessionId is required');
     });
 });
 
@@ -438,10 +416,10 @@ describe('Complete Session Startup Flow', () => {
         const result = await startKaraokeSession(config, songs);
         
         expect(result.sessionId).toBe(config.sessionId);
-        expect(result.nextSongUrl).toContain('nextsong');
-        expect(result.playlistUrl).toContain('playlist');
-        expect(result.singerUrl).toContain('singer');
-        // Session is initialized by SessionService.InitializeAsync, not by homeInterop
-        expect(window.open).toHaveBeenCalledTimes(2);
+        expect(result.nextSongUrl).toContain('session-setup');
+        // After removing openSessionTabs, function no longer returns playlistUrl/singerUrl
+        // Those tabs are now opened via SessionSetup page UI
+        expect(result.playlistUrl).toBeUndefined();
+        expect(result.singerUrl).toBeUndefined();
     });
 });

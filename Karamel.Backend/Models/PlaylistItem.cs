@@ -8,5 +8,6 @@ namespace Karamel.Backend.Models
         public string Artist { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string? SingerName { get; set; }
+        public Guid? SongId { get; set; }  // FK to Songs table for enrichment
     }
 }

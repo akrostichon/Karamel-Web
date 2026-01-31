@@ -61,7 +61,7 @@ namespace Karamel.Backend.Tests
         }
 
         [Fact]
-        public async Task BulkUpsert_Deduplicates_ByArtistTitle()
+        public async Task BulkUpsert_Allows_Duplicates_WithSameArtistTitle()
         {
             var client = _factory.CreateDefaultClient();
             var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5 };
@@ -82,9 +82,14 @@ namespace Karamel.Backend.Tests
             Assert.Equal(System.Net.HttpStatusCode.Accepted, uploadResp.StatusCode);
 
             var list = await client.GetFromJsonAsync<SongListItem[]>($"/api/sessions/{sessionId}/library?page=1&pageSize=50");
-            Assert.Single(list!);
-            Assert.Equal("Dup", list![0].Artist);
-            Assert.Equal("Same", list![0].Title);
+            Assert.Equal(3, list!.Length); // All 3 duplicates should be present
+            Assert.All(list!, song => {
+                Assert.Equal("Dup", song.Artist);
+                Assert.Equal("Same", song.Title);
+            });
+            // Verify they have different IDs
+            var uniqueIds = list!.Select(s => s.Id).Distinct().Count();
+            Assert.Equal(3, uniqueIds);
         }
 
         private record CreateResponse(Guid Id, string linkToken);

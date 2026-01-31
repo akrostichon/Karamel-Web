@@ -520,4 +520,124 @@ describe('signalRBridge', () => {
             consoleSpy.mockRestore();
         });
     });
+
+    describe('uploadLibraryToServer', () => {
+        let fetchMock;
+
+        beforeEach(() => {
+            // Mock global fetch
+            fetchMock = vi.fn();
+            global.fetch = fetchMock;
+        });
+
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it('should include id field when uploading songs', async () => {
+            // Purpose: JavaScript must send IDs for backend to store them
+            const { uploadLibraryToServer } = await import('./signalRBridge.js');
+            
+            // Mock successful response
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                status: 202
+            });
+
+            const libraryData = {
+                songs: [
+                    { id: 'guid-1', artist: 'Artist1', title: 'Title1' },
+                    { id: 'guid-2', artist: 'Artist2', title: 'Title2' }
+                ]
+            };
+
+            await uploadLibraryToServer('session-123', libraryData, { linkToken: 'test-token' });
+
+            // Verify fetch was called
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            
+            // Capture POST body
+            const callArgs = fetchMock.mock.calls[0];
+            const requestBody = JSON.parse(callArgs[1].body);
+
+            // Assert: POST body includes { id: "guid", artist: "...", title: "..." }
+            expect(requestBody).toHaveLength(2);
+            expect(requestBody[0]).toEqual({ id: 'guid-1', artist: 'Artist1', title: 'Title1', metadataJson: null });
+            expect(requestBody[1]).toEqual({ id: 'guid-2', artist: 'Artist2', title: 'Title2', metadataJson: null });
+        });
+
+        it('should sanitize payload but keep id field', async () => {
+            // Purpose: Filenames should never reach backend (security/privacy), but IDs must be included
+            const { uploadLibraryToServer } = await import('./signalRBridge.js');
+            
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                status: 202
+            });
+
+            const libraryData = {
+                songs: [
+                    {
+                        id: 'guid-1',
+                        artist: 'Artist1',
+                        title: 'Title1',
+                        mp3FileName: 'song.mp3',  // Should NOT be included
+                        cdgFileName: 'song.cdg',  // Should NOT be included
+                        metadataJson: '{"album":"Test"}'
+                    }
+                ]
+            };
+
+            await uploadLibraryToServer('session-123', libraryData, { linkToken: 'test-token' });
+
+            const callArgs = fetchMock.mock.calls[0];
+            const requestBody = JSON.parse(callArgs[1].body);
+
+            // Assert: Sanitized payload includes id, artist, title, metadataJson
+            expect(requestBody).toHaveLength(1);
+            expect(requestBody[0]).toEqual({
+                id: 'guid-1',
+                artist: 'Artist1',
+                title: 'Title1',
+                metadataJson: '{"album":"Test"}'
+            });
+            
+            // Assert: Payload does NOT include mp3FileName or cdgFileName
+            expect(requestBody[0]).not.toHaveProperty('mp3FileName');
+            expect(requestBody[0]).not.toHaveProperty('cdgFileName');
+        });
+
+        it('should handle empty or null ids gracefully', async () => {
+            // Purpose: Defensive programming - should handle edge cases gracefully
+            const { uploadLibraryToServer } = await import('./signalRBridge.js');
+            
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                status: 202
+            });
+
+            const libraryData = {
+                songs: [
+                    { id: null, artist: 'Artist1', title: 'Title1' },
+                    { id: undefined, artist: 'Artist2', title: 'Title2' },
+                    { id: 'guid-3', artist: 'Artist3', title: 'Title3' }
+                ]
+            };
+
+            const result = await uploadLibraryToServer('session-123', libraryData, { linkToken: 'test-token' });
+
+            // Assert: Upload succeeds
+            expect(result).toBe(true);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            
+            const callArgs = fetchMock.mock.calls[0];
+            const requestBody = JSON.parse(callArgs[1].body);
+
+            // All songs should be included (backend will handle null/undefined IDs)
+            expect(requestBody).toHaveLength(3);
+            expect(requestBody[0].id).toBeNull();
+            expect(requestBody[1].id).toBeUndefined();
+            expect(requestBody[2].id).toBe('guid-3');
+        });
+    });
 });

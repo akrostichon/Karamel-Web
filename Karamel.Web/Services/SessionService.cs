@@ -466,6 +466,124 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
+    /// Extract and convert queue array from JSON to List of Songs
+    /// </summary>
+    private List<Song> ExtractQueueFromJson(JsonElement queueArray)
+    {
+        return queueArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
+    }
+
+    /// <summary>
+    /// Build library lookup dictionary by song ID for O(1) access
+    /// </summary>
+    private Dictionary<Guid, Song> BuildLibraryLookup()
+    {
+        return _libraryState.Value.Songs.ToDictionary(s => s.Id);
+    }
+
+    /// <summary>
+    /// Enrich songs in the list with file information from library lookup
+    /// </summary>
+    private void EnrichSongsWithLibraryFiles(List<Song> songs, Dictionary<Guid, Song> libraryLookup)
+    {
+        for (int i = 0; i < songs.Count; i++)
+        {
+            var song = songs[i];
+            
+            // Skip if already has file information
+            if (!string.IsNullOrEmpty(song.Mp3FileName) && !string.IsNullOrEmpty(song.CdgFileName))
+                continue;
+            
+            // Look up in local library by ID
+            if (libraryLookup.TryGetValue(song.Id, out var libraryMatch))
+            {
+                // Replace with enriched song (preserving AddedBySinger from playlist)
+                songs[i] = libraryMatch with { AddedBySinger = song.AddedBySinger };
+                Console.WriteLine($"SessionService: Enriched '{song.Artist} - {song.Title}' (ID: {song.Id}) with files: {libraryMatch.Mp3FileName}");
+            }
+            else
+            {
+                Console.WriteLine($"SessionService: WARNING - Could not find song ID {song.Id} ('{song.Artist} - {song.Title}') in local library");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extract singer song counts dictionary from JSON
+    /// </summary>
+    private Dictionary<string, int> ExtractSingerSongCounts(JsonElement data)
+    {
+        var singerSongCounts = new Dictionary<string, int>();
+        if (data.TryGetProperty("singerSongCounts", out var countsObj))
+        {
+            foreach (var prop in countsObj.EnumerateObject())
+            {
+                singerSongCounts[prop.Name] = prop.Value.GetInt32();
+            }
+        }
+        return singerSongCounts;
+    }
+
+    /// <summary>
+    /// Extract current singer name from JSON
+    /// </summary>
+    private string? ExtractCurrentSingerName(JsonElement data)
+    {
+        if (data.TryGetProperty("currentSingerName", out var currentSingerProp) && 
+            currentSingerProp.ValueKind != JsonValueKind.Null)
+        {
+            return currentSingerProp.GetString();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Extract and optionally enrich current song from JSON
+    /// </summary>
+    private Song? ExtractCurrentSongFromJson(JsonElement data, Dictionary<Guid, Song>? libraryLookup)
+    {
+        try
+        {
+            if (data.TryGetProperty("currentSong", out var currentSongObj) && 
+                currentSongObj.ValueKind != JsonValueKind.Null)
+            {
+                var currentSong = SongConverters.ConvertJsonToSong(currentSongObj);
+                
+                // Enrich currentSong if needed and we have a library lookup
+                if (_isMainTab && currentSong != null && libraryLookup != null &&
+                    (string.IsNullOrEmpty(currentSong.Mp3FileName) || string.IsNullOrEmpty(currentSong.CdgFileName)))
+                {
+                    if (libraryLookup.TryGetValue(currentSong.Id, out var libraryMatch))
+                    {
+                        currentSong = libraryMatch with { AddedBySinger = currentSong.AddedBySinger };
+                        Console.WriteLine($"SessionService: Enriched currentSong '{currentSong.Artist} - {currentSong.Title}'");
+                    }
+                }
+                
+                return currentSong;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: Error parsing currentSong: {ex.Message}");
+        }
+        
+        return null;
+    }
+
+    /// <summary>
+    /// Log first queue item for diagnostics
+    /// </summary>
+    private void LogFirstQueueItem(List<Song> queue)
+    {
+        if (queue.Count > 0)
+        {
+            var first = queue[0];
+            Console.WriteLine($"SessionService: First queued song: id={first.Id} artist={first.Artist} title={first.Title} addedBy={first.AddedBySinger}");
+        }
+    }
+
+    /// <summary>
     /// Handle playlist update from broadcast
     /// </summary>
     private void HandlePlaylistUpdate(JsonElement data)
@@ -473,53 +591,37 @@ public class SessionService : ISessionService
         try
         {
             // Extract queue
-            if (data.TryGetProperty("queue", out var queueArray))
+            if (!data.TryGetProperty("queue", out var queueArray))
+                return;
+
+            Console.WriteLine($"SessionService: Playlist update contains queue with {queueArray.GetArrayLength()} items");
+
+            // 1. Extract and convert queue
+            var queue = ExtractQueueFromJson(queueArray);
+
+            // 2. Enrich songs if main tab
+            Dictionary<Guid, Song>? libraryLookup = null;
+            if (_isMainTab && _libraryState.Value.Songs.Count > 0)
             {
-                Console.WriteLine($"SessionService: Playlist update contains queue with {queueArray.GetArrayLength()} items");
-                var queue = queueArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-
-                // Extract singer song counts
-                var singerSongCounts = new Dictionary<string, int>();
-                if (data.TryGetProperty("singerSongCounts", out var countsObj))
-                {
-                    foreach (var prop in countsObj.EnumerateObject())
-                    {
-                        singerSongCounts[prop.Name] = prop.Value.GetInt32();
-                    }
-                }
-
-                // Log sample of first item for diagnostics
-                if (queue.Count > 0)
-                {
-                    var first = queue[0];
-                    Console.WriteLine($"SessionService: First queued song: id={first.Id} artist={first.Artist} title={first.Title} addedBy={first.AddedBySinger}");
-                }
-
-                // Parse optional currentSong and currentSingerName
-                Song? currentSong = null;
-                string? currentSingerName = null;
-                try
-                {
-                    if (data.TryGetProperty("currentSong", out var currentSongObj) && currentSongObj.ValueKind != JsonValueKind.Null)
-                    {
-                        currentSong = SongConverters.ConvertJsonToSong(currentSongObj);
-                    }
-
-                    if (data.TryGetProperty("currentSingerName", out var currentSingerProp) && currentSingerProp.ValueKind != JsonValueKind.Null)
-                    {
-                        currentSingerName = currentSingerProp.GetString();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SessionService: Error parsing currentSong: {ex.Message}");
-                }
-
-                // Dispatch action to update playlist state including current song
-                _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts, currentSong, currentSingerName));
-
-                Console.WriteLine($"SessionService: Dispatched playlist update with {queue.Count} songs (currentSong={(currentSong!=null)})");
+                Console.WriteLine($"SessionService: Enriching {queue.Count} songs with file information from local library ({_libraryState.Value.Songs.Count} songs available)");
+                libraryLookup = BuildLibraryLookup();
+                EnrichSongsWithLibraryFiles(queue, libraryLookup);
             }
+
+            // 3. Extract singer song counts
+            var singerSongCounts = ExtractSingerSongCounts(data);
+
+            // 4. Log first item for diagnostics
+            LogFirstQueueItem(queue);
+
+            // 5. Extract current song and singer name
+            var currentSong = ExtractCurrentSongFromJson(data, libraryLookup);
+            var currentSingerName = ExtractCurrentSingerName(data);
+
+            // 6. Dispatch action to update playlist state
+            _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts, currentSong, currentSingerName));
+
+            Console.WriteLine($"SessionService: Dispatched playlist update with {queue.Count} songs (currentSong={(currentSong != null)})");
         }
         catch (Exception ex)
         {
@@ -598,11 +700,10 @@ public class SessionService : ISessionService
     {
         if (_sessionBridgeModule == null) return false;
 
-        var item = SongConverters.ConvertSongToDto(song);
-
         try
         {
-            return await _sessionBridgeModule.InvokeAsync<bool>("addItemToPlaylist", item);
+            // Pass only song ID - backend will lookup Artist/Title
+            return await _sessionBridgeModule.InvokeAsync<bool>("addItemToPlaylist", song.Id.ToString(), song.AddedBySinger);
         }
         catch (Exception ex)
         {
