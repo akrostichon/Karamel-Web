@@ -330,7 +330,7 @@
         if (action.Song.AddedBySinger == singerName || 
             (string.IsNullOrWhiteSpace(singerName) && string.IsNullOrWhiteSpace(action.Song.AddedBySinger)))
         {
-            var position = PlaylistState.Value.Queue.Count;
+            var position = PlaylistState.Value.Items.Count(i => i.Status == 0) + 1;
             ShowSuccessToast($"'{action.Song.Title}' added! It's now #{position} in queue");
         }
     }
@@ -345,7 +345,7 @@
         if (string.IsNullOrWhiteSpace(singerName))
             return 0;
             
-        return PlaylistState.Value.SingerSongCounts.GetValueOrDefault(singerName, 0);
+        return PlaylistState.Value.Items.Count(i => i.SingerName == singerName && i.Status != 3);
     }
 
     private void ShowSuccessToast(string message)

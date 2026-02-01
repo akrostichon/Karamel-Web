@@ -301,35 +301,11 @@ public class SessionService : ISessionService
             // It will be updated via broadcast when songs are added
 
             // Restore playlist if present in sessionStorage (useful if main tab saved it)
+            // DEPRECATED: SignalR now handles playlist sync, this is a no-op for backward compat
             if (stateJson.TryGetProperty("playlist", out var playlistData) &&
                 playlistData.ValueKind != JsonValueKind.Null)
             {
-                try
-                {
-                    Console.WriteLine($"SessionService: Found playlist data in sessionStorage");
-
-                    var queue = new List<Song>();
-                    if (playlistData.TryGetProperty("queue", out var queueArray))
-                    {
-                        queue = queueArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-                    }
-
-                    var singerSongCounts = new Dictionary<string, int>();
-                    if (playlistData.TryGetProperty("singerSongCounts", out var countsObj))
-                    {
-                        foreach (var prop in countsObj.EnumerateObject())
-                        {
-                            singerSongCounts[prop.Name] = prop.Value.GetInt32();
-                        }
-                    }
-
-                    _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts));
-                    Console.WriteLine($"SessionService: Dispatched playlist restore with {queue.Count} songs");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SessionService: Error restoring playlist from sessionStorage: {ex.Message}");
-                }
+                Console.WriteLine($"SessionService: Found playlist data in sessionStorage (ignored - SignalR handles sync)");
             }
         }
         catch (Exception ex)
@@ -609,9 +585,9 @@ public class SessionService : ISessionService
             var currentSingerName = ExtractCurrentSingerName(data);
 
             // 6. Dispatch action to update playlist state
-            _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts, currentSong, currentSingerName));
-
-            Console.WriteLine($"SessionService: Dispatched playlist update with {queue.Count} songs (currentSong={(currentSong != null)})");
+            // DEPRECATED: This handler is for old Broadcast Channel API
+            // SignalR now handles playlist updates via ReceivePlaylistUpdated
+            Console.WriteLine($"SessionService: OnStateUpdated playlist-updated (DEPRECATED - use SignalR)");
         }
         catch (Exception ex)
         {

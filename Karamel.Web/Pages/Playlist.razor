@@ -2,6 +2,7 @@
 @using Fluxor
 @using Fluxor.Blazor.Web.Components
 @using Karamel.Web.Models
+@using Karamel.Web.Contracts
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
 @using Karamel.Web.Store.Library
@@ -36,7 +37,7 @@
     {
         <h1 class="mb-4">Playlist</h1>
 
-    @if (!PlaylistState.Value.Queue.Any())
+    @if (!PlaylistState.Value.Items.Any())
     {
         <div class="alert alert-info" role="alert">
             <i class="bi bi-music-note-list"></i>
@@ -60,10 +61,10 @@
                     <div class="song-info">
                         <div class="artist h4">@nowPlaying.Artist</div>
                         <div class="title h3 fw-bold">@nowPlaying.Title</div>
-                        @if (!string.IsNullOrEmpty(nowPlaying.AddedBySinger))
+                        @if (!string.IsNullOrEmpty(nowPlaying.SingerName))
                         {
                             <div class="singer muted-on-surface">
-                                <i class="bi bi-person-fill"></i> @nowPlaying.AddedBySinger
+                                <i class="bi bi-person-fill"></i> @nowPlaying.SingerName
                             </div>
                         }
                     </div>
@@ -72,9 +73,9 @@
         }
 
         <!-- Up Next Section -->
-        @if (PlaylistState.Value.Queue.Count() > 0)
+        @if (PlaylistState.Value.Items.Any(i => i.Status == 0))
         {
-            var upNextSongs = PlaylistState.Value.Queue.ToList();
+            var upNextSongs = PlaylistState.Value.Items.Where(i => i.Status == 0).OrderBy(i => i.Position).ToList();
 
             <div class="up-next card">
                 <div class="card-body">
@@ -109,10 +110,10 @@
                                     <div class="song-artist-title">
                                         <strong>@song.Artist</strong> - @song.Title
                                     </div>
-                                    @if (!string.IsNullOrEmpty(song.AddedBySinger))
+                                    @if (!string.IsNullOrEmpty(song.SingerName))
                                     {
                                         <div class="song-singer muted-on-surface small">
-                                            <i class="bi bi-person-fill"></i> @song.AddedBySinger
+                                            <i class="bi bi-person-fill"></i> @song.SingerName
                                         </div>
                                     }
                                 </div>
@@ -167,7 +168,7 @@
         try
         {
             var state = PlaylistState.Value;
-            Console.WriteLine($"Playlist.razor: Playlist state changed. QueueCount={state.Queue?.Count ?? 0}");
+            Console.WriteLine($"Playlist.razor: Playlist state changed. ItemsCount={state.Items?.Count ?? 0}");
         }
         catch { }
 
@@ -224,9 +225,12 @@
         return SessionState.Value.CurrentSession.SessionId == sessionGuid;
     }
 
-    private void RemoveSong(Guid songId)
+    private void RemoveSong(string itemId)
     {
-        Dispatcher.Dispatch(new RemoveSongAction(songId));
+        if (Guid.TryParse(itemId, out var guid))
+        {
+            Dispatcher.Dispatch(new RemoveSongAction(guid));
+        }
     }
 
     private async Task ClearPlaylist()

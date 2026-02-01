@@ -2,6 +2,7 @@
 @using Fluxor
 @using Fluxor.Blazor.Web.Components
 @using Karamel.Web.Models
+@using Karamel.Web.Contracts
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
 @using Microsoft.JSInterop
@@ -50,15 +51,15 @@
     }
     else
     {
-        @if (PlaylistState.Value.Queue.Count > 0)
+        @if (PlaylistState.Value.Items.Any(i => i.Status == 0))
         {
             <div class="nextsong-container">
                 <div class="nextsong-content">
                     <h1 class="artist-name">@nextSong?.Artist</h1>
                     <h2 class="song-title">@nextSong?.Title</h2>
-                    @if (!string.IsNullOrWhiteSpace(nextSong?.AddedBySinger))
+                    @if (!string.IsNullOrWhiteSpace(nextSong?.SingerName))
                     {
-                        <p class="singer-name">Requested by: @nextSong.AddedBySinger</p>
+                        <p class="singer-name">Requested by: @nextSong.SingerName</p>
                     }
                 </div>
 
@@ -129,12 +130,12 @@
     public string? TokenParam { get; set; }
 
     private IJSObjectReference? qrcodeModule;
-    private Song? nextSong;
+    private PlaylistItemDto? nextSong;
     private Timer? autoAdvanceTimer;
     private Timer? heartbeatTimer;
     private Timer? countdownTimer;
     private bool isDisposed = false;
-    private Queue<Song>? previousQueue;
+    private List<PlaylistItemDto>? previousItems;
     private bool isSessionValid = false;
     private bool isLocalhost = false;
     private bool _showAdminMenu = false;
@@ -157,7 +158,7 @@
         isSessionValid = ValidateSession();
 
         // Subscribe to playlist updates so we react immediately when queue changes
-        Console.WriteLine($"NextSongView: Subscribing to PlaylistState changes. Current queue count={PlaylistState.Value.Queue?.Count ?? 0}");
+        Console.WriteLine($"NextSongView: Subscribing to PlaylistState changes. Current items count={PlaylistState.Value.Items?.Count ?? 0}");
         PlaylistState.StateChanged += OnPlaylistStateChanged;
 
         // Subscribe to session state changes so we can initialize when session data arrives
@@ -213,7 +214,7 @@
     {
         try
         {
-            Console.WriteLine($"NextSongView: OnPlaylistStateChanged invoked. QueueCount={PlaylistState.Value.Queue?.Count ?? 0}");
+            Console.WriteLine($"NextSongView: OnPlaylistStateChanged invoked. ItemsCount={PlaylistState.Value.Items?.Count ?? 0}");
             UpdateNextSong();
             StartAutoAdvanceTimer();
         }
@@ -254,7 +255,7 @@
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        Console.WriteLine($"NextSongView: OnAfterRenderAsync firstRender={firstRender}. isSessionValid={isSessionValid}. QueueCount={PlaylistState.Value.Queue?.Count ?? 0}");
+        Console.WriteLine($"NextSongView: OnAfterRenderAsync firstRender={firstRender}. isSessionValid={isSessionValid}. ItemsCount={PlaylistState.Value.Items?.Count ?? 0}");
 
         if (isSessionValid && !isLocalhost)
         {
@@ -272,8 +273,8 @@
         else if (!firstRender && isSessionValid)
         {
             // Check if playlist changed
-            var currentQueue = PlaylistState.Value.Queue;
-            if (previousQueue != currentQueue)
+            var currentItems = PlaylistState.Value.Items.Where(i => i.Status == 0).ToList();
+            if (previousItems == null || !ItemsEqual(previousItems, currentItems))
             {
                 // Update next song when playlist changes
                 var previousNextSong = nextSong;
@@ -287,7 +288,7 @@
                     StartAutoAdvanceTimer();
                 }
 
-                previousQueue = currentQueue;
+                previousItems = currentItems;
             }
         }
     }
@@ -365,9 +366,20 @@
 
     private void UpdateNextSong()
     {
-        nextSong = PlaylistState.Value.Queue.Count > 0 
-            ? PlaylistState.Value.Queue.FirstOrDefault() 
-            : null;
+        nextSong = PlaylistState.Value.Items
+            .Where(i => i.Status == 0)
+            .OrderBy(i => i.Position)
+            .FirstOrDefault();
+    }
+
+    private bool ItemsEqual(List<PlaylistItemDto> a, List<PlaylistItemDto> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i].Id != b[i].Id) return false;
+        }
+        return true;
     }
 
     private void StartAutoAdvanceTimer()
@@ -379,7 +391,7 @@
         countdownTimer = null;
 
         // Only start timer if queue has songs and pause is enabled
-        if (PlaylistState.Value.Queue.Count > 0 && 
+        if (PlaylistState.Value.Items.Any(i => i.Status == 0) && 
             SessionState.Value.CurrentSession?.PauseBetweenSongs == true)
         {
             totalSeconds = SessionState.Value.CurrentSession.PauseBetweenSongsSeconds;

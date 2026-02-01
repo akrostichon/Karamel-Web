@@ -2,8 +2,10 @@
 @using Fluxor
 @using Fluxor.Blazor.Web.Components
 @using Karamel.Web.Models
+@using Karamel.Web.Contracts
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Library
 @using Microsoft.JSInterop
 
 @inherits FluxorComponent
@@ -11,6 +13,7 @@
 
 @inject IState<SessionState> SessionState
 @inject IState<PlaylistState> PlaylistState
+@inject IState<LibraryState> LibraryState
 @inject IDispatcher Dispatcher
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -124,6 +127,13 @@
     [SupplyParameterFromQuery(Name = "session")]
     public string? SessionParam { get; set; }
 
+    private Song? GetCurrentSong()
+    {
+        var currentItem = PlaylistState.Value.CurrentSong;
+        if (currentItem?.SongId == null) return null;
+        return LibraryState.Value.Songs.FirstOrDefault(s => s.Id.ToString() == currentItem.SongId);
+    }
+
     [Parameter]
     [SupplyParameterFromQuery(Name = "token")]
     public string? TokenParam { get; set; }
@@ -227,7 +237,7 @@
     {
         try
         {
-            var song = PlaylistState.Value.CurrentSong;
+            var song = GetCurrentSong();
             if (song == null || fileAccessModule == null || playerModule == null)
             {
                 return;
@@ -290,10 +300,10 @@
         showBlockingError = false;
         blockingErrorMessage = string.Empty;
 
-        // Clear current song so NextSongView can resume showing queue
+        // Advance to next song so NextSongView can resume showing queue
         try
         {
-            Dispatcher.Dispatch(new ClearCurrentSongAction());
+            Dispatcher.Dispatch(new AdvanceToNextSongAction());
         }
         catch { }
 
@@ -311,8 +321,8 @@
     {
         try
         {
-            // Clear the current song (stop playback state) - Next song is not auto-promoted
-            Dispatcher.Dispatch(new ClearCurrentSongAction());
+            // Advance to next song via SignalR
+            Dispatcher.Dispatch(new AdvanceToNextSongAction());
 
             // Wait a moment for state to update
             await Task.Delay(250);
