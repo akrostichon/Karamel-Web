@@ -78,10 +78,21 @@ dotnet ef migrations add InitialCreate_WithStatus --context BackendDbContext --p
 ### ✅ Step 7: Simplify Frontend PlaylistState
 **File**: [Karamel.Web/Store/Playlist/PlaylistState.cs](Karamel.Web/Store/Playlist/PlaylistState.cs)
 
-- [ ] Replace `Queue<Song>` with `List<PlaylistItemDto> Items`
-- [ ] Change `CurrentSong` type to `PlaylistItemDto?`
-- [ ] Remove `SingerSongCounts` dictionary
-- [ ] Remove `CurrentSingerName` (get from CurrentSong.SingerName)
+**CRITICAL ARCHITECTURE**: PlaylistItemDto is MINIMAL (no file paths for privacy). Components MUST look up full Song from LibraryState.Value.Songs using SongId for playback metadata.
+
+- [x] Replace `Queue<Song>` with `List<PlaylistItemDto> Items`
+- [x] Change `CurrentSong` type to `PlaylistItemDto?`
+- [x] Remove `SingerSongCounts` dictionary
+- [x] Remove `CurrentSingerName` (get from CurrentSong.SingerName)
+
+**Helper Method Pattern for Components**:
+```csharp
+private Song? GetSongById(string? songId)
+{
+    if (string.IsNullOrEmpty(songId)) return null;
+    return LibraryState.Value.Songs.FirstOrDefault(s => s.Id.ToString() == songId);
+}
+```
 
 ### ✅ Step 8: Update NextSongView Countdown Logic
 **File**: [Karamel.Web/Pages/NextSongView.razor](Karamel.Web/Pages/NextSongView.razor)
@@ -94,7 +105,11 @@ dotnet ef migrations add InitialCreate_WithStatus --context BackendDbContext --p
 ### ✅ Step 9: Update PlayerView Transitions
 **File**: [Karamel.Web/Pages/PlayerView.razor](Karamel.Web/Pages/PlayerView.razor)
 
+**CRITICAL**: PlayerView must look up full Song from LibraryState using `CurrentSong.SongId` to get file paths for playback.
+
+- [ ] Add `GetCurrentSong()` helper method to look up Song from LibraryState
 - [ ] On `OnInitializedAsync`, dispatch action to call SignalR `SetSongStatusAsync(sessionId, CurrentSong.Id, NowPlaying)`
+- [ ] Use `GetCurrentSong()` to get full Song metadata for playback
 - [ ] On `OnSongEnded`, dispatch action to call SignalR `AdvanceToNextSongAsync(sessionId)` instead of `ClearCurrentSongAction`
 - [ ] Remove manual queue management
 
