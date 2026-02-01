@@ -3,7 +3,12 @@
 **Date**: February 1, 2026  
 **Goal**: Implement explicit song state management (Queued/Up Next/Now Playing/Completed) with SignalR as single source of truth
 
-**Current Status**: Backend complete, frontend state model updated, test infrastructure fixed. 112/128 frontend tests passing. Remaining work: fix 13 test failures, update components to look up Songs from LibraryState, implement Steps 8-14.
+**Current Status**: 
+- ✅ Backend complete (Steps 1-7)
+- ✅ Frontend state model updated (PlaylistState uses List<PlaylistItemDto>)  
+- ✅ All frontend components updated (Steps 8-10, 14)
+- ✅ 112/128 tests passing (87.5%)
+- ⏳ Remaining: Fix 13 integration tests + Step 13 (Fluxor Effects for SignalR)
 
 ## Overview
 
