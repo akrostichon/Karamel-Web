@@ -79,10 +79,19 @@ public interface ISessionService : IAsyncDisposable
     Task<bool> RemoveItemFromPlaylistAsync(Guid itemId);
 
     /// <summary>
-    /// Reorder the playlist via SignalR if available, fallback to broadcast.
-    /// Returns true if server RPC was invoked.
+    /// Reorder the playlist via SignalR.
     /// </summary>
-    Task<bool> ReorderPlaylistAsync(IEnumerable<Song> newOrder);
+    Task<bool> ReorderPlaylistAsync(int from, int to);
+
+    /// <summary>
+    /// Set song status via SignalR.
+    /// </summary>
+    Task SetSongStatusAsync(string itemId, int status);
+
+    /// <summary>
+    /// Advance to next song via SignalR.
+    /// </summary>
+    Task AdvanceToNextSongAsync();
 
     /// <summary>
     /// Handle state update from broadcast (called by JavaScript)

@@ -142,22 +142,12 @@ public class SessionService : ISessionService
 
     /// <summary>
     /// Broadcast playlist updated event (main tab only)
+    /// DEPRECATED: SignalR handles playlist synchronization now
     /// </summary>
     public async Task BroadcastPlaylistUpdatedAsync()
     {
-        if (_sessionBridgeModule == null)
-            return;
-
-        var state = _playlistState.Value;
-        var data = new
-        {
-            queue = state.Queue.Select(SongConverters.ConvertSongToDto).ToArray(),
-            currentSong = state.CurrentSong == null ? null : SongConverters.ConvertSongToDto(state.CurrentSong),
-            currentSingerName = state.CurrentSingerName,
-            singerSongCounts = state.SingerSongCounts
-        };
-
-        await _sessionBridgeModule.InvokeVoidAsync("broadcastStateUpdate", "playlist-updated", data);
+        // No-op: SignalR broadcasts playlist updates automatically
+        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -732,24 +722,54 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
-    /// Reorder the playlist using SignalR if available, fallback to local broadcast.
-    /// newOrder should be an IEnumerable of Song representing the desired queue order.
-    /// Returns true if the server-side RPC was invoked successfully.
+    /// Reorder the playlist using SignalR.
     /// </summary>
-    public async Task<bool> ReorderPlaylistAsync(IEnumerable<Song> newOrder)
+    public async Task<bool> ReorderPlaylistAsync(int from, int to)
     {
         if (_sessionBridgeModule == null) return false;
 
-        var items = newOrder.Select(SongConverters.ConvertSongToDto).ToArray();
-
         try
         {
-            return await _sessionBridgeModule.InvokeAsync<bool>("reorderPlaylist", items);
+            return await _sessionBridgeModule.InvokeAsync<bool>("reorderPlaylist", from, to);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"SessionService: reorderPlaylist JS invoke failed: {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Set song status via SignalR.
+    /// </summary>
+    public async Task SetSongStatusAsync(string itemId, int status)
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("setSongStatus", itemId, status);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: setSongStatus JS invoke failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Advance to next song via SignalR.
+    /// </summary>
+    public async Task AdvanceToNextSongAsync()
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("advanceToNextSong");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: advanceToNextSong JS invoke failed: {ex.Message}");
         }
     }
 

@@ -1,5 +1,6 @@
 using Fluxor;
 using Karamel.Web.Models;
+using Karamel.Web.Contracts;
 
 namespace Karamel.Web.Store.Playlist;
 
@@ -10,109 +11,37 @@ public static class PlaylistReducers
     [ReducerMethod]
     public static PlaylistState ReduceAddToPlaylistSuccessAction(PlaylistState state, AddToPlaylistSuccessAction action)
     {
-        var newQueue = new Queue<Song>(state.Queue);
-        newQueue.Enqueue(action.Song);
-
-        var singerName = action.Song.AddedBySinger ?? "Unknown";
-        var newCounts = new Dictionary<string, int>(state.SingerSongCounts);
-        newCounts[singerName] = newCounts.GetValueOrDefault(singerName, 0) + 1;
-
-        return state with
-        {
-            Queue = newQueue,
-            SingerSongCounts = newCounts
-        };
+        // No-op: SignalR broadcast will update state via UpdatePlaylistFromBroadcastAction
+        return state;
     }
 
     [ReducerMethod]
     public static PlaylistState ReduceRemoveSongAction(PlaylistState state, RemoveSongAction action)
     {
-        var songs = state.Queue.ToList();
-        var songToRemove = songs.FirstOrDefault(s => s.Id == action.SongId);
-        
-        if (songToRemove == null)
-            return state;
-
-        songs.Remove(songToRemove);
-        var newQueue = new Queue<Song>(songs);
-
-        // Update singer song counts
-        var singerName = songToRemove.AddedBySinger ?? "Unknown";
-        var newCounts = new Dictionary<string, int>(state.SingerSongCounts);
-        if (newCounts.ContainsKey(singerName))
-        {
-            newCounts[singerName] = Math.Max(0, newCounts[singerName] - 1);
-            if (newCounts[singerName] == 0)
-                newCounts.Remove(singerName);
-        }
-
-        return state with
-        {
-            Queue = newQueue,
-            SingerSongCounts = newCounts
-        };
+        // No-op: SignalR broadcast will update state via UpdatePlaylistFromBroadcastAction
+        return state;
     }
 
     [ReducerMethod]
     public static PlaylistState ReduceReorderPlaylistAction(PlaylistState state, ReorderPlaylistAction action)
     {
-        var songs = state.Queue.ToList();
-        
-        if (action.OldIndex < 0 || action.OldIndex >= songs.Count ||
-            action.NewIndex < 0 || action.NewIndex >= songs.Count)
-            return state;
-
-        var song = songs[action.OldIndex];
-        songs.RemoveAt(action.OldIndex);
-        songs.Insert(action.NewIndex, song);
-
-        return state with
-        {
-            Queue = new Queue<Song>(songs)
-        };
+        // No-op: SignalR broadcast will update state via UpdatePlaylistFromBroadcastAction
+        return state;
     }
 
     [ReducerMethod]
     public static PlaylistState ReduceNextSongAction(PlaylistState state, NextSongAction action)
     {
-        if (state.Queue.Count == 0)
-            return state with
-            {
-                CurrentSong = null,
-                CurrentSingerName = null
-            };
-
-        var nextSong = state.Queue.Peek();
-        var newQueue = new Queue<Song>(state.Queue);
-        newQueue.Dequeue();
-
-        // Update singer song counts
-        var singerName = nextSong.AddedBySinger ?? "Unknown";
-        var newCounts = new Dictionary<string, int>(state.SingerSongCounts);
-        if (newCounts.ContainsKey(singerName))
-        {
-            newCounts[singerName] = Math.Max(0, newCounts[singerName] - 1);
-            if (newCounts[singerName] == 0)
-                newCounts.Remove(singerName);
-        }
-
-        return state with
-        {
-            Queue = newQueue,
-            CurrentSong = nextSong,
-            CurrentSingerName = nextSong.AddedBySinger,
-            SingerSongCounts = newCounts
-        };
+        // No-op: Use AdvanceToNextSongAction instead (triggers SignalR)
+        return state;
     }
 
     [ReducerMethod]
     public static PlaylistState ReduceClearPlaylistAction(PlaylistState state, ClearPlaylistAction action) =>
         state with
         {
-            Queue = new Queue<Song>(),
-            CurrentSong = null,
-            CurrentSingerName = null,
-            SingerSongCounts = new Dictionary<string, int>()
+            Items = [],
+            CurrentSong = null
         };
 
     [ReducerMethod]
@@ -120,25 +49,34 @@ public static class PlaylistReducers
     {
         try
         {
-            Console.WriteLine($"PlaylistReducers: UpdatePlaylistFromBroadcastAction received with {action.Queue?.Count ?? 0} songs");
+            Console.WriteLine($"PlaylistReducers: UpdatePlaylistFromBroadcastAction received with {action.Items?.Count ?? 0} items, CurrentSong={action.CurrentSong?.Id}");
         }
         catch { }
         return state with
         {
-            Queue = action.Queue != null ? new Queue<Song>(action.Queue) : new Queue<Song>(),
-            SingerSongCounts = action.SingerSongCounts ?? new Dictionary<string, int>(),
-            CurrentSong = action.CurrentSong,
-            CurrentSingerName = action.CurrentSingerName
+            Items = action.Items ?? [],
+            CurrentSong = action.CurrentSong
         };
     }
 
     [ReducerMethod]
     public static PlaylistState ReduceClearCurrentSongAction(PlaylistState state, ClearCurrentSongAction action)
     {
-        return state with
-        {
-            CurrentSong = null,
-            CurrentSingerName = null
-        };
+        // No-op: Use AdvanceToNextSongAction instead
+        return state;
+    }
+
+    [ReducerMethod]
+    public static PlaylistState ReduceSetSongStatusAction(PlaylistState state, SetSongStatusAction action)
+    {
+        // No-op: SignalR broadcast will update state
+        return state;
+    }
+
+    [ReducerMethod]
+    public static PlaylistState ReduceAdvanceToNextSongAction(PlaylistState state, AdvanceToNextSongAction action)
+    {
+        // No-op: SignalR broadcast will update state
+        return state;
     }
 }

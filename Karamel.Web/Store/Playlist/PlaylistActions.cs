@@ -1,4 +1,5 @@
 using Karamel.Web.Models;
+using Karamel.Web.Contracts;
 
 namespace Karamel.Web.Store.Playlist;
 
@@ -11,4 +12,7 @@ public record ReorderPlaylistAction(int OldIndex, int NewIndex);
 public record NextSongAction();
 public record ClearCurrentSongAction();
 public record ClearPlaylistAction();
-public record UpdatePlaylistFromBroadcastAction(List<Song> Queue, Dictionary<string, int> SingerSongCounts, Song? CurrentSong = null, string? CurrentSingerName = null);
+// SignalR updates - receives playlist items from backend
+public record UpdatePlaylistFromBroadcastAction(List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong);
+public record SetSongStatusAction(string ItemId, int Status);
+public record AdvanceToNextSongAction();
