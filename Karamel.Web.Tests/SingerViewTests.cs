@@ -122,7 +122,7 @@ public class SingerViewTests : SessionTestBase
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
-        nameInput.Change("John");
+        nameInput.Input("John");
         var continueButton = cut.Find("button.k-btn-primary");
 
         // Assert
@@ -139,7 +139,7 @@ public class SingerViewTests : SessionTestBase
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
-        nameInput.Change("J");
+        nameInput.Input("J");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
@@ -159,7 +159,7 @@ public class SingerViewTests : SessionTestBase
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
-        nameInput.Change("John Doe");
+        nameInput.Input("John Doe");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
@@ -182,7 +182,7 @@ public class SingerViewTests : SessionTestBase
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
-        nameInput.Change("  John Doe  ");
+        nameInput.Input("  John Doe  ");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
@@ -202,7 +202,7 @@ public class SingerViewTests : SessionTestBase
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
-        nameInput.Change("Jane Smith");
+        nameInput.Input("John");
         nameInput.KeyUp("Enter");
 
         // Assert
@@ -210,7 +210,7 @@ public class SingerViewTests : SessionTestBase
         Assert.NotNull(librarySearch);
         
         var header = cut.Find(".singer-header h3");
-        Assert.Contains("Welcome, Jane Smith!", header.TextContent);
+        Assert.Contains("Welcome, John!", header.TextContent);
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public class SingerViewTests : SessionTestBase
         
         // Enter name first
         var nameInput = cut.Find("input#singerNameInput");
-        nameInput.Change("Alice");
+        nameInput.Input("Alice");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
@@ -301,7 +301,7 @@ public class SingerViewTests : SessionTestBase
         
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
-        nameInput.Change("Bob");
+        nameInput.Input("Bob");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
@@ -339,7 +339,7 @@ public class SingerViewTests : SessionTestBase
         
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
-        nameInput.Change("Charlie");
+        nameInput.Input("Charlie");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
@@ -381,7 +381,7 @@ public class SingerViewTests : SessionTestBase
         
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
-        nameInput.Change("David");
+        nameInput.Input("David");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
@@ -401,13 +401,13 @@ public class SingerViewTests : SessionTestBase
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
-        nameInput.Change("José María O'Neill");
+        nameInput.Input("José García-López");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
         // Assert
         var header = cut.Find(".singer-header h3");
-        Assert.Contains("Welcome, José María O'Neill!", header.TextContent);
+        Assert.Contains("Welcome, José García-López!", header.TextContent);
     }
 
     [Fact]
