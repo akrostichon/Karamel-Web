@@ -3,6 +3,7 @@ using Karamel.Web.Models;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
+using Karamel.Web.Tests.TestHelpers;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
@@ -80,7 +81,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -99,7 +100,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -117,7 +118,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -138,7 +139,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -168,7 +169,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -203,7 +204,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -223,7 +224,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -249,7 +250,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -266,7 +267,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -295,7 +296,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -324,7 +325,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -356,7 +357,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -387,7 +388,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         
         var mockFileAccess = new Mock<IJSObjectReference>();
@@ -413,7 +414,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         
         var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
@@ -436,7 +437,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         var (_, _, fakeNavManager) = SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -467,7 +468,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
@@ -502,7 +503,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = _testSong };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
         SetupTestWithSession(sessionState, playlistState, view: "player");
         
         var mockPlayer = new Mock<IJSObjectReference>();

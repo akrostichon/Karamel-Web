@@ -1,6 +1,8 @@
 using Bunit;
 using Karamel.Web.Components;
 using Karamel.Web.Models;
+using Karamel.Web.Tests.TestHelpers;
+using Karamel.Web.Contracts;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Library;
 using Karamel.Web.Store.Playlist;
@@ -221,7 +223,7 @@ public class SingerViewTests : SessionTestBase
         var libraryState = new LibraryState { Songs = _testSongs };
         var playlistState = new PlaylistState
         {
-            SingerSongCounts = new Dictionary<string, int> { { "John", 3 } }
+            Items = new List<PlaylistItemDto>() // SingerSongCounts removed
         };
         SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
 
@@ -293,7 +295,7 @@ public class SingerViewTests : SessionTestBase
         var libraryState = new LibraryState { Songs = _testSongs };
         var playlistState = new PlaylistState
         {
-            Queue = new Queue<Song>(new[] { _testSongs[0] })
+            Items = TestDataFactory.CreatePlaylistItems(new[] { _testSongs[0] })
         };
         var (actionSubscriber, _, _) = SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
@@ -331,7 +333,7 @@ public class SingerViewTests : SessionTestBase
         var libraryState = new LibraryState { Songs = _testSongs };
         var playlistState = new PlaylistState
         {
-            SingerSongCounts = new Dictionary<string, int> { { "Charlie", 10 } }
+            Items = new List<PlaylistItemDto>() // SingerSongCounts removed
         };
         var (actionSubscriber, _, _) = SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
@@ -369,11 +371,7 @@ public class SingerViewTests : SessionTestBase
         var libraryState = new LibraryState { Songs = _testSongs };
         var playlistState = new PlaylistState
         {
-            SingerSongCounts = new Dictionary<string, int> 
-            { 
-                { "David", 3 },
-                { "Eve", 5 }
-            }
+            Items = new List<PlaylistItemDto>() // SingerSongCounts removed
         };
         SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
@@ -424,3 +422,5 @@ public class SingerViewTests : SessionTestBase
     }
 
 }
+
+

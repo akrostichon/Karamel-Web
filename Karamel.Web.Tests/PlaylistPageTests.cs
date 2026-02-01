@@ -1,5 +1,7 @@
 using Bunit;
 using Karamel.Web.Models;
+using Karamel.Web.Tests.TestHelpers;
+using Karamel.Web.Contracts;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
@@ -71,7 +73,7 @@ public class PlaylistPageTests : SessionTestBase
     public void Component_WhenPlaylistIsEmpty_ShowsEmptyStateMessage()
     {
         // Arrange
-        var playlistState = new PlaylistState { Queue = new Queue<Song>() };
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -94,8 +96,8 @@ public class PlaylistPageTests : SessionTestBase
         var queue = new Queue<Song>(_testSongs);
         var playlistState = new PlaylistState 
         { 
-            Queue = queue,
-            CurrentSong = _testSongs[0] // Set CurrentSong to first song
+            Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()),
+            CurrentSong = TestDataFactory.CreatePlaylistItem(_testSongs[0]) // Set CurrentSong to first song
         };
         var sessionState = new SessionState 
         { 
@@ -119,7 +121,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -150,8 +152,8 @@ public class PlaylistPageTests : SessionTestBase
         var queue = new Queue<Song>(); // Empty queue after song taken out
         var playlistState = new PlaylistState 
         { 
-            Queue = queue,
-            CurrentSong = _testSongs[0] // Song is now current
+            Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()),
+            CurrentSong = TestDataFactory.CreatePlaylistItem(_testSongs[0]) // Song is now current
         };
         var sessionState = new SessionState 
         { 
@@ -173,7 +175,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -197,7 +199,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -239,7 +241,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -267,7 +269,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var session = _testSession with { AllowSingersToReorder = false };
         var sessionState = new SessionState 
         { 
@@ -296,7 +298,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var session = _testSession with { AllowSingersToReorder = true };
         var sessionState = new SessionState 
         { 
@@ -325,7 +327,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -351,13 +353,13 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
             IsInitialized = true 
         };
-        playlistState = playlistState with { CurrentSong = _testSongs[0] }; // Set CurrentSong
+        playlistState = playlistState with { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSongs[0]) }; // Set CurrentSong
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
@@ -374,3 +376,5 @@ public class PlaylistPageTests : SessionTestBase
         Assert.Contains("Charlie", upNextSection.TextContent);
     }
 }
+
+

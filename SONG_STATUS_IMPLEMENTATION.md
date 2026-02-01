@@ -3,6 +3,8 @@
 **Date**: February 1, 2026  
 **Goal**: Implement explicit song state management (Queued/Up Next/Now Playing/Completed) with SignalR as single source of truth
 
+**Current Status**: Backend complete, frontend state model updated, test infrastructure fixed. 112/128 frontend tests passing. Remaining work: fix 13 test failures, update components to look up Songs from LibraryState, implement Steps 8-14.
+
 ## Overview
 
 This implementation adds explicit song status tracking to fix the playlist view state management bug where songs are displayed incorrectly. The backend will track song status in the database, SignalR will broadcast status changes, and the frontend will remove playlist from sessionStorage to rely entirely on real-time updates.
@@ -170,11 +172,27 @@ npm run test:run
 ```
 
 - [ ] Run backend tests and verify hub methods work
-- [ ] Run frontend tests (expect some updates needed)
+- [x] Frontend tests compile successfully (112/128 passing, 13 failures, 3 skipped - see details below)
+- [ ] Fix remaining 13 frontend test failures (components need to look up Song from LibraryState using SongId)
 - [ ] Run JavaScript tests
 - [ ] Manual testing: NextSongView → PlayerView transition
 - [ ] Manual testing: Cross-tab synchronization
 - [ ] Manual testing: Song completion and queue advancement
+
+**Test Failures (13) - To Fix**:
+1. `TwoTabBroadcastSimulationTests.SingerAddsSong_NextSongReceivesPlaylistUpdate` - Empty collection
+2. `NavigationFlowTests.PlayerView_WithMissingSessionParameter` - Missing LibraryState service
+3. `SingerViewTests.Component_ShowsSongCountForCurrentSinger` - Need on-demand calculation from Items
+4. `FallbackBehaviorTests.PlayerView_WhenNoCdg_ShowsMissingCdgFallback` - PlayerView not looking up Song from LibraryState
+5. `PlaylistPageTests.RemoveButton_WhenClicked_DispatchesRemoveSongAction` - Action parameter mismatch (itemId vs SongId)
+6. `NextSongViewIntegrationTests.Integration_DisplaysNextSongFromQueue` - Component not displaying from Items
+7. `SingerViewTests.Component_ShowsSuccessToast_OnAddToPlaylistSuccess` - Position calculation off by 1
+8. `FallbackBehaviorTests.PlayerView_WhenCdgCorrupt_ShowsCorruptCdgFallback` - PlayerView not looking up Song
+9. `NextSongViewIntegrationTests.Component_UpdatesDisplay_WhenPlaylistStateChanges` - Component not reacting to Items changes
+10. `NextSongViewIntegrationTests.Component_ReactsTo_MultipleQueueChanges` - Same as above
+11. `PlayerViewTests.OnSongEnded_DispatchesNextSongAction` - Now dispatches `AdvanceToNextSongAction` not `ClearCurrentSongAction`
+12. `PlayerViewTests.Component_LoadsAndPlaysCurrentSong` - PlayerView not calling loadSongFiles (needs Song lookup)
+13. `NextSongViewIntegrationTests.Component_UpdatesDisplay_WhenQueueBecomesEmpty` - Timeout waiting for state change
 
 ## Key Decisions
 

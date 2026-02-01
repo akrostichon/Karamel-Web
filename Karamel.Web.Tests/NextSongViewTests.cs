@@ -1,5 +1,6 @@
 using Bunit;
 using Karamel.Web.Models;
+using Karamel.Web.Tests.TestHelpers;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
@@ -83,7 +84,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -106,7 +107,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -129,7 +130,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>() };
+        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
         SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -155,7 +156,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>() };
+        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
         SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -181,7 +182,7 @@ public class NextSongViewTests : SessionTestBase
             AddedBySinger = null
         };
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(new[] { songWithoutSinger }) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(new[] { songWithoutSinger }) };
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -204,7 +205,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -231,7 +232,7 @@ public class NextSongViewTests : SessionTestBase
             PauseBetweenSongsSeconds = 5
         };
         var sessionState = new SessionState { CurrentSession = session, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -249,7 +250,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithoutPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -273,7 +274,7 @@ public class NextSongViewTests : SessionTestBase
             PauseBetweenSongsSeconds = 10
         };
         var sessionState = new SessionState { CurrentSession = sessionWithLongPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -292,7 +293,7 @@ public class NextSongViewTests : SessionTestBase
         {
             var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
             var queue = new Queue<Song>(new[] { _testSongs[0] });
-            var playlistState = new PlaylistState { Queue = queue };
+            var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
             SetupTestWithSession(sessionState, playlistState, view: "nextsong");
             SetupJSRuntime();
 
@@ -314,7 +315,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange - Set up session with empty queue from the start
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var emptyPlaylistState = new PlaylistState { Queue = new Queue<Song>() };
+        var emptyPlaylistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
         SetupTestWithNonLocalhostSession(sessionState, emptyPlaylistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -345,7 +346,7 @@ public class NextSongViewTests : SessionTestBase
             PauseBetweenSongsSeconds = 5
         };
         var sessionState = new SessionState { CurrentSession = session, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -373,7 +374,7 @@ public class NextSongViewTests : SessionTestBase
             PauseBetweenSongsSeconds = duration
         };
         var sessionState = new SessionState { CurrentSession = session, IsInitialized = true };
-        var playlistState = new PlaylistState { Queue = new Queue<Song>(_testSongs) };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -402,3 +403,5 @@ public class NextSongViewTests : SessionTestBase
         return mockJSModule;
     }
 }
+
+

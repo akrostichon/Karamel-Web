@@ -4,6 +4,7 @@ using Karamel.Web.Pages;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Models;
+using Karamel.Web.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Karamel.Web.Tests;
@@ -173,9 +174,9 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         // NOTE: Due to FluxorComponent subscription limitations in bUnit,
         // automatic re-renders may not trigger. This test verifies the reducer logic works.
         var playlistState = Services.GetRequiredService<IState<PlaylistState>>();
-        var queueList = playlistState.Value.Queue.ToList();
+        var queueList = playlistState.Value.Items;
         Assert.Single(queueList);
-        Assert.Equal(song2.Id, queueList[0].Id);
+        Assert.Equal(song2.Id.ToString(), queueList[0].SongId);
     }
 
     [Fact]
@@ -205,7 +206,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         cut.WaitForState(() => 
         {
             var state = Services.GetRequiredService<IState<PlaylistState>>();
-            return state.Value.Queue.Count > 0;
+            return state.Value.Items.Count > 0;
         }, timeout: TimeSpan.FromSeconds(5));
 
         // Assert - should show song info
@@ -219,7 +220,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         cut.WaitForState(() => 
         {
             var state = Services.GetRequiredService<IState<PlaylistState>>();
-            return state.Value.Queue.Count == 0;
+            return state.Value.Items.Count == 0;
         }, timeout: TimeSpan.FromSeconds(5));
 
         // Assert - should show empty queue state
@@ -265,7 +266,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
 
         // Verify all songs are in queue
         var playlistState = Services.GetRequiredService<IState<PlaylistState>>();
-        Assert.Equal(5, playlistState.Value.Queue.Count);
+        Assert.Equal(5, playlistState.Value.Items.Count);
 
         // Act - remove songs one by one and verify state updates
         for (int i = 1; i <= 5; i++)
@@ -274,12 +275,13 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
             await Task.Delay(50);
             
             var state = Services.GetRequiredService<IState<PlaylistState>>();
-            Assert.Equal(5 - i, state.Value.Queue.Count);
+            Assert.Equal(5 - i, state.Value.Items.Count);
         }
 
         // Final state should have empty queue
-        Assert.Empty(playlistState.Value.Queue);
+        Assert.Empty(playlistState.Value.Items);
     }
 }
+
 
 
