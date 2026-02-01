@@ -92,7 +92,11 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState 
+        { 
+            Queue = queue,
+            CurrentSong = _testSongs[0] // Set CurrentSong to first song
+        };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -130,21 +134,25 @@ public class PlaylistPageTests : SessionTestBase
         var upNextSection = cut.Find(".up-next");
         var songRows = upNextSection.QuerySelectorAll(".song-item");
         
-        // Should have 3 songs in "Up Next" (first one is in "Now Playing")
-        Assert.Equal(3, songRows.Length);
+        // Should have 4 songs in "Up Next" (no CurrentSong set, so all in queue)
+        Assert.Equal(4, songRows.Length);
         
-        // Verify order
-        Assert.Contains("Beatles", songRows[0].TextContent);
-        Assert.Contains("Let It Be", songRows[0].TextContent);
-        Assert.Contains("Bob", songRows[0].TextContent);
+        // Verify first song is at index 0
+        Assert.Contains("Queen", songRows[0].TextContent);
+        Assert.Contains("Bohemian Rhapsody", songRows[0].TextContent);
+        Assert.Contains("Alice", songRows[0].TextContent);
     }
 
     [Fact]
     public void Component_WhenQueueHasOneSong_DoesNotShowUpNextSection()
     {
-        // Arrange
-        var queue = new Queue<Song>(new[] { _testSongs[0] });
-        var playlistState = new PlaylistState { Queue = queue };
+        // Arrange - Simulate state after NextSongAction: song moved from Queue to CurrentSong
+        var queue = new Queue<Song>(); // Empty queue after song taken out
+        var playlistState = new PlaylistState 
+        { 
+            Queue = queue,
+            CurrentSong = _testSongs[0] // Song is now current
+        };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -155,7 +163,7 @@ public class PlaylistPageTests : SessionTestBase
         // Act
         var cut = RenderComponent<Playlist>();
 
-        // Assert
+        // Assert - Now Playing should show, but Up Next should not (queue is empty)
         var upNextSections = cut.FindAll(".up-next");
         Assert.Empty(upNextSections);
     }
@@ -177,11 +185,11 @@ public class PlaylistPageTests : SessionTestBase
 
         // Act
         var removeButtons = cut.FindAll("button.btn-remove");
-        removeButtons[0].Click(); // Click first remove button (for 2nd song in queue)
+        removeButtons[0].Click(); // Click first remove button (for first song in queue)
 
-        // Assert - The first button is for the second song in the queue (_testSongs[1])
+        // Assert - The first button is now for the first song in the queue (_testSongs[0])
         mockDispatcher.Verify(d => d.Dispatch(It.Is<RemoveSongAction>(
-            a => a.SongId == _testSongs[1].Id)), Times.Once);
+            a => a.SongId == _testSongs[0].Id)), Times.Once);
     }
 
     [Fact(Skip = "Complex async JSInterop mocking: bUnit doesn't properly trigger async @onclick handlers that call JSRuntime.InvokeAsync. Button rendering and visual behavior tested in other tests. Consider refactoring to extract confirmation logic to testable service.")]
@@ -349,6 +357,7 @@ public class PlaylistPageTests : SessionTestBase
             CurrentSession = _testSession,
             IsInitialized = true 
         };
+        playlistState = playlistState with { CurrentSong = _testSongs[0] }; // Set CurrentSong
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
@@ -358,7 +367,7 @@ public class PlaylistPageTests : SessionTestBase
         var nowPlaying = cut.Find(".now-playing");
         Assert.Contains("Alice", nowPlaying.TextContent);
 
-        // Assert - Check "Up Next" items
+        // Assert - Check "Up Next" items (all songs in queue)
         var upNextSection = cut.Find(".up-next");
         Assert.Contains("Bob", upNextSection.TextContent);
         Assert.Contains("Alice", upNextSection.TextContent); // ABBA song

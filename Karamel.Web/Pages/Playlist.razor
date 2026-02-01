@@ -46,32 +46,35 @@
     else
     {
         <!-- Now Playing Section -->
-        <div class="now-playing card mb-4">
-            <div class="card-body">
-                <h2 class="card-title">
-                    <i class="bi bi-play-circle-fill text-on-surface me-2"></i>
-                    Now Playing
-                </h2>
-                @{
-                    var nowPlaying = PlaylistState.Value.Queue.Peek();
-                }
-                <div class="song-info">
-                    <div class="artist h4">@nowPlaying.Artist</div>
-                    <div class="title h3 fw-bold">@nowPlaying.Title</div>
-                    @if (!string.IsNullOrEmpty(nowPlaying.AddedBySinger))
-                    {
-                        <div class="singer muted-on-surface">
-                            <i class="bi bi-person-fill"></i> @nowPlaying.AddedBySinger
-                        </div>
+        @if (PlaylistState.Value.CurrentSong != null)
+        {
+            <div class="now-playing card mb-4">
+                <div class="card-body">
+                    <h2 class="card-title">
+                        <i class="bi bi-play-circle-fill text-on-surface me-2"></i>
+                        Now Playing
+                    </h2>
+                    @{
+                        var nowPlaying = PlaylistState.Value.CurrentSong;
                     }
+                    <div class="song-info">
+                        <div class="artist h4">@nowPlaying.Artist</div>
+                        <div class="title h3 fw-bold">@nowPlaying.Title</div>
+                        @if (!string.IsNullOrEmpty(nowPlaying.AddedBySinger))
+                        {
+                            <div class="singer muted-on-surface">
+                                <i class="bi bi-person-fill"></i> @nowPlaying.AddedBySinger
+                            </div>
+                        }
+                    </div>
                 </div>
             </div>
-        </div>
+        }
 
         <!-- Up Next Section -->
-        @if (PlaylistState.Value.Queue.Count() > 1)
+        @if (PlaylistState.Value.Queue.Count() > 0)
         {
-            var upNextSongs = PlaylistState.Value.Queue.Skip(1).ToList();
+            var upNextSongs = PlaylistState.Value.Queue.ToList();
 
             <div class="up-next card">
                 <div class="card-body">
