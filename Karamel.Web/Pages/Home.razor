@@ -20,6 +20,20 @@
             <h1 class="h3 mb-0">Karaoke Session Setup</h1>
         </div>
         <div class="card-body">
+            <div class="alert alert-info mb-4" role="alert">
+                <h5 class="alert-heading">
+                    <i class="bi bi-shield-lock"></i> Privacy & Local Processing
+                </h5>
+                <p>
+                    Your karaoke files stay <strong>on your device</strong>. We only upload song metadata (artist, title) 
+                    to let Singers search your library — no filenames or media. All data auto-deletes 30 minutes after your 
+                    session ends. Each session is isolated and private.
+                </p>
+                <p class="mb-0">
+                    Only MP3, CDG, video files and ZIP files containing MP3 and CDG will be parsed. Access is read-only.
+                </p>
+            </div>
+
             @if (!_isFileSystemAccessSupported)
             {
                 <div class="alert alert-danger" role="alert">
