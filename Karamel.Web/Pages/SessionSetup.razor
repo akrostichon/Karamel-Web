@@ -41,14 +41,21 @@ else
                 Library: <strong>@LibraryState.Value.Songs.Count</strong> songs loaded
             </p>
 
-            <div class="setup-actions">
-                <button class="action-button open-playlist-button" @onclick="OpenPlaylistManager">
-                    📋 Open Playlist Manager
-                </button>
+            <div class="setup-actions-group">
+                <div class="setup-actions">
+                    <button class="action-button open-playlist-button" @onclick="OpenPlaylistManager">
+                        📋 Open Playlist Manager
+                    </button>
 
-                <button class="action-button open-singer-button" @onclick="OpenSingerView">
-                    🎤 Open Singer View
-                </button>
+                    <button class="action-button open-singer-button" @onclick="OpenSingerView">
+                        🎤 Open Singer View
+                    </button>
+                </div>
+                
+                <p class="setup-hint">
+                    💡 Tip: Hold <kbd>Ctrl</kbd> (Windows/Linux) or <kbd>⌘ Cmd</kbd> (Mac) while clicking to open in background, 
+                    or quickly switch back to this tab after opening.
+                </p>
             </div>
 
             <details class="faq-section">
