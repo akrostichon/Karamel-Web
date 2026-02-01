@@ -5,6 +5,7 @@
 @using Karamel.Web.Contracts
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Library
 @using Microsoft.JSInterop
 @using Karamel.Web.Services
 
@@ -13,6 +14,7 @@
 
 @inject IState<SessionState> SessionState
 @inject IState<PlaylistState> PlaylistState
+@inject IState<LibraryState> LibraryState
 @inject IDispatcher Dispatcher
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -51,7 +53,7 @@
     }
     else
     {
-        @if (PlaylistState.Value.Items.Any(i => i.Status == 0))
+        @if (nextSong != null)
         {
             <div class="nextsong-container">
                 <div class="nextsong-content">
@@ -370,6 +372,12 @@
             .Where(i => i.Status == 0)
             .OrderBy(i => i.Position)
             .FirstOrDefault();
+    }
+
+    private Song? GetSongById(string? songId)
+    {
+        if (string.IsNullOrEmpty(songId)) return null;
+        return LibraryState.Value.Songs.FirstOrDefault(s => s.Id.ToString() == songId);
     }
 
     private bool ItemsEqual(List<PlaylistItemDto> a, List<PlaylistItemDto> b)
