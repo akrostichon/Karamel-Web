@@ -51,6 +51,7 @@
                         class="form-control form-control-lg" 
                         id="singerNameInput"
                         @bind="tempSingerName"
+                        @bind:event="oninput"
                         @onkeyup="HandleKeyUp"
                         placeholder="Enter your name"
                         maxlength="50"
@@ -67,7 +68,7 @@
                 <button 
                     class="btn k-btn-primary btn-lg w-100 mt-3"
                     @onclick="ConfirmName"
-                    disabled="@string.IsNullOrWhiteSpace(tempSingerName)">
+                    disabled="@(tempSingerName.Trim().Length < 2)">
                     Continue
                 </button>
             </div>
