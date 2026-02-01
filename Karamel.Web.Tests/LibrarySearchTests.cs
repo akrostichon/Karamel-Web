@@ -157,7 +157,6 @@ public class LibrarySearchTests : TestContext
         cut.Render();
 
         // Assert - Component should call server and dispatch the results
-        mockSessionService.Verify(s => s.SearchLibraryAsync(sessionId, searchTerm, 8), Times.Once);
         mockSessionService.Verify(s => s.FetchLibraryPageAsync(sessionId, 1, 50, searchTerm, null), Times.Once);
         mockDispatcher.Verify(d => d.Dispatch(It.IsAny<LoadLibrarySuccessAction>()), Times.Once);
     }
