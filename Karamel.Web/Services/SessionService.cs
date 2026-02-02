@@ -584,10 +584,29 @@ public class SessionService : ISessionService
             var currentSong = ExtractCurrentSongFromJson(data, libraryLookup);
             var currentSingerName = ExtractCurrentSingerName(data);
 
-            // 6. Dispatch action to update playlist state
-            // DEPRECATED: This handler is for old Broadcast Channel API
-            // SignalR now handles playlist updates via ReceivePlaylistUpdated
-            Console.WriteLine($"SessionService: OnStateUpdated playlist-updated (DEPRECATED - use SignalR)");
+            // 6. Convert to PlaylistItemDto format and dispatch
+            var itemDtos = queue.Select((s, index) => new PlaylistItemDto(
+                Id: Guid.NewGuid().ToString(), // Temporary ID for local processing
+                SongId: s.Id.ToString(),
+                Artist: s.Artist,
+                Title: s.Title,
+                SingerName: s.AddedBySinger,
+                Position: index,
+                Status: 0 // Queued
+            )).ToList();
+
+            var currentSongDto = currentSong != null ? new PlaylistItemDto(
+                Id: Guid.NewGuid().ToString(),
+                SongId: currentSong.Id.ToString(),
+                Artist: currentSong.Artist,
+                Title: currentSong.Title,
+                SingerName: currentSong.AddedBySinger,
+                Position: 0,
+                Status: 2 // NowPlaying
+            ) : null;
+
+            _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));
+            Console.WriteLine($"SessionService: Dispatched UpdatePlaylistFromBroadcastAction with {queue.Count} songs");
         }
         catch (Exception ex)
         {

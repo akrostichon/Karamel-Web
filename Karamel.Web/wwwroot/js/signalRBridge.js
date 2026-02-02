@@ -100,10 +100,17 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 					itemId: currentSongDto.id || currentSongDto.Id
 				} : null;
 
+				// Calculate singer song counts
+				const singerSongCounts = {};
+				items.forEach(item => {
+					const singer = item.addedBySinger || 'Unknown';
+					singerSongCounts[singer] = (singerSongCounts[singer] || 0) + 1;
+				});
+
 				const data = {
 					queue: items,
 					currentSong: currentSong,  // CHANGED: Extract from DTO instead of hardcoding null
-					singerSongCounts: {}
+					singerSongCounts
 				};
 
 				// Persist to sessionStorage and fire update event used by Blazor
