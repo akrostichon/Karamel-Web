@@ -236,7 +236,7 @@
     private async Task ClearPlaylist()
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
-            "Are you sure you want to clear the entire playlist?");
+            "Are you sure you want to clear all queued songs? The currently playing song will not be affected.");
         
         if (confirmed)
         {

@@ -768,6 +768,23 @@ public class SessionService : ISessionService
         }
     }
 
+    /// <summary>
+    /// Clear all queued and up-next songs via SignalR, preserving the currently playing song.
+    /// </summary>
+    public async Task ClearQueueAsync()
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("clearQueue");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: clearQueue JS invoke failed: {ex.Message}");
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_sessionBridgeModule != null)

@@ -37,12 +37,11 @@ public static class PlaylistReducers
     }
 
     [ReducerMethod]
-    public static PlaylistState ReduceClearPlaylistAction(PlaylistState state, ClearPlaylistAction action) =>
-        state with
-        {
-            Items = [],
-            CurrentSong = null
-        };
+    public static PlaylistState ReduceClearPlaylistAction(PlaylistState state, ClearPlaylistAction action)
+    {
+        // No-op: Backend ClearQueueAsync handles clearing and broadcasts update via SignalR
+        return state;
+    }
 
     [ReducerMethod]
     public static PlaylistState ReduceUpdatePlaylistFromBroadcastAction(PlaylistState state, UpdatePlaylistFromBroadcastAction action)

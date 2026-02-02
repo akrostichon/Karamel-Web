@@ -359,6 +359,50 @@ namespace Karamel.Backend.Hubs
         }
 
         /// <summary>
+        /// Clear all queued and up-next songs from the playlist, preserving the currently playing song.
+        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
+        /// </summary>
+        public async Task ClearQueueAsync(Guid sessionId)
+        {
+            var sem = GetSessionLock(sessionId);
+            await sem.WaitAsync();
+            try
+            {
+                _logger.LogInformation("Clearing queue (Queued and UpNext songs) in session {SessionId}", sessionId);
+
+                var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
+                
+                // Get items to remove (Queued and UpNext, but NOT NowPlaying or Completed)
+                var itemsToRemove = playlist.Items
+                    .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
+                    .ToList();
+                
+                foreach (var item in itemsToRemove)
+                {
+                    playlist.Items.Remove(item);
+                    _logger.LogInformation("Removed {Status} item {ItemId} ({Artist} - {Title}) from session {SessionId}", 
+                        item.Status, item.Id, item.Artist, item.Title, sessionId);
+                }
+
+                await _playlistRepo.UpdateAsync(playlist);
+
+                _logger.LogInformation("Successfully cleared {Count} queued songs from session {SessionId}", itemsToRemove.Count, sessionId);
+
+                await BroadcastPlaylistUpdate(sessionId, playlist);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error clearing queue in session {SessionId}", sessionId);
+                throw new HubException("Failed to clear queue");
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        /// <summary>
         /// Helper method to broadcast playlist updates to all clients in a session group.
         /// Filters out Completed items and includes CurrentSong (first NowPlaying item).
         /// Auto-promotes first Queued song to UpNext when queue needs a next song.

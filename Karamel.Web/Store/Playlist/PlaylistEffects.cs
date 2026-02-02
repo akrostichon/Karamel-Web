@@ -75,8 +75,8 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     [EffectMethod]
     public async Task HandleClearPlaylistAction(ClearPlaylistAction action, IDispatcher dispatcher)
     {
-        // Broadcast playlist update after clearing
-        await sessionService.BroadcastPlaylistUpdatedAsync();
+        // Call backend to clear queued and up-next songs (preserves currently playing song)
+        await sessionService.ClearQueueAsync();
     }
 
     [EffectMethod]

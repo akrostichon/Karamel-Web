@@ -94,6 +94,11 @@ public interface ISessionService : IAsyncDisposable
     Task AdvanceToNextSongAsync();
 
     /// <summary>
+    /// Clear all queued and up-next songs via SignalR, preserving the currently playing song.
+    /// </summary>
+    Task ClearQueueAsync();
+
+    /// <summary>
     /// Handle state update from broadcast (called by JavaScript)
     /// </summary>
     [JSInvokable]

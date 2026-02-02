@@ -402,6 +402,31 @@ export async function advanceToNextSong() {
 	return false;
 }
 
+/**
+ * Clear all queued and up-next songs from the playlist, preserving the currently playing song.
+ * @returns {Promise<boolean>} True if successful via SignalR
+ */
+export async function clearQueue() {
+	if (!currentSessionId) {
+		console.error('clearQueue: No current session ID');
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			// PlaylistHub.ClearQueueAsync(Guid sessionId)
+			await hubConnection.invoke('ClearQueueAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			console.warn('ClearQueueAsync via SignalR failed:', e);
+			return false;
+		}
+	}
+
+	console.warn('clearQueue: SignalR not connected, cannot clear queue');
+	return false;
+}
+
 export function isUsingSignalR() {
 	return !!usingSignalR && !!hubConnection && hubConnection.state === (window.signalR ? window.signalR.HubConnectionState?.Connected : 1);
 }
