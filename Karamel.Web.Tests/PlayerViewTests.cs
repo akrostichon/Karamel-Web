@@ -389,7 +389,9 @@ public class PlayerViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
-        SetupTestWithSession(sessionState, playlistState, view: "player");
+        // PlayerView needs LibraryState with the song to look up full Song metadata
+        var libraryState = new Karamel.Web.Store.Library.LibraryState { Songs = new List<Song> { _testSong } };
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");
         
         var mockFileAccess = new Mock<IJSObjectReference>();
         var mockPlayer = new Mock<IJSObjectReference>();
@@ -428,8 +430,8 @@ public class PlayerViewTests : SessionTestBase
         // Wait for state updates to propagate
         await Task.Delay(100);
 
-        // Assert
-        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<ClearCurrentSongAction>()), Times.Once);
+        // Assert - now dispatches AdvanceToNextSongAction instead of ClearCurrentSongAction
+        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<AdvanceToNextSongAction>()), Times.Once);
     }
 
     [Fact]

@@ -189,9 +189,10 @@ public class PlaylistPageTests : SessionTestBase
         var removeButtons = cut.FindAll("button.btn-remove");
         removeButtons[0].Click(); // Click first remove button (for first song in queue)
 
-        // Assert - The first button is now for the first song in the queue (_testSongs[0])
+        // Assert - RemoveSongAction now receives the ItemId (playlist item ID), not the Song ID
+        var firstItemId = Guid.Parse(playlistState.Items[0].Id);
         mockDispatcher.Verify(d => d.Dispatch(It.Is<RemoveSongAction>(
-            a => a.SongId == _testSongs[0].Id)), Times.Once);
+            a => a.SongId == firstItemId)), Times.Once);
     }
 
     [Fact(Skip = "Complex async JSInterop mocking: bUnit doesn't properly trigger async @onclick handlers that call JSRuntime.InvokeAsync. Button rendering and visual behavior tested in other tests. Consider refactoring to extract confirmation logic to testable service.")]

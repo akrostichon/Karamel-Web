@@ -8,6 +8,8 @@ using Karamel.Web.Store.Library;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
 using Moq;
+using Fluxor;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Karamel.Web.Tests;
 
@@ -371,7 +373,12 @@ public class SingerViewTests : SessionTestBase
         var libraryState = new LibraryState { Songs = _testSongs };
         var playlistState = new PlaylistState
         {
-            Items = new List<PlaylistItemDto>() // SingerSongCounts removed
+            Items = new List<PlaylistItemDto>
+            {
+                new PlaylistItemDto(Guid.NewGuid().ToString(), _testSongs[0].Id.ToString(), _testSongs[0].Artist, _testSongs[0].Title, "David", 0, 0),
+                new PlaylistItemDto(Guid.NewGuid().ToString(), _testSongs[1].Id.ToString(), _testSongs[1].Artist, _testSongs[1].Title, "David", 1, 0),
+                new PlaylistItemDto(Guid.NewGuid().ToString(), _testSongs[0].Id.ToString(), _testSongs[0].Artist, _testSongs[0].Title, "David", 2, 0)
+            }
         };
         SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
@@ -383,8 +390,9 @@ public class SingerViewTests : SessionTestBase
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
-        // Assert
+        // Assert - GetSongCount() filters by singerName and Status != Completed
         var songCount = cut.Find(".song-count");
+        // All 3 items have SingerName="David" and Status=0 (Queued)
         Assert.Contains("3 / 10 songs in queue", songCount.TextContent);
     }
 
@@ -419,6 +427,272 @@ public class SingerViewTests : SessionTestBase
 
         // Assert
         Assert.Equal("50", nameInput.GetAttribute("maxlength"));
+    }
+
+    [Fact]
+    public void Component_UpdatesDisplay_WhenPlaylistStateChanges()
+    {
+        // This test verifies that SingerView reactively updates the song count display
+        // when playlist state changes via Fluxor StateChanged events.
+        // Strategy: Use reflection to access the mock state and manually trigger StateChanged,
+        // simulating what would happen when Fluxor updates state in the real app.
+
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        
+        // Create an initial empty playlist state
+        var currentPlaylistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        
+        var (_, _, _) = SetupTestWithSession(sessionState, currentPlaylistState, libraryState, view: "singer");
+        
+        // Get the mock playlist state to trigger events
+        var playlistStateService = Services.GetService<IState<PlaylistState>>();
+        Assert.NotNull(playlistStateService);
+        var mockPlaylistState = Mock.Get(playlistStateService);
+        
+        var cut = RenderComponent<SingerView>();
+        
+        // Enter singer name
+        var nameInput = cut.Find("input#singerNameInput");
+        nameInput.Input("Alice");
+        var continueButton = cut.Find("button.k-btn-primary");
+        continueButton.Click();
+
+        // Assert initial state - should show 0 songs
+        var songCount = cut.Find(".song-count");
+        Assert.Contains("0 / 10 songs in queue", songCount.TextContent);
+
+        // Act - simulate adding first song to playlist state
+        var song1WithSinger = _testSongs[0] with { AddedBySinger = "Alice" };
+        var item1 = new PlaylistItemDto(
+            Guid.NewGuid().ToString(), 
+            song1WithSinger.Id.ToString(), 
+            song1WithSinger.Artist, 
+            song1WithSinger.Title, 
+            "Alice", 
+            0, // position
+            0  // status (Queued)
+        );
+        
+        // Update the state that the mock returns
+        currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto> { item1 } };
+        mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
+        // Trigger StateChanged event that FluxorComponent subscribes to
+        mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
+        
+        // Re-render to pick up state changes
+        cut.Render();
+        
+        // Assert - should now show 1 song
+        songCount = cut.Find(".song-count");
+        Assert.Contains("1 / 10 songs in queue", songCount.TextContent);
+
+        // Act - simulate adding second song for "Alice"
+        var song2WithSinger = _testSongs[1] with { AddedBySinger = "Alice" };
+        var item2 = new PlaylistItemDto(
+            Guid.NewGuid().ToString(), 
+            song2WithSinger.Id.ToString(), 
+            song2WithSinger.Artist, 
+            song2WithSinger.Title, 
+            "Alice", 
+            1, // position
+            0  // status (Queued)
+        );
+        
+        currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto> { item1, item2 } };
+        mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
+        mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
+        
+        cut.Render();
+        
+        // Assert - should now show 2 songs
+        songCount = cut.Find(".song-count");
+        Assert.Contains("2 / 10 songs in queue", songCount.TextContent);
+    }
+
+    [Fact]
+    public void Component_UpdatesDisplay_WhenQueueBecomesEmpty()
+    {
+        // This test verifies that the song count updates correctly when all songs for
+        // the current singer are removed or completed.
+        // Strategy: Start with songs in queue, update state to mark them as completed (Status=3),
+        // and verify the count returns to 0.
+
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        
+        // Start with 2 songs in queue for "Bob"
+        var song1 = _testSongs[0] with { AddedBySinger = "Bob" };
+        var song2 = _testSongs[1] with { AddedBySinger = "Bob" };
+        var item1 = new PlaylistItemDto(
+            Guid.NewGuid().ToString(), 
+            song1.Id.ToString(), 
+            song1.Artist, 
+            song1.Title, 
+            "Bob", 
+            0, 
+            0  // Queued
+        );
+        var item2 = new PlaylistItemDto(
+            Guid.NewGuid().ToString(), 
+            song2.Id.ToString(), 
+            song2.Artist, 
+            song2.Title, 
+            "Bob", 
+            1, 
+            0  // Queued
+        );
+        
+        var currentPlaylistState = new PlaylistState { Items = new List<PlaylistItemDto> { item1, item2 } };
+        
+        var (_, _, _) = SetupTestWithSession(sessionState, currentPlaylistState, libraryState, view: "singer");
+        
+        var playlistStateService = Services.GetService<IState<PlaylistState>>();
+        Assert.NotNull(playlistStateService);
+        var mockPlaylistState = Mock.Get(playlistStateService);
+        
+        var cut = RenderComponent<SingerView>();
+        
+        // Enter singer name
+        var nameInput = cut.Find("input#singerNameInput");
+        nameInput.Input("Bob");
+        var continueButton = cut.Find("button.k-btn-primary");
+        continueButton.Click();
+
+        // Assert initial state - should show 2 songs (both with Status=0, not completed)
+        var songCount = cut.Find(".song-count");
+        Assert.Contains("2 / 10 songs in queue", songCount.TextContent);
+
+        // Act - mark first song as completed (Status=3)
+        var item1Completed = item1 with { Status = 3 };  // Completed
+        currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto> { item1Completed, item2 } };
+        mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
+        mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
+        
+        cut.Render();
+        
+        // Assert - should now show 1 song (only non-completed songs count)
+        songCount = cut.Find(".song-count");
+        Assert.Contains("1 / 10 songs in queue", songCount.TextContent);
+
+        // Act - mark second song as completed too
+        var item2Completed = item2 with { Status = 3 };  // Completed
+        currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto> { item1Completed, item2Completed } };
+        mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
+        mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
+        
+        cut.Render();
+        
+        // Assert - should now show 0 songs (all completed)
+        songCount = cut.Find(".song-count");
+        Assert.Contains("0 / 10 songs in queue", songCount.TextContent);
+    }
+
+    [Fact]
+    public void Component_ReactsTo_MultipleQueueChanges()
+    {
+        // This test verifies that the component correctly handles rapid successive state changes,
+        // which can happen in a multi-user scenario where multiple singers add songs simultaneously.
+        // Strategy: Simulate adding multiple songs in quick succession, verify each state update
+        // is reflected correctly in the display.
+
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        
+        var currentPlaylistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        
+        var (_, _, _) = SetupTestWithSession(sessionState, currentPlaylistState, libraryState, view: "singer");
+        
+        var playlistStateService = Services.GetService<IState<PlaylistState>>();
+        Assert.NotNull(playlistStateService);
+        var mockPlaylistState = Mock.Get(playlistStateService);
+        
+        var cut = RenderComponent<SingerView>();
+        
+        // Enter singer name
+        var nameInput = cut.Find("input#singerNameInput");
+        nameInput.Input("Charlie");
+        var continueButton = cut.Find("button.k-btn-primary");
+        continueButton.Click();
+
+        // Assert initial state
+        var songCount = cut.Find(".song-count");
+        Assert.Contains("0 / 10 songs in queue", songCount.TextContent);
+
+        // Act - rapidly add 5 songs for "Charlie" (simulating multiple quick additions)
+        var items = new List<PlaylistItemDto>();
+        for (int i = 0; i < 5; i++)
+        {
+            // Alternate between the two test songs
+            var song = _testSongs[i % 2] with { AddedBySinger = "Charlie" };
+            var item = new PlaylistItemDto(
+                Guid.NewGuid().ToString(), 
+                song.Id.ToString(), 
+                song.Artist, 
+                song.Title, 
+                "Charlie", 
+                i, 
+                0  // Queued
+            );
+            items.Add(item);
+            
+            // Update state after each addition
+            currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto>(items) };
+            mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
+            mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
+            
+            cut.Render();
+            
+            // Verify count increases correctly
+            songCount = cut.Find(".song-count");
+            Assert.Contains($"{i + 1} / 10 songs in queue", songCount.TextContent);
+        }
+
+        // Assert final state - should have 5 songs
+        songCount = cut.Find(".song-count");
+        Assert.Contains("5 / 10 songs in queue", songCount.TextContent);
+
+        // Act - now remove 2 songs by marking them as completed
+        items[0] = items[0] with { Status = 3 };  // Completed
+        items[1] = items[1] with { Status = 3 };  // Completed
+        currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto>(items) };
+        mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
+        mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
+        
+        cut.Render();
+        
+        // Assert - should now show 3 songs (5 - 2 completed)
+        songCount = cut.Find(".song-count");
+        Assert.Contains("3 / 10 songs in queue", songCount.TextContent);
+
+        // Act - add 2 more songs
+        for (int i = 5; i < 7; i++)
+        {
+            var song = _testSongs[i % 2] with { AddedBySinger = "Charlie" };
+            var item = new PlaylistItemDto(
+                Guid.NewGuid().ToString(), 
+                song.Id.ToString(), 
+                song.Artist, 
+                song.Title, 
+                "Charlie", 
+                i, 
+                0  // Queued
+            );
+            items.Add(item);
+        }
+        
+        currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto>(items) };
+        mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
+        mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
+        
+        cut.Render();
+        
+        // Assert - should now show 5 songs (3 + 2 new, still 2 completed)
+        songCount = cut.Find(".song-count");
+        Assert.Contains("5 / 10 songs in queue", songCount.TextContent);
     }
 
 }

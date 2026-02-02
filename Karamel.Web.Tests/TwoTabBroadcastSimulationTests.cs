@@ -70,15 +70,21 @@ namespace Karamel.Web.Tests
             // Add a song from singer
             var song = new Song
             {
+                Id = Guid.NewGuid(),
                 Artist = "Sim Artist",
                 Title = "Sim Song",
                 Mp3FileName = "sim.mp3",
-                CdgFileName = "sim.cdg"
+                CdgFileName = "sim.cdg",
+                AddedBySinger = "Tester"
             };
             singerDispatcher.Dispatch(new AddToPlaylistAction(song, "Tester"));
 
             // Give effects time to run
             await Task.Delay(100);
+
+            // Simulate SignalR broadcast in singer tab (effect would trigger this)
+            var playlistItem = TestDataFactory.CreatePlaylistItem(song, 0, 0);
+            singerDispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(new List<PlaylistItemDto> { playlistItem }, null));
 
             // Capture playlist state from singer context
             var singerPlaylistState = singerCtx.Services.GetRequiredService<IState<PlaylistState>>();

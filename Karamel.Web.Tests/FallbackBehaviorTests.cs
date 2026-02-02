@@ -60,7 +60,8 @@ public class FallbackBehaviorTests : SessionTestBase
         var testSong = CreateTestSong();
         var sessionState = new SessionState { CurrentSession = testSession, IsInitialized = true };
         var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(testSong) };
-        SetupTestWithSession(sessionState, playlistState, view: "player");
+        var libraryState = new Karamel.Web.Store.Library.LibraryState { Songs = new List<Karamel.Web.Models.Song> { testSong } };
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");
 
         // Mock fileAccess module to return a loadSongFiles result indicating missing CDG
         var mockFileAccessModule = new Mock<IJSObjectReference>();
@@ -107,7 +108,8 @@ public class FallbackBehaviorTests : SessionTestBase
         var testSong = CreateTestSong();
         var sessionState = new SessionState { CurrentSession = testSession, IsInitialized = true };
         var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(testSong) };
-        SetupTestWithSession(sessionState, playlistState, view: "player");
+        var libraryState = new Karamel.Web.Store.Library.LibraryState { Songs = new List<Karamel.Web.Models.Song> { testSong } };
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");
 
         // Mock fileAccess module to throw to simulate corrupt CDG during load
         var mockFileAccessModule = new Mock<IJSObjectReference>();

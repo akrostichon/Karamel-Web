@@ -3,6 +3,7 @@ using Karamel.Web.Pages;
 using Karamel.Web.Models;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
+using Karamel.Web.Store.Library;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
@@ -81,7 +82,8 @@ public class NavigationFlowTests : TestContext
         // Arrange - URL without session parameter, no session in state
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
-        var navManager = SetupFluxorWithStates(sessionState, playlistState, "http://localhost/nextsong");
+        var libraryState = new LibraryState();
+        var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/nextsong");
 
         // Act
         var cut = RenderComponent<NextSongView>();
@@ -97,7 +99,8 @@ public class NavigationFlowTests : TestContext
         // Arrange - URL with invalid GUID format
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
-        var navManager = SetupFluxorWithStates(sessionState, playlistState, "http://localhost/nextsong?session=invalid-guid");
+        var libraryState = new LibraryState();
+        var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/nextsong?session=invalid-guid");
 
         // Act
         var cut = RenderComponent<NextSongView>();
@@ -113,9 +116,10 @@ public class NavigationFlowTests : TestContext
         // Arrange - URL without session parameter, no session in state
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
+        var libraryState = new LibraryState();
         var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
         Services.AddSingleton(mockSessionService.Object);
-        var navManager = SetupFluxorWithStates(sessionState, playlistState, "http://localhost/player");
+        var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/player");
 
         // Act
         var cut = RenderComponent<PlayerView>();
@@ -140,7 +144,8 @@ public class NavigationFlowTests : TestContext
 
         var sessionState = new SessionState { CurrentSession = session };
         var playlistState = new PlaylistState();
-        var navManager = SetupFluxorWithStates(sessionState, playlistState, $"http://localhost/nextsong?session={sessionIdInUrl}");
+        var libraryState = new LibraryState();
+        var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, $"http://localhost/nextsong?session={sessionIdInUrl}");
 
         // Act
         var cut = RenderComponent<NextSongView>();
@@ -156,9 +161,10 @@ public class NavigationFlowTests : TestContext
         // Arrange - Home page doesn't need session
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
+        var libraryState = new LibraryState();
         var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
         Services.AddSingleton(mockSessionService.Object);
-        var navManager = SetupFluxorWithStates(sessionState, playlistState, "http://localhost/");
+        var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/");
 
         // Act
         var cut = RenderComponent<Home>();
@@ -188,7 +194,8 @@ public class NavigationFlowTests : TestContext
         // Test Context - Session 1 in state, Session 2 in URL
         var sessionState1 = new SessionState { CurrentSession = session1 };
         var playlistState1 = new PlaylistState();
-        var navManager1 = SetupFluxorWithStates(sessionState1, playlistState1, $"http://localhost/nextsong?session={sessionId2}");
+        var libraryState1 = new LibraryState();
+        var (_, _, _) = SetupFluxorWithStates(sessionState1, playlistState1, libraryState1, $"http://localhost/nextsong?session={sessionId2}");
 
         var cut1 = RenderComponent<NextSongView>();
 
@@ -202,7 +209,11 @@ public class NavigationFlowTests : TestContext
 
     #region Helper Methods
 
-    private FakeNavigationManager SetupFluxorWithStates(SessionState sessionState, PlaylistState playlistState, string currentUri = "http://localhost/")
+    private (Mock<IActionSubscriber>, Mock<IDispatcher>, FakeNavigationManager) SetupFluxorWithStates(
+        SessionState sessionState,
+        PlaylistState playlistState,
+        LibraryState? libraryState = null,
+        string currentUri = "http://localhost/")
     {
         // Mock IState<SessionState>
         var mockSessionState = new Mock<IState<SessionState>>();
@@ -211,6 +222,10 @@ public class NavigationFlowTests : TestContext
         // Mock IState<PlaylistState>
         var mockPlaylistState = new Mock<IState<PlaylistState>>();
         mockPlaylistState.Setup(s => s.Value).Returns(playlistState);
+
+        // Mock IState<LibraryState>
+        var mockLibraryState = new Mock<IState<LibraryState>>();
+        mockLibraryState.Setup(s => s.Value).Returns(libraryState ?? new LibraryState());
 
         // Mock IDispatcher
         var mockDispatcher = new Mock<IDispatcher>();
@@ -231,12 +246,13 @@ public class NavigationFlowTests : TestContext
         // Register services
         Services.AddSingleton(mockSessionState.Object);
         Services.AddSingleton(mockPlaylistState.Object);
+        Services.AddSingleton(mockLibraryState.Object);
         Services.AddSingleton(mockDispatcher.Object);
         Services.AddSingleton(mockActionSubscriber.Object);
         Services.AddSingleton<NavigationManager>(fakeNavManager);
         Services.AddSingleton(mockJSRuntime.Object);
 
-        return fakeNavManager;
+        return (mockActionSubscriber, mockDispatcher, fakeNavManager);
     }
 
     private class FakeNavigationManager : NavigationManager
