@@ -19,11 +19,20 @@ namespace Karamel.Web.Tests;
 /// </summary>
 public class NavigationFlowTests : TestContext
 {
+    private static string GetLayoutFilePath()
+    {
+        // AppContext.BaseDirectory points to bin/Debug/net10.0
+        // Navigate up to project root: bin/Debug/net10.0 -> bin -> Debug -> net10.0 -> Karamel.Web.Tests -> Karamel.Web -> Layout
+        var basePath = System.AppContext.BaseDirectory;
+        var projectRoot = System.IO.Path.Combine(basePath, "..", "..", "..", "..", "Karamel.Web", "Layout", "MainLayout.razor");
+        return System.IO.Path.GetFullPath(projectRoot);
+    }
+
     [Fact]
     public void MainLayout_DoesNotIncludeNavMenuComponent()
     {
         // Arrange - Render MainLayout through App component or directly inspect markup
-        var layoutMarkup = System.IO.File.ReadAllText("d:\\Projects\\Karamel-Web\\Karamel.Web\\Layout\\MainLayout.razor");
+        var layoutMarkup = System.IO.File.ReadAllText(GetLayoutFilePath());
 
         // Assert - Verify NavMenu component is not referenced
         Assert.DoesNotContain("<NavMenu", layoutMarkup);
@@ -34,7 +43,7 @@ public class NavigationFlowTests : TestContext
     public void MainLayout_DoesNotContainSidebarDiv()
     {
         // Arrange - Read MainLayout markup
-        var layoutMarkup = System.IO.File.ReadAllText("d:\\Projects\\Karamel-Web\\Karamel.Web\\Layout\\MainLayout.razor");
+        var layoutMarkup = System.IO.File.ReadAllText(GetLayoutFilePath());
 
         // Assert - Verify no sidebar div exists
         Assert.DoesNotContain("class=\"sidebar\"", layoutMarkup);
@@ -45,7 +54,7 @@ public class NavigationFlowTests : TestContext
     public void MainLayout_ContainsMainContentArea()
     {
         // Arrange - Read MainLayout markup
-        var layoutMarkup = System.IO.File.ReadAllText("d:\\Projects\\Karamel-Web\\Karamel.Web\\Layout\\MainLayout.razor");
+        var layoutMarkup = System.IO.File.ReadAllText(GetLayoutFilePath());
 
         // Assert - Verify the body content area is rendered with @Body
         Assert.Contains("@Body", layoutMarkup);
@@ -56,7 +65,7 @@ public class NavigationFlowTests : TestContext
     public void MainLayout_HasMinimalStructure()
     {
         // Arrange - Read MainLayout markup
-        var layoutMarkup = System.IO.File.ReadAllText("d:\\Projects\\Karamel-Web\\Karamel.Web\\Layout\\MainLayout.razor");
+        var layoutMarkup = System.IO.File.ReadAllText(GetLayoutFilePath());
 
         // Assert - Verify there's no "page" wrapper div with sidebar
         Assert.DoesNotContain("class=\"page\"", layoutMarkup);
@@ -67,7 +76,7 @@ public class NavigationFlowTests : TestContext
     public void MainLayout_RendersBodyContent()
     {
         // Arrange - Read MainLayout markup
-        var layoutMarkup = System.IO.File.ReadAllText("d:\\Projects\\Karamel-Web\\Karamel.Web\\Layout\\MainLayout.razor");
+        var layoutMarkup = System.IO.File.ReadAllText(GetLayoutFilePath());
 
         // Assert - Verify body content placeholder is present
         Assert.Contains("@Body", layoutMarkup);
