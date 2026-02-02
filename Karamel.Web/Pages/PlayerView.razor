@@ -310,10 +310,10 @@
         showBlockingError = false;
         blockingErrorMessage = string.Empty;
 
-        // Advance to next song so NextSongView can resume showing queue
+        // Complete current song so it's marked as done
         try
         {
-            Dispatcher.Dispatch(new AdvanceToNextSongAction());
+            Dispatcher.Dispatch(new CompleteCurrentSongAction());
         }
         catch { }
 
@@ -331,8 +331,8 @@
     {
         try
         {
-            // Advance to next song via SignalR
-            Dispatcher.Dispatch(new AdvanceToNextSongAction());
+            // Complete current song via SignalR (marks as Completed, doesn't advance)
+            Dispatcher.Dispatch(new CompleteCurrentSongAction());
 
             // Wait a moment for state to update
             await Task.Delay(250);

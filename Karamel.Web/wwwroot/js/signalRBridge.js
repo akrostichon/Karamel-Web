@@ -403,6 +403,32 @@ export async function advanceToNextSong() {
 }
 
 /**
+ * Complete the current song without advancing to the next one.
+ * Marks current NowPlaying as Completed. Next song remains in queue.
+ * @returns {Promise<boolean>} True if successful via SignalR
+ */
+export async function completeCurrentSong() {
+	if (!currentSessionId) {
+		console.error('completeCurrentSong: No current session ID');
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			// PlaylistHub.CompleteCurrentSongAsync(Guid sessionId)
+			await hubConnection.invoke('CompleteCurrentSongAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			console.warn('CompleteCurrentSongAsync via SignalR failed:', e);
+			return false;
+		}
+	}
+
+	console.warn('completeCurrentSong: SignalR not connected, cannot complete song');
+	return false;
+}
+
+/**
  * Clear all queued and up-next songs from the playlist, preserving the currently playing song.
  * @returns {Promise<boolean>} True if successful via SignalR
  */

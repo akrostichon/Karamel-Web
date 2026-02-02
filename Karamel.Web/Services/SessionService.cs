@@ -769,6 +769,23 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
+    /// Complete current song without advancing to next song via SignalR.
+    /// </summary>
+    public async Task CompleteCurrentSongAsync()
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("completeCurrentSong");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: completeCurrentSong JS invoke failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Clear all queued and up-next songs via SignalR, preserving the currently playing song.
     /// </summary>
     public async Task ClearQueueAsync()

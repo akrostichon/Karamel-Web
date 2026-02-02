@@ -302,6 +302,51 @@ namespace Karamel.Backend.Hubs
         }
 
         /// <summary>
+        /// Complete the current song: marks current NowPlaying as Completed without advancing to next song.
+        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
+        /// </summary>
+        public async Task CompleteCurrentSongAsync(Guid sessionId)
+        {
+            var sem = GetSessionLock(sessionId);
+            await sem.WaitAsync();
+            try
+            {
+                _logger.LogInformation("Completing current song in session {SessionId}", sessionId);
+
+                var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
+                
+                // Mark current NowPlaying as Completed
+                var nowPlaying = playlist.Items.FirstOrDefault(i => i.Status == SongStatus.NowPlaying);
+                if (nowPlaying != null)
+                {
+                    nowPlaying.Status = SongStatus.Completed;
+                    nowPlaying.CompletedAt = DateTime.UtcNow;
+                    _logger.LogInformation("Marked item {ItemId} as Completed in session {SessionId}", nowPlaying.Id, sessionId);
+                }
+                else
+                {
+                    _logger.LogWarning("No NowPlaying song found to complete in session {SessionId}", sessionId);
+                }
+
+                await _playlistRepo.UpdateAsync(playlist);
+
+                _logger.LogInformation("Successfully completed current song in session {SessionId}", sessionId);
+
+                await BroadcastPlaylistUpdate(sessionId, playlist);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error completing current song in session {SessionId}", sessionId);
+                throw new HubException("Failed to complete current song");
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        /// <summary>
         /// Advance to the next song: marks current NowPlaying as Completed, marks first UpNext as NowPlaying.
         /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.

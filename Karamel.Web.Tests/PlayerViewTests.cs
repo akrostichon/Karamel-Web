@@ -430,8 +430,8 @@ public class PlayerViewTests : SessionTestBase
         // Wait for state updates to propagate
         await Task.Delay(100);
 
-        // Assert - now dispatches AdvanceToNextSongAction instead of ClearCurrentSongAction
-        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<AdvanceToNextSongAction>()), Times.Once);
+        // Assert - now dispatches CompleteCurrentSongAction instead of AdvanceToNextSongAction
+        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<CompleteCurrentSongAction>()), Times.Once);
     }
 
     [Fact]

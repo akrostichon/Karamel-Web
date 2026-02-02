@@ -121,4 +121,18 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
             // Errors logged by SessionService
         }
     }
+
+    [EffectMethod]
+    public async Task HandleCompleteCurrentSongAction(CompleteCurrentSongAction action, IDispatcher dispatcher)
+    {
+        try
+        {
+            await sessionService.CompleteCurrentSongAsync();
+            // SignalR broadcast will update state
+        }
+        catch
+        {
+            // Errors logged by SessionService
+        }
+    }
 }

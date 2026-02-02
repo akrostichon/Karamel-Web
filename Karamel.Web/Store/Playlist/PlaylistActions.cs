@@ -16,3 +16,4 @@ public record ClearPlaylistAction();
 public record UpdatePlaylistFromBroadcastAction(List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong);
 public record SetSongStatusAction(string ItemId, int Status);
 public record AdvanceToNextSongAction();
+public record CompleteCurrentSongAction();

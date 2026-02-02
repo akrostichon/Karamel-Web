@@ -37,6 +37,33 @@
     {
         <h1 class="mb-4">Playlist</h1>
 
+    <!-- Now Playing Section -->
+    @if (PlaylistState.Value.CurrentSong != null)
+    {
+        <div class="now-playing card mb-4">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="bi bi-play-circle-fill text-on-surface me-2"></i>
+                    Now Playing
+                </h2>
+                @{
+                    var nowPlaying = PlaylistState.Value.CurrentSong;
+                }
+                <div class="song-info">
+                    <div class="artist h4">@nowPlaying.Artist</div>
+                    <div class="title h3 fw-bold">@nowPlaying.Title</div>
+                    @if (!string.IsNullOrEmpty(nowPlaying.SingerName))
+                    {
+                        <div class="singer muted-on-surface">
+                            <i class="bi bi-person-fill"></i> @nowPlaying.SingerName
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Up Next Section -->
     @if (!PlaylistState.Value.Items.Any())
     {
         <div class="alert alert-info" role="alert">
@@ -44,36 +71,7 @@
             No songs in queue. Add songs from the Singer view!
         </div>
     }
-    else
-    {
-        <!-- Now Playing Section -->
-        @if (PlaylistState.Value.CurrentSong != null)
-        {
-            <div class="now-playing card mb-4">
-                <div class="card-body">
-                    <h2 class="card-title">
-                        <i class="bi bi-play-circle-fill text-on-surface me-2"></i>
-                        Now Playing
-                    </h2>
-                    @{
-                        var nowPlaying = PlaylistState.Value.CurrentSong;
-                    }
-                    <div class="song-info">
-                        <div class="artist h4">@nowPlaying.Artist</div>
-                        <div class="title h3 fw-bold">@nowPlaying.Title</div>
-                        @if (!string.IsNullOrEmpty(nowPlaying.SingerName))
-                        {
-                            <div class="singer muted-on-surface">
-                                <i class="bi bi-person-fill"></i> @nowPlaying.SingerName
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- Up Next Section -->
-        @if (PlaylistState.Value.Items.Any(i => i.Status == 0 || i.Status == 1))
+    else if (PlaylistState.Value.Items.Any(i => i.Status == 0 || i.Status == 1))
         {
             var upNextSongs = PlaylistState.Value.Items.Where(i => i.Status == 0 || i.Status == 1).OrderBy(i => i.Position).ToList();
 
@@ -127,7 +125,6 @@
                 </div>
             </div>
         }
-    }
     }
 </div>
 
