@@ -73,9 +73,9 @@
         }
 
         <!-- Up Next Section -->
-        @if (PlaylistState.Value.Items.Any(i => i.Status == 0))
+        @if (PlaylistState.Value.Items.Any(i => i.Status == 0 || i.Status == 1))
         {
-            var upNextSongs = PlaylistState.Value.Items.Where(i => i.Status == 0).OrderBy(i => i.Position).ToList();
+            var upNextSongs = PlaylistState.Value.Items.Where(i => i.Status == 0 || i.Status == 1).OrderBy(i => i.Position).ToList();
 
             <div class="up-next card">
                 <div class="card-body">

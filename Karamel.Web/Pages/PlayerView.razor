@@ -196,7 +196,17 @@
                 // Check if session and current song exist
                 if (SessionState.Value.CurrentSession != null && PlaylistState.Value.CurrentSong != null)
                 {
-                    await LoadAndPlaySong();
+                    // Validate song is marked as NowPlaying before attempting playback
+                    if (PlaylistState.Value.CurrentSong.Status != 2) // 2 = NowPlaying
+                    {
+                        Console.WriteLine($"PlayerView: WARNING - CurrentSong status is {PlaylistState.Value.CurrentSong.Status}, expected 2 (NowPlaying). Correcting status...");
+                        Dispatcher.Dispatch(new SetSongStatusAction(PlaylistState.Value.CurrentSong.Id, 2));
+                        // Don't wait - status correction will trigger state update and re-render
+                    }
+                    else
+                    {
+                        await LoadAndPlaySong();
+                    }
                 }
                 
                 // If this is the main tab, add beforeunload warning

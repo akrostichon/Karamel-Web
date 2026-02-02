@@ -325,9 +325,9 @@ namespace Karamel.Backend.Hubs
                     _logger.LogInformation("Marked item {ItemId} as Completed in session {SessionId}", nowPlaying.Id, sessionId);
                 }
 
-                // Mark first UpNext as NowPlaying
+                // Mark first Queued (or UpNext) as NowPlaying
                 var nextSong = playlist.Items
-                    .Where(i => i.Status == SongStatus.UpNext)
+                    .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
                     .OrderBy(i => i.Position)
                     .FirstOrDefault();
                 
@@ -338,7 +338,7 @@ namespace Karamel.Backend.Hubs
                 }
                 else
                 {
-                    _logger.LogInformation("No UpNext song found to advance in session {SessionId}", sessionId);
+                    _logger.LogInformation("No queued song found to advance in session {SessionId}", sessionId);
                 }
 
                 await _playlistRepo.UpdateAsync(playlist);
@@ -361,19 +361,49 @@ namespace Karamel.Backend.Hubs
         /// <summary>
         /// Helper method to broadcast playlist updates to all clients in a session group.
         /// Filters out Completed items and includes CurrentSong (first NowPlaying item).
+        /// Auto-promotes first Queued song to UpNext when queue needs a next song.
         /// </summary>
         private async Task BroadcastPlaylistUpdate(Guid sessionId, Playlist playlist)
         {
             var groupName = GetSessionGroupName(sessionId.ToString());
             
-            // Filter out Completed items
+            // Auto-promote first Queued to UpNext if needed
+            // Promote whenever there's no UpNext (works during active playback and when idle)
+            var hasUpNext = playlist.Items.Any(i => i.Status == SongStatus.UpNext);
+            var firstQueued = playlist.Items
+                .Where(i => i.Status == SongStatus.Queued)
+                .OrderBy(i => i.Position)
+                .FirstOrDefault();
+
+            if (!hasUpNext && firstQueued != null)
+            {
+                firstQueued.Status = SongStatus.UpNext;
+                await _playlistRepo.UpdateAsync(playlist);
+                _logger.LogInformation("Auto-promoted item {ItemId} ('{Artist} - {Title}') from Queued to UpNext in session {SessionId}",
+                    firstQueued.Id, firstQueued.Artist, firstQueued.Title, sessionId);
+            }
+            
+            // Filter out Completed and NowPlaying items (NowPlaying goes to CurrentSong)
             var activeItems = playlist.Items
-                .Where(i => i.Status != SongStatus.Completed)
+                .Where(i => i.Status != SongStatus.Completed && i.Status != SongStatus.NowPlaying)
                 .OrderBy(i => i.Position)
                 .ToList();
             
+            // Log current playlist state for diagnostics
+            _logger.LogInformation("Broadcasting playlist update for session {SessionId}: {ActiveCount} active items (Queued: {QueuedCount}, UpNext: {UpNextCount}, NowPlaying: {NowPlayingCount})",
+                sessionId,
+                activeItems.Count,
+                activeItems.Count(i => i.Status == SongStatus.Queued),
+                activeItems.Count(i => i.Status == SongStatus.UpNext),
+                activeItems.Count(i => i.Status == SongStatus.NowPlaying));
+            
             // Get CurrentSong (first NowPlaying item, or null)
             var currentSongItem = playlist.Items.FirstOrDefault(i => i.Status == SongStatus.NowPlaying);
+            if (currentSongItem != null)
+            {
+                _logger.LogInformation("Current song in session {SessionId}: {ItemId} ('{Artist} - {Title}')",
+                    sessionId, currentSongItem.Id, currentSongItem.Artist, currentSongItem.Title);
+            }
             PlaylistItemDto? currentSong = currentSongItem != null 
                 ? new PlaylistItemDto(
                     currentSongItem.Id,

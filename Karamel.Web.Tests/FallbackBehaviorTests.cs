@@ -59,7 +59,7 @@ public class FallbackBehaviorTests : SessionTestBase
         var testSession = CreateTestSession();
         var testSong = CreateTestSong();
         var sessionState = new SessionState { CurrentSession = testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(testSong) };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(testSong, status: 2) }; // 2 = NowPlaying
         var libraryState = new Karamel.Web.Store.Library.LibraryState { Songs = new List<Karamel.Web.Models.Song> { testSong } };
         SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");
 
@@ -107,7 +107,7 @@ public class FallbackBehaviorTests : SessionTestBase
         var testSession = CreateTestSession();
         var testSong = CreateTestSong();
         var sessionState = new SessionState { CurrentSession = testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(testSong) };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(testSong, status: 2) }; // 2 = NowPlaying
         var libraryState = new Karamel.Web.Store.Library.LibraryState { Songs = new List<Karamel.Web.Models.Song> { testSong } };
         SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");
 

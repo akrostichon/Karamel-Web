@@ -388,7 +388,7 @@ public class PlayerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong, status: 2) }; // 2 = NowPlaying
         // PlayerView needs LibraryState with the song to look up full Song metadata
         var libraryState = new Karamel.Web.Store.Library.LibraryState { Songs = new List<Song> { _testSong } };
         SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");

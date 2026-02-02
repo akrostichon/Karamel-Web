@@ -146,7 +146,10 @@
     private bool isTimerActive;
     private int totalSeconds;
     private DateTime countdownStart;
+    private TaskCompletionSource<bool>? _playlistUpdateAwaiter;
+    private string? _currentNextSongId; // Track current next song to prevent timer resets
 
+    // Progress bar shows REMAINING time (empties from right to left as countdown proceeds)
     private double progressPercentage => totalSeconds > 0 ? (remainingSeconds / totalSeconds) * 100 : 0;
 
     protected override async Task OnInitializedAsync()
@@ -216,7 +219,21 @@
     {
         try
         {
-            Console.WriteLine($"NextSongView: OnPlaylistStateChanged invoked. ItemsCount={PlaylistState.Value.Items?.Count ?? 0}");
+            var itemsCount = PlaylistState.Value.Items?.Count ?? 0;
+            var queuedCount = PlaylistState.Value.Items?.Count(i => i.Status == 0) ?? 0;
+            var upNextCount = PlaylistState.Value.Items?.Count(i => i.Status == 1) ?? 0;
+            var nowPlayingCount = PlaylistState.Value.Items?.Count(i => i.Status == 2) ?? 0;
+            
+            Console.WriteLine($"NextSongView: OnPlaylistStateChanged - Total: {itemsCount}, Queued: {queuedCount}, UpNext: {upNextCount}, NowPlaying: {nowPlayingCount}, CurrentSong={(PlaylistState.Value.CurrentSong != null ? $"set (ID: {PlaylistState.Value.CurrentSong.Id})" : "null")}");
+            
+            // If we're waiting for a playlist update and CurrentSong is now set, complete the awaiter
+            if (_playlistUpdateAwaiter != null && PlaylistState.Value.CurrentSong != null)
+            {
+                Console.WriteLine($"NextSongView: CurrentSong is set to {PlaylistState.Value.CurrentSong.Id}, completing playlist update awaiter");
+                _playlistUpdateAwaiter.TrySetResult(true);
+                _playlistUpdateAwaiter = null;
+            }
+            
             UpdateNextSong();
             StartAutoAdvanceTimer();
         }
@@ -368,10 +385,28 @@
 
     private void UpdateNextSong()
     {
+        // Look for UpNext song (Status == 1)
+        // Fallback to first Queued (Status == 0) during transition periods
         nextSong = PlaylistState.Value.Items
-            .Where(i => i.Status == 0)
+            .Where(i => i.Status == 1)
             .OrderBy(i => i.Position)
             .FirstOrDefault();
+        
+        if (nextSong == null)
+        {
+            // Fallback: check for Queued songs (shouldn't happen after backend auto-promotion)
+            nextSong = PlaylistState.Value.Items
+                .Where(i => i.Status == 0)
+                .OrderBy(i => i.Position)
+                .FirstOrDefault();
+            
+            if (nextSong != null)
+            {
+                Console.WriteLine($"NextSongView: WARNING - Found Queued song {nextSong.Id} instead of UpNext. Backend auto-promotion may not have run yet.");
+            }
+        }
+        
+        Console.WriteLine($"NextSongView: UpdateNextSong found {(nextSong != null ? $"song {nextSong.Id} ('{nextSong.Artist} - {nextSong.Title}') with status {nextSong.Status}" : "no song")}");
     }
 
     private Song? GetSongById(string? songId)
@@ -392,16 +427,27 @@
 
     private void StartAutoAdvanceTimer()
     {
+        // Check if next song ID changed to prevent unnecessary timer resets
+        var newNextSongId = nextSong?.Id;
+        if (_currentNextSongId == newNextSongId && isTimerActive)
+        {
+            Console.WriteLine($"NextSongView: Timer already running for song {newNextSongId}, skipping restart");
+            return;
+        }
+        
+        _currentNextSongId = newNextSongId;
+        
         // Cancel existing timers
         autoAdvanceTimer?.Dispose();
         countdownTimer?.Dispose();
         autoAdvanceTimer = null;
         countdownTimer = null;
 
-        // Only start timer if queue has songs and pause is enabled
-        if (PlaylistState.Value.Items.Any(i => i.Status == 0) && 
+        // Only start timer if we have a next song (Queued or UpNext) and pause is enabled
+        if (nextSong != null && (nextSong.Status == 0 || nextSong.Status == 1) && 
             SessionState.Value.CurrentSession?.PauseBetweenSongs == true)
         {
+            Console.WriteLine($"NextSongView: Starting timer for song {newNextSongId} (previous: {_currentNextSongId})");
             totalSeconds = SessionState.Value.CurrentSession.PauseBetweenSongsSeconds;
             remainingSeconds = totalSeconds;
             isTimerActive = true;
@@ -422,11 +468,11 @@
             }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
 
             // Start auto-advance timer
-            autoAdvanceTimer = new Timer(_ =>
+            autoAdvanceTimer = new Timer(async _ =>
             {
                 if (!isDisposed)
                 {
-                    NavigateToPlayer();
+                    await InvokeAsync(async () => await NavigateToPlayer());
                 }
             }, null, TimeSpan.FromSeconds(totalSeconds), Timeout.InfiniteTimeSpan);
         }
@@ -436,20 +482,42 @@
         }
     }
 
-    private void NavigateToPlayer()
+    private async Task NavigateToPlayer()
     {
         if (SessionState.Value.CurrentSession != null)
         {
             var sessionId = SessionState.Value.CurrentSession.SessionId;
 
-            // Ensure the player will receive the next song as CurrentSong
+            // Advance to next song via SignalR (marks UpNext as NowPlaying)
             try
             {
-                Dispatcher.Dispatch(new NextSongAction());
+                Console.WriteLine($"NextSongView: Dispatching AdvanceToNextSongAction for song {nextSong?.Id} and waiting for CurrentSong to be set...");
+                
+                // Create awaiter for playlist update
+                _playlistUpdateAwaiter = new TaskCompletionSource<bool>();
+                
+                // Dispatch the action
+                Dispatcher.Dispatch(new AdvanceToNextSongAction());
+                
+                // Wait for CurrentSong to be set (with timeout)
+                var updateTask = _playlistUpdateAwaiter.Task;
+                var timeoutTask = Task.Delay(5000);
+                var completedTask = await Task.WhenAny(updateTask, timeoutTask);
+                
+                if (completedTask == updateTask)
+                {
+                    Console.WriteLine("NextSongView: CurrentSong set successfully, navigating to player");
+                }
+                else
+                {
+                    Console.WriteLine("NextSongView: WARNING - Timeout waiting for CurrentSong, navigating anyway");
+                }
+                
+                _playlistUpdateAwaiter = null;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"NextSongView: Error dispatching NextSongAction: {ex.Message}");
+                Console.WriteLine($"NextSongView: Error dispatching AdvanceToNextSongAction: {ex.Message}");
             }
 
             NavigationManager.NavigateTo($"/player?session={sessionId}");
