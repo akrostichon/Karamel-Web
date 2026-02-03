@@ -31,8 +31,9 @@ export function initializePlayerWithCallback(dotNetReference) {
         const cdgData = byteStore.getBytes('cdg');
 
         if (!mp3Data || !cdgData) {
-            console.error('File data not available');
-            return;
+            const error = new Error('Song files not loaded - loadSongFiles must be called before initializePlayerWithCallback');
+            console.error(error.message);
+            throw error;
         }
 
         // Prefer cached object URL from byteStore

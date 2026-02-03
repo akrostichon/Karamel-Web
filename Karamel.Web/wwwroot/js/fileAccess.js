@@ -107,18 +107,6 @@ export async function pickCdgFile() {
     }
 }
 
-export function getMp3Data() {
-    return byteStore.getBytes('mp3');
-}
-
-export function getCdgData() {
-    return byteStore.getBytes('cdg');
-}
-
-export function hasFiles() {
-    return !!byteStore.getBytes('mp3') && !!byteStore.getBytes('cdg');
-}
-
 /**
  * Pick a library directory and scan for karaoke files (MP3 + CDG pairs)
  * @param {string} filenamePattern - Pattern for parsing filenames (default: "%artist - %title")
@@ -321,141 +309,203 @@ export function getLibraryDirectoryHandle() {
     return libraryDirectoryHandle;
 }
 
+// ======================== PRIVATE HELPERS ========================
+
+/**
+ * Track telemetry event for song file loading
+ * @private
+ */
+function trackLoadTelemetry(eventName, origin, mp3FileName, cdgFileName, duration, additionalProps = {}) {
+    if (!window.appInsights) return;
+    
+    window.appInsights.trackEvent({
+        name: eventName,
+        properties: {
+            origin,
+            mp3FileName,
+            cdgFileName,
+            durationMs: Math.round(duration),
+            ...additionalProps
+        }
+    });
+}
+
+/**
+ * Resolve ZIP file handle from library directory
+ * @private
+ */
+async function resolveZipHandle(zipInfo) {
+    if (zipInfo.zipFilePath) {
+        return await dirHelper.getFileHandleByPath(libraryDirectoryHandle, zipInfo.zipFilePath);
+    }
+    return await libraryDirectoryHandle.getFileHandle(zipInfo.zipFileName);
+}
+
+/**
+ * Load and extract song files from ZIP archive
+ * @private
+ */
+async function loadFromZip(zipInfo, mp3FileName, cdgFileName) {
+    let zipHandle;
+    try {
+        zipHandle = await resolveZipHandle(zipInfo);
+    } catch (err) {
+        throw new Error(`ZIP file not found in library: ${zipInfo.zipFilePath || zipInfo.zipFileName}`);
+    }
+
+    const zipFileObj = await zipHandle.getFile();
+    if (zipHelper.isZipTooLarge(zipFileObj.size, MAX_ZIP_SIZE)) {
+        throw new Error(`ZIP file too large to extract in-memory: ${zipInfo.zipFileName} (${zipFileObj.size} bytes)`);
+    }
+
+    const zipBuf = await zipFileObj.arrayBuffer();
+    const { mp3Bytes, cdgBytes } = await zipHelper.extractEntriesFromBuffer(
+        zipBuf,
+        zipInfo.zipEntryMp3Path,
+        zipInfo.zipEntryCdgPath
+    );
+
+    return { mp3Bytes, cdgBytes };
+}
+
+/**
+ * Attempt to load ZIP-origin song from sessionStorage fallback
+ * @private
+ */
+async function trySessionStorageFallback(mp3FileName, cdgFileName) {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session');
+    if (!sessionId) return null;
+
+    const stored = sessionStorage.getItem(`karamel-session-${sessionId}`);
+    if (!stored) return null;
+
+    const state = JSON.parse(stored);
+    const songs = state?.library?.songs || [];
+    
+    const match = songs.find(s => 
+        s.mp3FileName === mp3FileName ||
+        (s.fullPath && `${s.fullPath}.mp3` === mp3FileName) ||
+        (s.fullPath === mp3FileName.replace(/\.mp3$/i, ''))
+    );
+
+    if (!match || (!match.zipFileName && !match.zipFilePath)) return null;
+
+    const zipInfo = {
+        zipFileName: match.zipFileName || match.zipFilePath?.split('/').pop(),
+        zipEntryMp3Path: match.zipEntryMp3Path || match.mp3FileName,
+        zipEntryCdgPath: match.zipEntryCdgPath || match.cdgFileName,
+        zipFilePath: match.zipFilePath
+    };
+
+    try {
+        return await loadFromZip(zipInfo, mp3FileName, cdgFileName);
+    } catch (err) {
+        console.warn('SessionStorage fallback failed:', err);
+        return null;
+    }
+}
+
+/**
+ * Load song files from file system directory
+ * @private
+ */
+async function loadFromDirectory(path, mp3FileName, cdgFileName) {
+    // Navigate to subdirectory if path provided
+    let currentDir = libraryDirectoryHandle;
+    if (path) {
+        try {
+            currentDir = await dirHelper.getDirectoryHandleByPath(libraryDirectoryHandle, path);
+        } catch (err) {
+            throw new Error(`Directory not found while loading song files: ${path}`);
+        }
+    }
+
+    // Load MP3 file
+    let mp3Data;
+    try {
+        const mp3Handle = await currentDir.getFileHandle(mp3FileName);
+        const mp3File = await mp3Handle.getFile();
+        const mp3ArrayBuffer = await mp3File.arrayBuffer();
+        mp3Data = new Uint8Array(mp3ArrayBuffer);
+    } catch (err) {
+        // Try sessionStorage fallback for ZIP-origin songs
+        const fallbackResult = await trySessionStorageFallback(mp3FileName, cdgFileName);
+        if (fallbackResult) {
+            return fallbackResult;
+        }
+        throw new Error(`MP3 file not found: ${mp3FileName} (path: ${path || '<root>'})`);
+    }
+
+    // Load CDG file
+    let cdgHandle;
+    try {
+        cdgHandle = await currentDir.getFileHandle(cdgFileName);
+    } catch (err) {
+        throw new Error(`CDG file not found: ${cdgFileName} (path: ${path || '<root>'})`);
+    }
+    
+    const cdgFile = await cdgHandle.getFile();
+    const cdgArrayBuffer = await cdgFile.arrayBuffer();
+    const cdgData = new Uint8Array(cdgArrayBuffer);
+
+    return { mp3Bytes: mp3Data, cdgBytes: cdgData };
+}
+
+/**
+ * Store loaded song data in byteStore for player access
+ * @private
+ */
+function storeSongData(mp3Bytes, cdgBytes) {
+    byteStore.setBytes('mp3', mp3Bytes);
+    byteStore.setBytes('cdg', cdgBytes);
+    return byteStore.createObjectUrl('mp3', 'audio/mpeg');
+}
+
+// ======================== PUBLIC API ========================
+
 /**
  * Load MP3 and CDG file data from the library directory for a specific song
  * @param {string} path - Relative path to the files
  * @param {string} mp3FileName - MP3 filename
  * @param {string} cdgFileName - CDG filename
- * @returns {Promise<{mp3Data: Uint8Array, cdgData: Uint8Array}>}
+ * @param {Object} [zipInfo] - ZIP metadata if song is from ZIP archive
+ * @returns {Promise<{mp3Data: Uint8Array, cdgData: Uint8Array, mp3Url?: string}>}
  */
 export async function loadSongFiles(path, mp3FileName, cdgFileName, zipInfo = null) {
+    const startTime = performance.now();
+    const origin = zipInfo?.zipFileName ? 'zip' : 'directory';
+    
     try {
-        if (!libraryDirectoryHandle) throw new Error('No library directory selected');
-
-        // If zipInfo is provided (zip-origin song), lazily extract from ZIP instead
-        if (zipInfo && zipInfo.zipFileName) {
-            // Resolve ZIP file handle using dirHelper
-            let zipHandle = null;
-            try {
-                if (zipInfo.zipFilePath) {
-                    zipHandle = await dirHelper.getFileHandleByPath(libraryDirectoryHandle, zipInfo.zipFilePath);
-                } else {
-                    zipHandle = await libraryDirectoryHandle.getFileHandle(zipInfo.zipFileName);
-                }
-            } catch (err) {
-                throw new Error(`ZIP file not found in library: ${zipInfo.zipFilePath || zipInfo.zipFileName}`);
-            }
-
-            const zipFileObj = await zipHandle.getFile();
-            if (typeof zipFileObj.size === 'number' && zipHelper.isZipTooLarge(zipFileObj.size, MAX_ZIP_SIZE)) {
-                throw new Error(`ZIP file too large to extract in-memory: ${zipInfo.zipFileName} (${zipFileObj.size} bytes)`);
-            }
-            const zipBuf = await zipFileObj.arrayBuffer();
-            // Use zipHelper to extract entries
-            const { mp3Bytes, cdgBytes, mp3Blob } = await zipHelper.extractEntriesFromBuffer(zipBuf, zipInfo.zipEntryMp3Path, zipInfo.zipEntryCdgPath);
-
-            // Store into byteStore
-            byteStore.setBytes('mp3', mp3Bytes);
-            byteStore.setBytes('cdg', cdgBytes);
-
-            const mp3Url = byteStore.createObjectUrl('mp3', 'audio/mpeg');
-            return { mp3Data: mp3Bytes, cdgData: cdgBytes, mp3Url };
+        if (!libraryDirectoryHandle) {
+            throw new Error('No library directory selected');
         }
 
-        // Navigate to the correct subdirectory for directory-origin songs
-        let currentDir = libraryDirectoryHandle;
-        if (path) {
-            try {
-                currentDir = await dirHelper.getDirectoryHandleByPath(libraryDirectoryHandle, path);
-            } catch (err) {
-                throw new Error(`Directory not found while loading song files: ${path}`);
-            }
-        }
+        // Delegate to appropriate loader based on song origin
+        const { mp3Bytes, cdgBytes } = zipInfo?.zipFileName
+            ? await loadFromZip(zipInfo, mp3FileName, cdgFileName)
+            : await loadFromDirectory(path, mp3FileName, cdgFileName);
 
-        // Load MP3 file
-        let mp3FileHandle;
-        let loadedMp3Data;
-        try {
-            mp3FileHandle = await currentDir.getFileHandle(mp3FileName);
-            const mp3File = await mp3FileHandle.getFile();
-            const mp3ArrayBuffer = await mp3File.arrayBuffer();
-            loadedMp3Data = new Uint8Array(mp3ArrayBuffer);
-        } catch (err) {
-            // Attempt sessionStorage fallback for ZIP-origin songs
-            try {
-                const params = new URLSearchParams(window.location.search);
-                const sessionId = params.get('session');
-                if (sessionId) {
-                    const key = `karamel-session-${sessionId}`;
-                    const stored = sessionStorage.getItem(key);
-                    if (stored) {
-                        const state = JSON.parse(stored);
-                        const lib = state.library;
-                        const songs = lib?.songs || [];
-                        const match = songs.find(s => (s.mp3FileName === mp3FileName) || (s.fullPath && `${s.fullPath}.mp3` === mp3FileName) || (s.fullPath === mp3FileName.replace(/\.mp3$/i, '')));
-                        if (match && (match.zipFileName || match.zipFilePath)) {
-                            const zi = {
-                                zipFileName: match.zipFileName || (match.zipFilePath ? match.zipFilePath.split('/').pop() : null),
-                                zipEntryMp3Path: match.zipEntryMp3Path || match.mp3FileName,
-                                zipEntryCdgPath: match.zipEntryCdgPath || match.cdgFileName,
-                                zipFilePath: match.zipFilePath
-                            };
+        // Store in byteStore and create object URL
+        const mp3Url = storeSongData(mp3Bytes, cdgBytes);
 
-                            // Locate ZIP file handle using dirHelper
-                            let zipHandle = null;
-                            try {
-                                if (zi.zipFilePath) {
-                                    zipHandle = await dirHelper.getFileHandleByPath(libraryDirectoryHandle, zi.zipFilePath);
-                                } else {
-                                    zipHandle = await libraryDirectoryHandle.getFileHandle(zi.zipFileName);
-                                }
-                            } catch (err2) {
-                                zipHandle = null;
-                            }
+        // Track successful load
+        const duration = performance.now() - startTime;
+        trackLoadTelemetry('SongFileLoaded', origin, mp3FileName, cdgFileName, duration, {
+            path: path || '<root>',
+            ...(zipInfo?.zipFileName && { zipFileName: zipInfo.zipFileName })
+        });
 
-                            if (zipHandle) {
-                                const zipFileObj = await zipHandle.getFile();
-                                if (typeof zipFileObj.size === 'number' && zipHelper.isZipTooLarge(zipFileObj.size, MAX_ZIP_SIZE)) {
-                                    throw new Error(`ZIP file too large to extract in-memory: ${zi.zipFileName} (${zipFileObj.size} bytes)`);
-                                }
-                                const zipBuf = await zipFileObj.arrayBuffer();
-                                const { mp3Bytes, cdgBytes } = await zipHelper.extractEntriesFromBuffer(zipBuf, zi.zipEntryMp3Path, zi.zipEntryCdgPath);
+        return { mp3Data: mp3Bytes, cdgData: cdgBytes, mp3Url };
 
-                                byteStore.setBytes('mp3', mp3Bytes);
-                                byteStore.setBytes('cdg', cdgBytes);
-                                const mp3Url = byteStore.createObjectUrl('mp3', 'audio/mpeg');
-                                return { mp3Data: mp3Bytes, cdgData: cdgBytes, mp3Url };
-                            }
-                        }
-                    }
-                }
-            } catch (fallbackErr) {
-                console.warn('Fallback lookup failed:', fallbackErr);
-            }
-
-            throw new Error(`MP3 file not found: ${mp3FileName} (path: ${path || '<root>'})`);
-        }
-
-        // Load CDG file
-        let cdgFileHandle;
-        try {
-            cdgFileHandle = await currentDir.getFileHandle(cdgFileName);
-        } catch (err) {
-            throw new Error(`CDG file not found: ${cdgFileName} (path: ${path || '<root>'})`);
-        }
-        const cdgFile = await cdgFileHandle.getFile();
-        const cdgArrayBuffer = await cdgFile.arrayBuffer();
-        const loadedCdgData = new Uint8Array(cdgArrayBuffer);
-
-        // Store in byteStore for player access
-        byteStore.setBytes('mp3', loadedMp3Data);
-        byteStore.setBytes('cdg', loadedCdgData);
-
-        return { mp3Data: loadedMp3Data, cdgData: loadedCdgData };
     } catch (error) {
+        // Track failed load
+        const duration = performance.now() - startTime;
+        trackLoadTelemetry('SongFileLoadFailed', origin, mp3FileName, cdgFileName, duration, {
+            errorMessage: error instanceof Error ? error.message : String(error)
+        });
+        
         console.error('Error loading song files:', error);
-        // Preserve original error for callers, but ensure it's an Error instance with message
-        if (error instanceof Error) throw error;
-        throw new Error(String(error));
+        throw error instanceof Error ? error : new Error(String(error));
     }
 }

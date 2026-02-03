@@ -1,11 +1,13 @@
 # Playlist Item State Management
 
-**Last Updated**: February 2, 2026  
+**Last Updated**: February 3, 2026  
 **Status**: ✅ **FULLY IMPLEMENTED & STABLE** (125/131 tests passing, 6 skipped by design)
 
 ## Executive Summary
 
 Playlist item state management is **fully implemented** with explicit status tracking (`Queued`, `UpNext`, `NowPlaying`, `Completed`). The backend uses SQL database as the single source of truth, with SignalR broadcasting real-time updates to all connected clients. The system includes **automatic auto-promotion** of songs from Queued → UpNext in the backend hub's broadcast method. Frontend components use the shared `PlaylistHelpers.GetSongById` helper for consistent song lookups.
+
+**Recent Fix (Feb 3, 2026)**: Resolved critical race condition where PlayerView played wrong MP3 file after song transitions. ByteStore cache is now explicitly cleared before loading new files, preventing stale data usage. Telemetry added to track file loading performance.
 
 ## Architecture
 
@@ -151,7 +153,7 @@ if (!hasUpNext && firstQueued != null)
 
 **Recommendation**: Refactor components to use shared helper for consistency.
 
-### otential Improvements
+### Potential Improvements
 
 ### Code Quality (Low Effort)
 1. **Consolidate GetSongById Helpers**: 

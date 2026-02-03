@@ -139,6 +139,7 @@
     public string? TokenParam { get; set; }
 
     private IJSObjectReference? fileAccessModule;
+    private IJSObjectReference? byteStoreModule;
     private IJSObjectReference? playerModule;
     private DotNetObjectReference<PlayerView>? dotNetRef;
     
@@ -188,6 +189,7 @@
             {
                 // Import JavaScript modules
                 fileAccessModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileAccess.js");
+                byteStoreModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/byteStore.js");
                 playerModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/player.js");
                 
                 // Create .NET reference for callbacks
@@ -237,7 +239,7 @@
     protected override async Task OnParametersSetAsync()
     {
         // If a new song is loaded and we're initialized, play it
-        if (isInitialized && PlaylistState.Value.CurrentSong != null && fileAccessModule != null)
+        if (isInitialized && PlaylistState.Value.CurrentSong != null && fileAccessModule != null && byteStoreModule != null)
         {
             await LoadAndPlaySong();
         }
@@ -248,12 +250,16 @@
         try
         {
             var song = GetCurrentSong();
-            if (song == null || fileAccessModule == null || playerModule == null)
+            if (song == null || fileAccessModule == null || byteStoreModule == null || playerModule == null)
             {
                 return;
             }
 
             errorMessage = null;
+
+            // CRITICAL: Clear byteStore cache before loading new files to prevent race condition
+            // where initializePlayerWithCallback reads stale MP3 data from previous song
+            await byteStoreModule.InvokeVoidAsync("clearByteStore");
 
             // Load song files from directory handle
             try
@@ -562,6 +568,11 @@
                 }
                 catch { }
                 await playerModule.DisposeAsync();
+            }
+            
+            if (byteStoreModule != null)
+            {
+                await byteStoreModule.DisposeAsync();
             }
             
             if (fileAccessModule != null)
