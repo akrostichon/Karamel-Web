@@ -2,8 +2,10 @@
 @using Fluxor
 @using Fluxor.Blazor.Web.Components
 @using Karamel.Web.Models
+@using Karamel.Web.Contracts
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Library
 @using Microsoft.JSInterop
 
 @inherits FluxorComponent
@@ -11,6 +13,7 @@
 
 @inject IState<SessionState> SessionState
 @inject IState<PlaylistState> PlaylistState
+@inject IState<LibraryState> LibraryState
 @inject IDispatcher Dispatcher
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -124,11 +127,19 @@
     [SupplyParameterFromQuery(Name = "session")]
     public string? SessionParam { get; set; }
 
+    private Song? GetCurrentSong()
+    {
+        var currentItem = PlaylistState.Value.CurrentSong;
+        if (currentItem?.SongId == null) return null;
+        return LibraryState.Value.Songs.FirstOrDefault(s => s.Id.ToString() == currentItem.SongId);
+    }
+
     [Parameter]
     [SupplyParameterFromQuery(Name = "token")]
     public string? TokenParam { get; set; }
 
     private IJSObjectReference? fileAccessModule;
+    private IJSObjectReference? byteStoreModule;
     private IJSObjectReference? playerModule;
     private DotNetObjectReference<PlayerView>? dotNetRef;
     
@@ -178,6 +189,7 @@
             {
                 // Import JavaScript modules
                 fileAccessModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileAccess.js");
+                byteStoreModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/byteStore.js");
                 playerModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/player.js");
                 
                 // Create .NET reference for callbacks
@@ -186,7 +198,17 @@
                 // Check if session and current song exist
                 if (SessionState.Value.CurrentSession != null && PlaylistState.Value.CurrentSong != null)
                 {
-                    await LoadAndPlaySong();
+                    // Validate song is marked as NowPlaying before attempting playback
+                    if (PlaylistState.Value.CurrentSong.Status != 2) // 2 = NowPlaying
+                    {
+                        Console.WriteLine($"PlayerView: WARNING - CurrentSong status is {PlaylistState.Value.CurrentSong.Status}, expected 2 (NowPlaying). Correcting status...");
+                        Dispatcher.Dispatch(new SetSongStatusAction(PlaylistState.Value.CurrentSong.Id, 2));
+                        // Don't wait - status correction will trigger state update and re-render
+                    }
+                    else
+                    {
+                        await LoadAndPlaySong();
+                    }
                 }
                 
                 // If this is the main tab, add beforeunload warning
@@ -217,7 +239,7 @@
     protected override async Task OnParametersSetAsync()
     {
         // If a new song is loaded and we're initialized, play it
-        if (isInitialized && PlaylistState.Value.CurrentSong != null && fileAccessModule != null)
+        if (isInitialized && PlaylistState.Value.CurrentSong != null && fileAccessModule != null && byteStoreModule != null)
         {
             await LoadAndPlaySong();
         }
@@ -227,13 +249,17 @@
     {
         try
         {
-            var song = PlaylistState.Value.CurrentSong;
-            if (song == null || fileAccessModule == null || playerModule == null)
+            var song = GetCurrentSong();
+            if (song == null || fileAccessModule == null || byteStoreModule == null || playerModule == null)
             {
                 return;
             }
 
             errorMessage = null;
+
+            // CRITICAL: Clear byteStore cache before loading new files to prevent race condition
+            // where initializePlayerWithCallback reads stale MP3 data from previous song
+            await byteStoreModule.InvokeVoidAsync("clearByteStore");
 
             // Load song files from directory handle
             try
@@ -290,10 +316,10 @@
         showBlockingError = false;
         blockingErrorMessage = string.Empty;
 
-        // Clear current song so NextSongView can resume showing queue
+        // Complete current song so it's marked as done
         try
         {
-            Dispatcher.Dispatch(new ClearCurrentSongAction());
+            Dispatcher.Dispatch(new CompleteCurrentSongAction());
         }
         catch { }
 
@@ -311,8 +337,8 @@
     {
         try
         {
-            // Clear the current song (stop playback state) - Next song is not auto-promoted
-            Dispatcher.Dispatch(new ClearCurrentSongAction());
+            // Complete current song via SignalR (marks as Completed, doesn't advance)
+            Dispatcher.Dispatch(new CompleteCurrentSongAction());
 
             // Wait a moment for state to update
             await Task.Delay(250);
@@ -542,6 +568,11 @@
                 }
                 catch { }
                 await playerModule.DisposeAsync();
+            }
+            
+            if (byteStoreModule != null)
+            {
+                await byteStoreModule.DisposeAsync();
             }
             
             if (fileAccessModule != null)

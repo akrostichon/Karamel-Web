@@ -330,7 +330,14 @@
         if (action.Song.AddedBySinger == singerName || 
             (string.IsNullOrWhiteSpace(singerName) && string.IsNullOrWhiteSpace(action.Song.AddedBySinger)))
         {
-            var position = PlaylistState.Value.Queue.Count;
+            // Find the newly added item in the playlist and use its Position + 1 for display
+            // (Position is 0-based, but we display 1-based positions to users)
+            var addedItem = PlaylistState.Value.Items
+                .Where(i => i.Status == 0 && i.SongId == action.Song.Id.ToString())
+                .OrderByDescending(i => i.Position)
+                .FirstOrDefault();
+            
+            var position = addedItem != null ? addedItem.Position + 1 : PlaylistState.Value.Items.Count(i => i.Status == 0);
             ShowSuccessToast($"'{action.Song.Title}' added! It's now #{position} in queue");
         }
     }
@@ -345,7 +352,7 @@
         if (string.IsNullOrWhiteSpace(singerName))
             return 0;
             
-        return PlaylistState.Value.SingerSongCounts.GetValueOrDefault(singerName, 0);
+        return PlaylistState.Value.Items.Count(i => i.SingerName == singerName && i.Status != 3);
     }
 
     private void ShowSuccessToast(string message)

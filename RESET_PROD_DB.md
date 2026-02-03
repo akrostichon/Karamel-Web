@@ -1,7 +1,10 @@
 # Reset Production Database
 
 ## Context
-The EF Core migrations were initially created with SQLite provider but production uses SQL Server, causing type incompatibility errors. All migrations have been recreated from scratch with SQL Server provider.
+The EF Core migrations include a new **Status** column and **CompletedAt** column in the **PlaylistItems** table to support explicit song state management (Queued/Up Next/Now Playing/Completed). All migrations were recreated from scratch as migration `InitialCreate_WithStatus`.
+
+**Date**: February 1, 2026  
+**Migration**: `20260201193735_InitialCreate_WithStatus`
 
 ## Steps to Reset Production Database
 

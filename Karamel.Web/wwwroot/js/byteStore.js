@@ -38,10 +38,20 @@ export function revokeObjectUrl(url) {
     }
 }
 
+/**
+ * Clear all cached song data (mp3 and cdg) to prevent stale data in byteStore
+ * Call this before loading a new song to ensure clean state
+ */
+export function clearByteStore() {
+    clear('mp3');
+    clear('cdg');
+}
+
 export default {
     setBytes,
     getBytes,
     clear,
+    clearByteStore,
     createObjectUrl,
     revokeObjectUrl
 };

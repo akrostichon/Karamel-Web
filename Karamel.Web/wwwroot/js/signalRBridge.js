@@ -78,19 +78,39 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 
 		// Wire receive handler
 		hubConnection.on('ReceivePlaylistUpdated', (dto) => {
-			// Map DTO shape to legacy session-state expected by client
+			// Map DTO shape to session-state expected by client
 			try {
 				const items = (dto.items || dto.Items || []).map(i => ({
 					id: i.songId || i.SongId,  // Use Song ID (for library lookup), not playlist item ID
 					artist: i.artist || i.Artist,
 					title: i.title || i.Title,
-					addedBySinger: i.singerName || i.SingerName || null
+					addedBySinger: i.singerName || i.SingerName || null,
+					status: i.status || i.Status || 0,  // NEW: Include song status (0=Queued, 1=UpNext, 2=NowPlaying, 3=Completed)
+					itemId: i.id || i.Id  // NEW: Playlist item ID for status updates
 				}));
+
+				// Extract currentSong from DTO (first NowPlaying item, or null)
+				const currentSongDto = dto.currentSong || dto.CurrentSong;
+				const currentSong = currentSongDto ? {
+					id: currentSongDto.songId || currentSongDto.SongId,
+					artist: currentSongDto.artist || currentSongDto.Artist,
+					title: currentSongDto.title || currentSongDto.Title,
+					addedBySinger: currentSongDto.singerName || currentSongDto.SingerName || null,
+					status: currentSongDto.status || currentSongDto.Status || 0,
+					itemId: currentSongDto.id || currentSongDto.Id
+				} : null;
+
+				// Calculate singer song counts
+				const singerSongCounts = {};
+				items.forEach(item => {
+					const singer = item.addedBySinger || 'Unknown';
+					singerSongCounts[singer] = (singerSongCounts[singer] || 0) + 1;
+				});
 
 				const data = {
 					queue: items,
-					currentSong: null,
-					singerSongCounts: {}
+					currentSong: currentSong,  // CHANGED: Extract from DTO instead of hardcoding null
+					singerSongCounts
 				};
 
 				// Persist to sessionStorage and fire update event used by Blazor
@@ -278,9 +298,15 @@ export async function addItemToPlaylist(songId, singerName) {
 }
 
 export async function removeItemFromPlaylist(itemId) {
+	if (!currentSessionId) {
+		console.error('removeItemFromPlaylist: No current session ID');
+		return false;
+	}
+
 	if (usingSignalR && hubConnection) {
 		try {
-			await hubConnection.invoke('RemoveItemAsync', itemId);
+			// PlaylistHub.RemoveItemAsync(Guid sessionId, Guid itemId)
+			await hubConnection.invoke('RemoveItemAsync', currentSessionId, itemId);
 			return true;
 		} catch (e) {
 			console.warn('RemoveItemAsync via SignalR failed, falling back to local broadcast:', e);
@@ -297,10 +323,16 @@ export async function removeItemFromPlaylist(itemId) {
 	return false;
 }
 
-export async function reorderPlaylist(newOrder) {
+export async function reorderPlaylist(from, to) {
+	if (!currentSessionId) {
+		console.error('reorderPlaylist: No current session ID');
+		return false;
+	}
+
 	if (usingSignalR && hubConnection) {
 		try {
-			await hubConnection.invoke('ReorderAsync', newOrder);
+			// PlaylistHub.ReorderAsync(Guid sessionId, int from, int to)
+			await hubConnection.invoke('ReorderAsync', currentSessionId, from, to);
 			return true;
 		} catch (e) {
 			console.warn('ReorderAsync via SignalR failed, falling back to local broadcast:', e);
@@ -311,10 +343,113 @@ export async function reorderPlaylist(newOrder) {
 	const state = getSessionState();
 	if (state) {
 		state.playlist = state.playlist || { queue: [] };
-		state.playlist.queue = newOrder;
+		// Note: fallback doesn't support from/to reordering - would need array manipulation
 		sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(state));
 		broadcastStateUpdate('playlist-updated', state.playlist);
 	}
+	return false;
+}
+
+/**
+ * Set the status of a specific playlist item.
+ * @param {string} itemId - Playlist item ID (not song ID)
+ * @param {number} status - SongStatus enum value (0=Queued, 1=UpNext, 2=NowPlaying, 3=Completed)
+ * @returns {Promise<boolean>} True if successful via SignalR
+ */
+export async function setSongStatus(itemId, status) {
+	if (!currentSessionId) {
+		console.error('setSongStatus: No current session ID');
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			// PlaylistHub.SetSongStatusAsync(Guid sessionId, Guid itemId, int status)
+			await hubConnection.invoke('SetSongStatusAsync', currentSessionId, itemId, status);
+			return true;
+		} catch (e) {
+			console.warn('SetSongStatusAsync via SignalR failed:', e);
+			return false;
+		}
+	}
+
+	console.warn('setSongStatus: SignalR not connected, cannot update status');
+	return false;
+}
+
+/**
+ * Advance to the next song: marks current NowPlaying as Completed, marks first UpNext as NowPlaying.
+ * @returns {Promise<boolean>} True if successful via SignalR
+ */
+export async function advanceToNextSong() {
+	if (!currentSessionId) {
+		console.error('advanceToNextSong: No current session ID');
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			// PlaylistHub.AdvanceToNextSongAsync(Guid sessionId)
+			await hubConnection.invoke('AdvanceToNextSongAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			console.warn('AdvanceToNextSongAsync via SignalR failed:', e);
+			return false;
+		}
+	}
+
+	console.warn('advanceToNextSong: SignalR not connected, cannot advance song');
+	return false;
+}
+
+/**
+ * Complete the current song without advancing to the next one.
+ * Marks current NowPlaying as Completed. Next song remains in queue.
+ * @returns {Promise<boolean>} True if successful via SignalR
+ */
+export async function completeCurrentSong() {
+	if (!currentSessionId) {
+		console.error('completeCurrentSong: No current session ID');
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			// PlaylistHub.CompleteCurrentSongAsync(Guid sessionId)
+			await hubConnection.invoke('CompleteCurrentSongAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			console.warn('CompleteCurrentSongAsync via SignalR failed:', e);
+			return false;
+		}
+	}
+
+	console.warn('completeCurrentSong: SignalR not connected, cannot complete song');
+	return false;
+}
+
+/**
+ * Clear all queued and up-next songs from the playlist, preserving the currently playing song.
+ * @returns {Promise<boolean>} True if successful via SignalR
+ */
+export async function clearQueue() {
+	if (!currentSessionId) {
+		console.error('clearQueue: No current session ID');
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			// PlaylistHub.ClearQueueAsync(Guid sessionId)
+			await hubConnection.invoke('ClearQueueAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			console.warn('ClearQueueAsync via SignalR failed:', e);
+			return false;
+		}
+	}
+
+	console.warn('clearQueue: SignalR not connected, cannot clear queue');
 	return false;
 }
 

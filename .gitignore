@@ -8,10 +8,10 @@
 /dotnet_run_verbose.log
 /test-output.log
 **/_gen/
-prompts/
 *.db
 *.log
 /FIX_*.md
+plan*.md
 publish/
 app.zip
 latest-logs/

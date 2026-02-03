@@ -142,22 +142,12 @@ public class SessionService : ISessionService
 
     /// <summary>
     /// Broadcast playlist updated event (main tab only)
+    /// DEPRECATED: SignalR handles playlist synchronization now
     /// </summary>
     public async Task BroadcastPlaylistUpdatedAsync()
     {
-        if (_sessionBridgeModule == null)
-            return;
-
-        var state = _playlistState.Value;
-        var data = new
-        {
-            queue = state.Queue.Select(SongConverters.ConvertSongToDto).ToArray(),
-            currentSong = state.CurrentSong == null ? null : SongConverters.ConvertSongToDto(state.CurrentSong),
-            currentSingerName = state.CurrentSingerName,
-            singerSongCounts = state.SingerSongCounts
-        };
-
-        await _sessionBridgeModule.InvokeVoidAsync("broadcastStateUpdate", "playlist-updated", data);
+        // No-op: SignalR broadcasts playlist updates automatically
+        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -311,35 +301,11 @@ public class SessionService : ISessionService
             // It will be updated via broadcast when songs are added
 
             // Restore playlist if present in sessionStorage (useful if main tab saved it)
+            // DEPRECATED: SignalR now handles playlist sync, this is a no-op for backward compat
             if (stateJson.TryGetProperty("playlist", out var playlistData) &&
                 playlistData.ValueKind != JsonValueKind.Null)
             {
-                try
-                {
-                    Console.WriteLine($"SessionService: Found playlist data in sessionStorage");
-
-                    var queue = new List<Song>();
-                    if (playlistData.TryGetProperty("queue", out var queueArray))
-                    {
-                        queue = queueArray.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-                    }
-
-                    var singerSongCounts = new Dictionary<string, int>();
-                    if (playlistData.TryGetProperty("singerSongCounts", out var countsObj))
-                    {
-                        foreach (var prop in countsObj.EnumerateObject())
-                        {
-                            singerSongCounts[prop.Name] = prop.Value.GetInt32();
-                        }
-                    }
-
-                    _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts));
-                    Console.WriteLine($"SessionService: Dispatched playlist restore with {queue.Count} songs");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SessionService: Error restoring playlist from sessionStorage: {ex.Message}");
-                }
+                Console.WriteLine($"SessionService: Found playlist data in sessionStorage (ignored - SignalR handles sync)");
             }
         }
         catch (Exception ex)
@@ -618,10 +584,29 @@ public class SessionService : ISessionService
             var currentSong = ExtractCurrentSongFromJson(data, libraryLookup);
             var currentSingerName = ExtractCurrentSingerName(data);
 
-            // 6. Dispatch action to update playlist state
-            _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(queue, singerSongCounts, currentSong, currentSingerName));
+            // 6. Convert to PlaylistItemDto format and dispatch
+            var itemDtos = queue.Select((s, index) => new PlaylistItemDto(
+                Id: Guid.NewGuid().ToString(), // Temporary ID for local processing
+                SongId: s.Id.ToString(),
+                Artist: s.Artist,
+                Title: s.Title,
+                SingerName: s.AddedBySinger,
+                Position: index,
+                Status: 0 // Queued
+            )).ToList();
 
-            Console.WriteLine($"SessionService: Dispatched playlist update with {queue.Count} songs (currentSong={(currentSong != null)})");
+            var currentSongDto = currentSong != null ? new PlaylistItemDto(
+                Id: Guid.NewGuid().ToString(),
+                SongId: currentSong.Id.ToString(),
+                Artist: currentSong.Artist,
+                Title: currentSong.Title,
+                SingerName: currentSong.AddedBySinger,
+                Position: 0,
+                Status: 2 // NowPlaying
+            ) : null;
+
+            _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));
+            Console.WriteLine($"SessionService: Dispatched UpdatePlaylistFromBroadcastAction with {queue.Count} songs");
         }
         catch (Exception ex)
         {
@@ -732,24 +717,88 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
-    /// Reorder the playlist using SignalR if available, fallback to local broadcast.
-    /// newOrder should be an IEnumerable of Song representing the desired queue order.
-    /// Returns true if the server-side RPC was invoked successfully.
+    /// Reorder the playlist using SignalR.
     /// </summary>
-    public async Task<bool> ReorderPlaylistAsync(IEnumerable<Song> newOrder)
+    public async Task<bool> ReorderPlaylistAsync(int from, int to)
     {
         if (_sessionBridgeModule == null) return false;
 
-        var items = newOrder.Select(SongConverters.ConvertSongToDto).ToArray();
-
         try
         {
-            return await _sessionBridgeModule.InvokeAsync<bool>("reorderPlaylist", items);
+            return await _sessionBridgeModule.InvokeAsync<bool>("reorderPlaylist", from, to);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"SessionService: reorderPlaylist JS invoke failed: {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Set song status via SignalR.
+    /// </summary>
+    public async Task SetSongStatusAsync(string itemId, int status)
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("setSongStatus", itemId, status);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: setSongStatus JS invoke failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Advance to next song via SignalR.
+    /// </summary>
+    public async Task AdvanceToNextSongAsync()
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("advanceToNextSong");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: advanceToNextSong JS invoke failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Complete current song without advancing to next song via SignalR.
+    /// </summary>
+    public async Task CompleteCurrentSongAsync()
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("completeCurrentSong");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: completeCurrentSong JS invoke failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Clear all queued and up-next songs via SignalR, preserving the currently playing song.
+    /// </summary>
+    public async Task ClearQueueAsync()
+    {
+        if (_sessionBridgeModule == null) return;
+
+        try
+        {
+            await _sessionBridgeModule.InvokeVoidAsync("clearQueue");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: clearQueue JS invoke failed: {ex.Message}");
         }
     }
 

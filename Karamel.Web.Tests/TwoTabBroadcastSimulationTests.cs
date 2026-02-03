@@ -5,6 +5,7 @@ using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Models;
 using Karamel.Web.Tests.TestHelpers;
+using Karamel.Web.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
@@ -69,20 +70,26 @@ namespace Karamel.Web.Tests
             // Add a song from singer
             var song = new Song
             {
+                Id = Guid.NewGuid(),
                 Artist = "Sim Artist",
                 Title = "Sim Song",
                 Mp3FileName = "sim.mp3",
-                CdgFileName = "sim.cdg"
+                CdgFileName = "sim.cdg",
+                AddedBySinger = "Tester"
             };
             singerDispatcher.Dispatch(new AddToPlaylistAction(song, "Tester"));
 
             // Give effects time to run
             await Task.Delay(100);
 
+            // Simulate SignalR broadcast in singer tab (effect would trigger this)
+            var playlistItem = TestDataFactory.CreatePlaylistItem(song, 0, 0);
+            singerDispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(new List<PlaylistItemDto> { playlistItem }, null));
+
             // Capture playlist state from singer context
             var singerPlaylistState = singerCtx.Services.GetRequiredService<IState<PlaylistState>>();
-            var queueList = singerPlaylistState.Value.Queue.ToList();
-            Assert.Single(queueList); // ensure singer side has the song
+            var itemsList = singerPlaylistState.Value.Items;
+            Assert.Single(itemsList); // ensure singer side has the song
 
             // --- Setup NextSong (secondary tab) context ---
             using var nextCtx = new TestContext();
@@ -103,18 +110,10 @@ namespace Karamel.Web.Tests
             nextDispatcher.Dispatch(new InitializeSessionAction(initialSession));
 
             // Simulate receiving broadcast by dispatching UpdatePlaylistFromBroadcastAction into next tab's store
-            var singerQueue = queueList.Select(s => new Song
-            {
-                Id = s.Id,
-                Artist = s.Artist,
-                Title = s.Title,
-                Mp3FileName = s.Mp3FileName,
-                CdgFileName = s.CdgFileName,
-                AddedBySinger = s.AddedBySinger
-            }).ToList();
-            var singerCounts = singerPlaylistState.Value.SingerSongCounts.ToDictionary(kv => kv.Key, kv => kv.Value);
+            var broadcastItems = itemsList.ToList(); // Send playlist items as-is
+            var broadcastCurrentSong = singerPlaylistState.Value.CurrentSong;
 
-            nextDispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(singerQueue, singerCounts, null, null));
+            nextDispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(broadcastItems, broadcastCurrentSong));
 
             // Render NextSongView in nextCtx
             var cut = nextCtx.RenderComponent<NextSongView>();

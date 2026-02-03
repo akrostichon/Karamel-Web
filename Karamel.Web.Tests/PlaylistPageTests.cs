@@ -1,5 +1,7 @@
 using Bunit;
 using Karamel.Web.Models;
+using Karamel.Web.Tests.TestHelpers;
+using Karamel.Web.Contracts;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
@@ -71,7 +73,7 @@ public class PlaylistPageTests : SessionTestBase
     public void Component_WhenPlaylistIsEmpty_ShowsEmptyStateMessage()
     {
         // Arrange
-        var playlistState = new PlaylistState { Queue = new Queue<Song>() };
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -92,7 +94,11 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState 
+        { 
+            Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()),
+            CurrentSong = TestDataFactory.CreatePlaylistItem(_testSongs[0]) // Set CurrentSong to first song
+        };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -115,7 +121,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -130,21 +136,25 @@ public class PlaylistPageTests : SessionTestBase
         var upNextSection = cut.Find(".up-next");
         var songRows = upNextSection.QuerySelectorAll(".song-item");
         
-        // Should have 3 songs in "Up Next" (first one is in "Now Playing")
-        Assert.Equal(3, songRows.Length);
+        // Should have 4 songs in "Up Next" (no CurrentSong set, so all in queue)
+        Assert.Equal(4, songRows.Length);
         
-        // Verify order
-        Assert.Contains("Beatles", songRows[0].TextContent);
-        Assert.Contains("Let It Be", songRows[0].TextContent);
-        Assert.Contains("Bob", songRows[0].TextContent);
+        // Verify first song is at index 0
+        Assert.Contains("Queen", songRows[0].TextContent);
+        Assert.Contains("Bohemian Rhapsody", songRows[0].TextContent);
+        Assert.Contains("Alice", songRows[0].TextContent);
     }
 
     [Fact]
     public void Component_WhenQueueHasOneSong_DoesNotShowUpNextSection()
     {
-        // Arrange
-        var queue = new Queue<Song>(new[] { _testSongs[0] });
-        var playlistState = new PlaylistState { Queue = queue };
+        // Arrange - Simulate state after NextSongAction: song moved from Queue to CurrentSong
+        var queue = new Queue<Song>(); // Empty queue after song taken out
+        var playlistState = new PlaylistState 
+        { 
+            Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()),
+            CurrentSong = TestDataFactory.CreatePlaylistItem(_testSongs[0]) // Song is now current
+        };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -155,7 +165,7 @@ public class PlaylistPageTests : SessionTestBase
         // Act
         var cut = RenderComponent<Playlist>();
 
-        // Assert
+        // Assert - Now Playing should show, but Up Next should not (queue is empty)
         var upNextSections = cut.FindAll(".up-next");
         Assert.Empty(upNextSections);
     }
@@ -165,7 +175,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -177,19 +187,20 @@ public class PlaylistPageTests : SessionTestBase
 
         // Act
         var removeButtons = cut.FindAll("button.btn-remove");
-        removeButtons[0].Click(); // Click first remove button (for 2nd song in queue)
+        removeButtons[0].Click(); // Click first remove button (for first song in queue)
 
-        // Assert - The first button is for the second song in the queue (_testSongs[1])
+        // Assert - RemoveSongAction now receives the ItemId (playlist item ID), not the Song ID
+        var firstItemId = Guid.Parse(playlistState.Items[0].Id);
         mockDispatcher.Verify(d => d.Dispatch(It.Is<RemoveSongAction>(
-            a => a.SongId == _testSongs[1].Id)), Times.Once);
+            a => a.SongId == firstItemId)), Times.Once);
     }
 
-    [Fact(Skip = "Complex async JSInterop mocking: bUnit doesn't properly trigger async @onclick handlers that call JSRuntime.InvokeAsync. Button rendering and visual behavior tested in other tests. Consider refactoring to extract confirmation logic to testable service.")]
+    [Fact(Skip = "bUnit limitation: async @onclick handlers with JSRuntime.InvokeAsync (confirm dialog) don't complete in tests. The ClearPlaylistAction → PlaylistEffects.HandleClearPlaylistAction → SessionService.ClearQueueAsync flow is verified via backend integration tests.")]
     public async Task ClearPlaylistButton_WhenClickedAndConfirmed_DispatchesClearPlaylistAction()
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -197,41 +208,35 @@ public class PlaylistPageTests : SessionTestBase
         };
         var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
-        // Set JSInterop to Loose mode to handle all JS calls gracefully
+        // Mock window.confirm to return true
         JSInterop.Mode = JSRuntimeMode.Loose;
-        
-        // Setup the specific confirm call to return true
-        var confirmSetup = JSInterop.Setup<bool>("confirm");
-        confirmSetup.SetResult(true);
+        var confirmHandler = JSInterop.Setup<bool>("confirm", "Are you sure you want to clear all queued songs? The currently playing song will not be affected.");
+        confirmHandler.SetResult(true);
 
         var cut = RenderComponent<Playlist>();
-
-        // Verify session is valid (no invalid session message)
-        Assert.DoesNotContain("Invalid Session", cut.Markup);
 
         // Act - Find and click the clear button
         var clearButton = cut.Find("button.btn-clear-playlist");
         
-        // Trigger the async onclick event properly
-        await clearButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+        // Use ClickAsync to trigger async onclick handler
+        await cut.InvokeAsync(async () => 
+        {
+            await clearButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+        });
 
-        // Wait for async confirm and dispatch to complete
-        await Task.Delay(150);
+        // Give time for async operations
+        await Task.Delay(100);
 
-        // Debug: Check if confirm was called
-        var confirmInvocations = JSInterop.Invocations["confirm"];
-        Assert.NotEmpty(confirmInvocations); // This will tell us if confirm was even called
-
-        // Assert
+        // Assert - Verify ClearPlaylistAction was dispatched (effect will call SessionService.ClearQueueAsync)
         mockDispatcher.Verify(d => d.Dispatch(It.IsAny<ClearPlaylistAction>()), Times.Once);
     }
 
-    [Fact(Skip = "Complex async JSInterop mocking: bUnit doesn't properly trigger async @onclick handlers that call JSRuntime.InvokeAsync. Button rendering and visual behavior tested in other tests. Consider refactoring to extract confirmation logic to testable service.")]
-    public void ClearPlaylistButton_WhenClickedAndCancelled_DoesNotDispatchAction()
+    [Fact(Skip = "bUnit limitation: async @onclick handlers with JSRuntime.InvokeAsync (confirm dialog) don't complete in tests. The ClearPlaylistAction → PlaylistEffects.HandleClearPlaylistAction → SessionService.ClearQueueAsync flow is verified via backend integration tests.")]
+    public async Task ClearPlaylistButton_WhenClickedAndCancelled_DoesNotDispatchAction()
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -239,18 +244,21 @@ public class PlaylistPageTests : SessionTestBase
         };
         var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
-        // Mock window.confirm to return false - use Mode.Loose to accept any arguments
+        // Mock window.confirm to return false
         JSInterop.Mode = JSRuntimeMode.Loose;
-        JSInterop.SetupVoid("confirm", _ => true);
-        JSInterop.Setup<bool>("confirm", "Are you sure you want to clear the entire playlist?").SetResult(false);
+        JSInterop.Setup<bool>("confirm", "Are you sure you want to clear all queued songs? The currently playing song will not be affected.")
+            .SetResult(false);
 
         var cut = RenderComponent<Playlist>();
 
-        // Act
+        // Act - Find and click the clear button
         var clearButton = cut.Find("button.btn-clear-playlist");
-        clearButton.Click();
+        await clearButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
 
-        // Assert
+        // Wait for async operations to complete
+        await Task.Delay(50);
+
+        // Assert - Verify ClearPlaylistAction was NOT dispatched
         mockDispatcher.Verify(d => d.Dispatch(It.IsAny<ClearPlaylistAction>()), Times.Never);
     }
 
@@ -259,7 +267,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var session = _testSession with { AllowSingersToReorder = false };
         var sessionState = new SessionState 
         { 
@@ -288,7 +296,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var session = _testSession with { AllowSingersToReorder = true };
         var sessionState = new SessionState 
         { 
@@ -317,7 +325,7 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
@@ -343,12 +351,13 @@ public class PlaylistPageTests : SessionTestBase
     {
         // Arrange
         var queue = new Queue<Song>(_testSongs);
-        var playlistState = new PlaylistState { Queue = queue };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
         var sessionState = new SessionState 
         { 
             CurrentSession = _testSession,
             IsInitialized = true 
         };
+        playlistState = playlistState with { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSongs[0]) }; // Set CurrentSong
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
@@ -358,10 +367,12 @@ public class PlaylistPageTests : SessionTestBase
         var nowPlaying = cut.Find(".now-playing");
         Assert.Contains("Alice", nowPlaying.TextContent);
 
-        // Assert - Check "Up Next" items
+        // Assert - Check "Up Next" items (all songs in queue)
         var upNextSection = cut.Find(".up-next");
         Assert.Contains("Bob", upNextSection.TextContent);
         Assert.Contains("Alice", upNextSection.TextContent); // ABBA song
         Assert.Contains("Charlie", upNextSection.TextContent);
     }
 }
+
+

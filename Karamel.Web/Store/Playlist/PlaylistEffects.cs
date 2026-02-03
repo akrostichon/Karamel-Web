@@ -12,7 +12,9 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         var state = playlistState.Value;
         var singerName = action.SingerName ?? "Unknown";
-        var currentCount = state.SingerSongCounts.GetValueOrDefault(singerName, 0);
+        
+        // Calculate current count on-demand from Items
+        var currentCount = state.Items.Count(i => i.SingerName == singerName && i.Status != 3); // 3=Completed
 
         if (currentCount >= MaxSongsPerSinger)
         {
@@ -73,8 +75,8 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     [EffectMethod]
     public async Task HandleClearPlaylistAction(ClearPlaylistAction action, IDispatcher dispatcher)
     {
-        // Broadcast playlist update after clearing
-        await sessionService.BroadcastPlaylistUpdatedAsync();
+        // Call backend to clear queued and up-next songs (preserves currently playing song)
+        await sessionService.ClearQueueAsync();
     }
 
     [EffectMethod]
@@ -82,17 +84,55 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            // Use current playlist order from state as the new order
-            var currentQueue = playlistState.Value.Queue;
-            var sent = await sessionService.ReorderPlaylistAsync(currentQueue);
-            if (!sent)
-            {
-                await sessionService.BroadcastPlaylistUpdatedAsync();
-            }
+            // ReorderPlaylistAsync handles the reordering logic internally
+            var sent = await sessionService.ReorderPlaylistAsync(action.OldIndex, action.NewIndex);
+            // SignalR broadcast will update state
         }
         catch
         {
-            await sessionService.BroadcastPlaylistUpdatedAsync();
+            // Errors logged by SessionService
+        }
+    }
+
+    [EffectMethod]
+    public async Task HandleSetSongStatusAction(SetSongStatusAction action, IDispatcher dispatcher)
+    {
+        try
+        {
+            await sessionService.SetSongStatusAsync(action.ItemId, action.Status);
+            // SignalR broadcast will update state
+        }
+        catch
+        {
+            // Errors logged by SessionService
+        }
+    }
+
+    [EffectMethod]
+    public async Task HandleAdvanceToNextSongAction(AdvanceToNextSongAction action, IDispatcher dispatcher)
+    {
+        try
+        {
+            await sessionService.AdvanceToNextSongAsync();
+            // SignalR broadcast will update state
+        }
+        catch
+        {
+            // Errors logged by SessionService
+        }
+    }
+
+    [EffectMethod]
+    public async Task HandleCompleteCurrentSongAction(CompleteCurrentSongAction action, IDispatcher dispatcher)
+    {
+        try
+        {
+            await sessionService.CompleteCurrentSongAsync();
+            // SignalR broadcast will update state
+        }
+        catch
+        {
+            // Errors logged by SessionService
         }
     }
 }

@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Karamel.Backend.Migrations
 {
     [DbContext(typeof(BackendDbContext))]
-    [Migration("20260131105550_AddSongIdToPlaylistItems")]
-    partial class AddSongIdToPlaylistItems
+    [Migration("20260203204907_AddSongsTableAndStatusColumns")]
+    partial class AddSongsTableAndStatusColumns
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -49,6 +49,9 @@ namespace Karamel.Backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("PlaylistId")
                         .HasColumnType("uniqueidentifier");
 
@@ -60,6 +63,9 @@ namespace Karamel.Backend.Migrations
 
                     b.Property<Guid?>("SongId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
                     b.Property<string>("Title")
                         .IsRequired()

@@ -2,6 +2,7 @@
 @using Fluxor
 @using Fluxor.Blazor.Web.Components
 @using Karamel.Web.Models
+@using Karamel.Web.Contracts
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Store.Session
 @using Karamel.Web.Store.Library
@@ -36,16 +37,9 @@
     {
         <h1 class="mb-4">Playlist</h1>
 
-    @if (!PlaylistState.Value.Queue.Any())
+    <!-- Now Playing Section -->
+    @if (PlaylistState.Value.CurrentSong != null)
     {
-        <div class="alert alert-info" role="alert">
-            <i class="bi bi-music-note-list"></i>
-            No songs in queue. Add songs from the Singer view!
-        </div>
-    }
-    else
-    {
-        <!-- Now Playing Section -->
         <div class="now-playing card mb-4">
             <div class="card-body">
                 <h2 class="card-title">
@@ -53,25 +47,33 @@
                     Now Playing
                 </h2>
                 @{
-                    var nowPlaying = PlaylistState.Value.Queue.Peek();
+                    var nowPlaying = PlaylistState.Value.CurrentSong;
                 }
                 <div class="song-info">
                     <div class="artist h4">@nowPlaying.Artist</div>
                     <div class="title h3 fw-bold">@nowPlaying.Title</div>
-                    @if (!string.IsNullOrEmpty(nowPlaying.AddedBySinger))
+                    @if (!string.IsNullOrEmpty(nowPlaying.SingerName))
                     {
                         <div class="singer muted-on-surface">
-                            <i class="bi bi-person-fill"></i> @nowPlaying.AddedBySinger
+                            <i class="bi bi-person-fill"></i> @nowPlaying.SingerName
                         </div>
                     }
                 </div>
             </div>
         </div>
+    }
 
-        <!-- Up Next Section -->
-        @if (PlaylistState.Value.Queue.Count() > 1)
+    <!-- Up Next Section -->
+    @if (!PlaylistState.Value.Items.Any())
+    {
+        <div class="alert alert-info" role="alert">
+            <i class="bi bi-music-note-list"></i>
+            No songs in queue. Add songs from the Singer view!
+        </div>
+    }
+    else if (PlaylistState.Value.Items.Any(i => i.Status == 0 || i.Status == 1))
         {
-            var upNextSongs = PlaylistState.Value.Queue.Skip(1).ToList();
+            var upNextSongs = PlaylistState.Value.Items.Where(i => i.Status == 0 || i.Status == 1).OrderBy(i => i.Position).ToList();
 
             <div class="up-next card">
                 <div class="card-body">
@@ -106,10 +108,10 @@
                                     <div class="song-artist-title">
                                         <strong>@song.Artist</strong> - @song.Title
                                     </div>
-                                    @if (!string.IsNullOrEmpty(song.AddedBySinger))
+                                    @if (!string.IsNullOrEmpty(song.SingerName))
                                     {
                                         <div class="song-singer muted-on-surface small">
-                                            <i class="bi bi-person-fill"></i> @song.AddedBySinger
+                                            <i class="bi bi-person-fill"></i> @song.SingerName
                                         </div>
                                     }
                                 </div>
@@ -123,7 +125,6 @@
                 </div>
             </div>
         }
-    }
     }
 </div>
 
@@ -164,7 +165,7 @@
         try
         {
             var state = PlaylistState.Value;
-            Console.WriteLine($"Playlist.razor: Playlist state changed. QueueCount={state.Queue?.Count ?? 0}");
+            Console.WriteLine($"Playlist.razor: Playlist state changed. ItemsCount={state.Items?.Count ?? 0}");
         }
         catch { }
 
@@ -221,15 +222,18 @@
         return SessionState.Value.CurrentSession.SessionId == sessionGuid;
     }
 
-    private void RemoveSong(Guid songId)
+    private void RemoveSong(string itemId)
     {
-        Dispatcher.Dispatch(new RemoveSongAction(songId));
+        if (Guid.TryParse(itemId, out var guid))
+        {
+            Dispatcher.Dispatch(new RemoveSongAction(guid));
+        }
     }
 
     private async Task ClearPlaylist()
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
-            "Are you sure you want to clear the entire playlist?");
+            "Are you sure you want to clear all queued songs? The currently playing song will not be affected.");
         
         if (confirmed)
         {

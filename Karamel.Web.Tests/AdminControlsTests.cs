@@ -5,6 +5,7 @@ using Karamel.Web.Pages;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Models;
+using Karamel.Web.Tests.TestHelpers;
 using System.Collections.Generic;
 
 namespace Karamel.Web.Tests
@@ -45,7 +46,7 @@ namespace Karamel.Web.Tests
         {
             // Arrange
             var sessionState = new SessionState { CurrentSession = _testSession };
-            var playlistState = new PlaylistState { Queue = new Queue<Song>(_testQueue) };
+            var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testQueue) };
             SetupTestWithSession(sessionState, playlistState, view: "nextsong");
 
             JSInterop.Mode = JSRuntimeMode.Loose;
@@ -63,7 +64,7 @@ namespace Karamel.Web.Tests
         {
             // Arrange
             var sessionState = new SessionState { CurrentSession = _testSession };
-            var playlistState = new PlaylistState { Queue = new Queue<Song>(_testQueue) };
+            var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testQueue) };
             SetupTestWithSession(sessionState, playlistState, view: "nextsong");
 
             JSInterop.Mode = JSRuntimeMode.Loose;
@@ -92,7 +93,7 @@ namespace Karamel.Web.Tests
         {
             // Arrange
             var sessionState = new SessionState { CurrentSession = _testSession };
-            var playlistState = new PlaylistState { Queue = new Queue<Song>(_testQueue) };
+            var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testQueue) };
             SetupTestWithSession(sessionState, playlistState, view: "nextsong");
 
             JSInterop.Mode = JSRuntimeMode.Loose;
@@ -116,7 +117,7 @@ namespace Karamel.Web.Tests
         {
             // Arrange
             var sessionState = new SessionState { CurrentSession = _testSession };
-            var playlistState = new PlaylistState { Queue = new Queue<Song>(_testQueue) };
+            var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testQueue) };
             SetupTestWithSession(sessionState, playlistState, view: "nextsong");
 
             JSInterop.Mode = JSRuntimeMode.Loose;
@@ -144,7 +145,7 @@ namespace Karamel.Web.Tests
         {
             // Arrange
             var sessionState = new SessionState { CurrentSession = _testSession };
-            var playlistState = new PlaylistState { Queue = new Queue<Song>(_testQueue) };
+            var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testQueue) };
             SetupTestWithSession(sessionState, playlistState, view: "player");
 
             JSInterop.Mode = JSRuntimeMode.Loose;
@@ -163,7 +164,7 @@ namespace Karamel.Web.Tests
         {
             // Arrange
             var sessionState = new SessionState { CurrentSession = _testSession };
-            var playlistState = new PlaylistState { Queue = new Queue<Song>(_testQueue) };
+            var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testQueue) };
             SetupTestWithSession(sessionState, playlistState, view: "player");
 
             JSInterop.Mode = JSRuntimeMode.Loose;
