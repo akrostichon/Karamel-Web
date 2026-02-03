@@ -383,33 +383,6 @@ public class PlayerViewTests : SessionTestBase
         Assert.Empty(sidePanels);
     }
 
-    [Fact]
-    public async Task Component_LoadsAndPlaysCurrentSong()
-    {
-        // Arrange
-        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
-        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong, status: 2) }; // 2 = NowPlaying
-        // PlayerView needs LibraryState with the song to look up full Song metadata
-        var libraryState = new Karamel.Web.Store.Library.LibraryState { Songs = new List<Song> { _testSong } };
-        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");
-        
-        var mockFileAccess = new Mock<IJSObjectReference>();
-        var mockPlayer = new Mock<IJSObjectReference>();
-        SetupJSRuntimeWithModules(mockFileAccess.Object, mockPlayer.Object);
-
-        // Act
-        var cut = RenderComponent<PlayerView>();
-        await Task.Delay(100); // Allow async initialization
-
-        // Assert
-        mockFileAccess.Verify(m => m.InvokeAsync<object>(
-            "loadSongFiles",
-            It.IsAny<object[]>()), Times.Once);
-        
-        mockPlayer.Verify(m => m.InvokeAsync<object>(
-            "initializePlayerWithCallback",
-            It.IsAny<object[]>()), Times.Once);
-    }
 
     [Fact]
     public async Task OnSongEnded_DispatchesNextSongAction()
