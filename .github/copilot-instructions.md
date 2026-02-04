@@ -398,7 +398,6 @@ describe('moduleName', () => {
 
 ### Test Failures
 - **C# tests**: 3 skipped tests (PlaylistPageTests x2, PlayerViewTests x1) due to bUnit async JSInterop limitations - this is intentional
-- **JavaScript tests**: 7 known failures in homeInterop/sessionBridge tests - minor assertion mismatches, not critical
 
 ### Browser Compatibility
 - **File System Access API** requires Chrome/Edge (not supported in Firefox/Safari)
