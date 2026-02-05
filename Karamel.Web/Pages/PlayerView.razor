@@ -76,6 +76,9 @@
                     <button class="btn btn-control" @onclick="StopPlayback">
                         <i class="bi bi-stop-circle"></i>
                     </button>
+                    <button class="btn btn-control" @onclick="ToggleFullscreen">
+                        <i class="bi @(isFullscreen ? "bi-fullscreen-exit" : "bi-fullscreen")"></i>
+                    </button>
                 </div>
             }
         </div>
@@ -141,10 +144,12 @@
     private IJSObjectReference? fileAccessModule;
     private IJSObjectReference? byteStoreModule;
     private IJSObjectReference? playerModule;
+    private IJSObjectReference? fullscreenModule;
     private DotNetObjectReference<PlayerView>? dotNetRef;
     
     private bool showControls = false;
     private bool isPlaying = false;
+    private bool isFullscreen = false;
     private bool showExpandIcon = false;
     private bool sidePanelOpen = false;
     private string sidePanelView = "singer";
@@ -191,9 +196,16 @@
                 fileAccessModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileAccess.js");
                 byteStoreModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/byteStore.js");
                 playerModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/player.js");
+                fullscreenModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fullscreen.js");
                 
                 // Create .NET reference for callbacks
                 dotNetRef = DotNetObjectReference.Create(this);
+                
+                // Initialize fullscreen module with callback
+                await fullscreenModule.InvokeVoidAsync("initializeFullscreen", dotNetRef);
+                
+                // Check current fullscreen state
+                isFullscreen = await fullscreenModule.InvokeAsync<bool>("isFullscreen");
                 
                 // Check if session and current song exist
                 if (SessionState.Value.CurrentSession != null && PlaylistState.Value.CurrentSong != null)
@@ -453,6 +465,29 @@
         StateHasChanged();
     }
 
+    private async Task ToggleFullscreen()
+    {
+        try
+        {
+            if (fullscreenModule != null)
+            {
+                await fullscreenModule.InvokeVoidAsync("toggleFullscreen");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling fullscreen: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public Task OnFullscreenChanged(bool isNowFullscreen)
+    {
+        isFullscreen = isNowFullscreen;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     private void OnLeftEdgeHover()
     {
         showExpandIcon = true;
@@ -586,6 +621,19 @@
                 {
                     await _protectionModule.InvokeVoidAsync("removeMainTabProtection");
                     await _protectionModule.DisposeAsync();
+                }
+                catch
+                {
+                    // Ignore disposal errors
+                }
+            }
+            
+            if (fullscreenModule != null)
+            {
+                try
+                {
+                    await fullscreenModule.InvokeVoidAsync("dispose");
+                    await fullscreenModule.DisposeAsync();
                 }
                 catch
                 {
