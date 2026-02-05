@@ -5,14 +5,20 @@
 }
 
 .now-playing {
-    background: var(--gradient-light);
-    color: var(--color-text-on-gradient);
+    background: var(--bs-body-bg);
+    color: var(--color-text);
     border: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+@media (prefers-color-scheme: dark) {
+    .now-playing {
+        background: var(--gradient-dark);
+    }
+}
+
 .now-playing .card-title {
-    color: var(--color-text-on-gradient);
+    color: var(--color-text);
     margin-bottom: 1.5rem;
 }
 
