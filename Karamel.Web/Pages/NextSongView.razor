@@ -120,6 +120,21 @@
             </div>
         }
     }
+
+    <!-- Fullscreen control (bottom-center, visible on hover) -->
+    @if (isSessionValid)
+    {
+        <div class="controls-overlay" @onmouseenter="ShowControls" @onmouseleave="HideControls">
+            @if (showControls)
+            {
+                <div class="controls">
+                    <button class="btn btn-control" @onclick="ToggleFullscreen">
+                        <i class="bi @(isFullscreen ? "bi-fullscreen-exit" : "bi-fullscreen")"></i>
+                    </button>
+                </div>
+            }
+        </div>
+    }
 </div>
 
 @code {
@@ -132,6 +147,8 @@
     public string? TokenParam { get; set; }
 
     private IJSObjectReference? qrcodeModule;
+    private IJSObjectReference? fullscreenModule;
+    private DotNetObjectReference<NextSongView>? dotNetRef;
     private PlaylistItemDto? nextSong;
     private Timer? autoAdvanceTimer;
     private Timer? heartbeatTimer;
@@ -140,6 +157,8 @@
     private List<PlaylistItemDto>? previousItems;
     private bool isSessionValid = false;
     private bool isLocalhost = false;
+    private bool showControls = false;
+    private bool isFullscreen = false;
     private bool _showAdminMenu = false;
     private IJSObjectReference? _protectionModule;
     private double remainingSeconds;
@@ -176,6 +195,19 @@
             // Start heartbeat immediately for NextSongView presence
             await SendHeartbeatAsync();
             StartHeartbeatTimer();
+            
+            // Import and initialize fullscreen module
+            try
+            {
+                fullscreenModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fullscreen.js");
+                dotNetRef = DotNetObjectReference.Create(this);
+                await fullscreenModule.InvokeVoidAsync("initializeFullscreen", dotNetRef);
+                isFullscreen = await fullscreenModule.InvokeAsync<bool>("isFullscreen");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to load fullscreen module: {ex.Message}");
+            }
             
             // Enable main tab protection if this is the main tab
             var sessionService = ServiceProvider.GetService<ISessionService>();
@@ -550,6 +582,41 @@
         _showAdminMenu = !_showAdminMenu;
     }
 
+    private void ShowControls()
+    {
+        showControls = true;
+        StateHasChanged();
+    }
+
+    private void HideControls()
+    {
+        showControls = false;
+        StateHasChanged();
+    }
+
+    private async Task ToggleFullscreen()
+    {
+        try
+        {
+            if (fullscreenModule != null)
+            {
+                await fullscreenModule.InvokeVoidAsync("toggleFullscreen");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling fullscreen: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public Task OnFullscreenChanged(bool isNowFullscreen)
+    {
+        isFullscreen = isNowFullscreen;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     private async Task OpenPlaylistManager()
     {
         var url = $"/playlist?session={SessionParam}&token={TokenParam}";
@@ -602,6 +669,21 @@
             {
                 await qrcodeModule.DisposeAsync();
             }
+
+            if (fullscreenModule != null)
+            {
+                try
+                {
+                    await fullscreenModule.InvokeVoidAsync("dispose");
+                    await fullscreenModule.DisposeAsync();
+                }
+                catch
+                {
+                    // Ignore disposal errors
+                }
+            }
+
+            dotNetRef?.Dispose();
 
             if (_protectionModule != null)
             {

@@ -161,7 +161,7 @@ public class PlayerViewTests : SessionTestBase
         Assert.NotNull(controls);
         
         var buttons = controls.QuerySelectorAll(".btn-control");
-        Assert.Equal(2, buttons.Length); // Play/Pause and Stop buttons
+        Assert.Equal(3, buttons.Length); // Play/Pause, Stop and Fullscreen buttons
     }
 
     [Fact]
