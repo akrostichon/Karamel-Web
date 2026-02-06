@@ -1,13 +1,28 @@
 # Playlist Item State Management
 
-**Last Updated**: February 3, 2026  
-**Status**: ✅ **FULLY IMPLEMENTED & STABLE** (125/131 tests passing, 6 skipped by design)
+**Last Updated**: February 6, 2026  
+**Status**: ⚠️ **SUPERSEDED BY INSTRUCTION FILE**
 
 ## Executive Summary
 
-Playlist item state management is **fully implemented** with explicit status tracking (`Queued`, `UpNext`, `NowPlaying`, `Completed`). The backend uses SQL database as the single source of truth, with SignalR broadcasting real-time updates to all connected clients. The system includes **automatic auto-promotion** of songs from Queued → UpNext in the backend hub's broadcast method. Frontend components use the shared `PlaylistHelpers.GetSongById` helper for consistent song lookups.
+**This document is a historical implementation plan and may be outdated.**
 
-**Recent Fix (Feb 3, 2026)**: Resolved critical race condition where PlayerView played wrong MP3 file after song transitions. ByteStore cache is now explicitly cleared before loading new files, preventing stale data usage. Telemetry added to track file loading performance.
+For current, accurate guidance on working with the playlist status system, see:  
+**[.github/instructions/playlist-status-system.instructions.md](.github/instructions/playlist-status-system.instructions.md)**
+
+The instruction file is automatically loaded by Copilot when working on playlist-related code and provides:
+- Current implementation patterns (verified against codebase)
+- Component-specific guidance
+- Common mistakes to avoid
+- Testing and observability patterns
+
+---
+
+## Historical Context
+
+Playlist item state management was implemented with explicit status tracking (`Queued`, `UpNext`, `NowPlaying`, `Completed`). The backend uses SQL database as the single source of truth, with SignalR broadcasting real-time updates to all connected clients. The system includes **automatic auto-promotion** of songs from Queued → UpNext in the backend hub's broadcast method.
+
+**Last Major Fix (Feb 3, 2026)**: Resolved critical race condition where PlayerView played wrong MP3 file after song transitions. ByteStore cache is now explicitly cleared before loading new files, preventing stale data usage. Telemetry added to track file loading performance.
 
 ## Architecture
 
