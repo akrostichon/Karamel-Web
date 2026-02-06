@@ -560,8 +560,15 @@ export async function uploadLibraryToServer(sessionId, libraryData, options = {}
 			console.warn('uploadLibraryToServer: No link token available - request will likely fail');
 		}
 
-		// Prepare sanitized payload: array of { id, artist, title, metadataJson }
-		const songs = (libraryData && libraryData.songs) ? libraryData.songs.map(s => ({ id: s.id, artist: s.artist || s.artistName || '', title: s.title || s.track || '', metadataJson: s.metadataJson || null })) : [];
+		// PRIVACY: Sanitize payload - only send id, artist, title, metadataJson (never file paths)
+		const songs = (libraryData && libraryData.songs) 
+			? libraryData.songs.map(s => ({ 
+				id: s.id, 
+				artist: s.artist || '', 
+				title: s.title || '', 
+				metadataJson: s.metadataJson || null  // Future: duration/genre (never paths)
+			})) 
+			: [];
 
 		const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(songs) });
 		if (!resp.ok) {

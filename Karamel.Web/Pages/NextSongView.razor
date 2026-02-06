@@ -441,12 +441,6 @@
         Console.WriteLine($"NextSongView: UpdateNextSong found {(nextSong != null ? $"song {nextSong.Id} ('{nextSong.Artist} - {nextSong.Title}') with status {nextSong.Status}" : "no song")}");
     }
 
-    private Song? GetSongById(string? songId)
-    {
-        if (string.IsNullOrEmpty(songId)) return null;
-        return LibraryState.Value.Songs.FirstOrDefault(s => s.Id.ToString() == songId);
-    }
-
     private bool ItemsEqual(List<PlaylistItemDto> a, List<PlaylistItemDto> b)
     {
         if (a.Count != b.Count) return false;

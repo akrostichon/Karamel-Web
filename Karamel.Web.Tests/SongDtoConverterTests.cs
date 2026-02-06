@@ -12,9 +12,10 @@ namespace Karamel.Web.Tests;
 public class SongDtoConverterTests
 {
     [Fact]
-    public void ConvertJsonToSong_WithAllFields_PopulatesAllProperties()
+    public void ConvertJsonToSong_WithAllFields_PopulatesBasicFieldsOnly()
     {
-        // Arrange
+        // Arrange - OLD TEST BEHAVIOR: Expected paths to be deserialized
+        // NEW BEHAVIOR: Paths are NEVER deserialized from backend (privacy)
         var json = """
         {
             "id": "12345678-1234-1234-1234-123456789012",
@@ -33,16 +34,17 @@ public class SongDtoConverterTests
         // Act
         var song = SongConverters.ConvertJsonToSong(jsonElement);
 
-        // Assert
+        // Assert - Only basic fields deserialized, paths ignored for privacy
         Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789012"), song.Id);
         Assert.Equal("Test Artist", song.Artist);
         Assert.Equal("Test Title", song.Title);
-        Assert.Equal("test.mp3", song.Mp3FileName);
-        Assert.Equal("test.cdg", song.CdgFileName);
-        Assert.Equal("/path/to/song", song.Path);
-        Assert.Equal("/full/path/to/song", song.FullPath);
-        Assert.Equal(SongSourceType.Directory, song.SourceType);
-        Assert.Equal("John Doe", song.AddedBySinger);
+        // PRIVACY: File paths never deserialized from backend
+        Assert.Equal(string.Empty, song.Mp3FileName);
+        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Path);
+        Assert.Null(song.FullPath);
+        Assert.Equal(SongSourceType.Directory, song.SourceType);  // Default
+        Assert.Null(song.AddedBySinger);  // Not deserialized
     }
 
     [Fact]
@@ -124,9 +126,10 @@ public class SongDtoConverterTests
     }
 
     [Fact]
-    public void ConvertJsonToSong_WithZipSourceType_ParsesCorrectly()
+    public void ConvertJsonToSong_WithZipSourceType_IgnoresZipPaths()
     {
-        // Arrange
+        // Arrange - OLD TEST BEHAVIOR: Expected ZIP paths to be deserialized
+        // NEW BEHAVIOR: All paths (including ZIP) are NEVER deserialized from backend (privacy)
         var json = """
         {
             "id": "12345678-1234-1234-1234-123456789012",
@@ -146,11 +149,157 @@ public class SongDtoConverterTests
         // Act
         var song = SongConverters.ConvertJsonToSong(jsonElement);
 
+        // Assert - PRIVACY: All file paths ignored, including ZIP metadata
+        Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789012"), song.Id);
+        Assert.Equal("Zip Artist", song.Artist);
+        Assert.Equal("Zip Title", song.Title);
+        Assert.Equal(SongSourceType.Directory, song.SourceType);  // Default (not Zip)
+        Assert.Null(song.ZipFileName);
+        Assert.Null(song.ZipEntryMp3Path);
+        Assert.Null(song.ZipEntryCdgPath);
+        Assert.Null(song.ZipFilePath);
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_ExcludesFilePaths()
+    {
+        // Arrange
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Privacy Artist",
+            Title = "Secret Song",
+            Mp3FileName = "secret.mp3",
+            CdgFileName = "secret.cdg",
+            Path = "/private/local/path",
+            FullPath = "C:\\Private\\Local\\Full\\Path",
+            ZipFilePath = "C:\\Private\\archive.zip",
+            ZipFileName = "archive.zip",
+            ZipEntryMp3Path = "internal/path.mp3",
+            ZipEntryCdgPath = "internal/path.cdg",
+            SourceType = SongSourceType.Zip
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert - DTO should only have safe fields
+        Assert.Equal(song.Id.ToString(), dto.Id);
+        Assert.Equal("Privacy Artist", dto.Artist);
+        Assert.Equal("Secret Song", dto.Title);
+        Assert.Null(dto.MetadataJson); // Placeholder for future use
+        
+        // Verify DTO type doesn't expose file path properties
+        var dtoType = dto.GetType();
+        Assert.Null(dtoType.GetProperty("Path"));
+        Assert.Null(dtoType.GetProperty("FullPath"));
+        Assert.Null(dtoType.GetProperty("Mp3FileName"));
+        Assert.Null(dtoType.GetProperty("CdgFileName"));
+        Assert.Null(dtoType.GetProperty("ZipFilePath"));
+        Assert.Null(dtoType.GetProperty("ZipFileName"));
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_IncludesBasicFields()
+    {
+        // Arrange
+        var songId = Guid.NewGuid();
+        var song = new Song
+        {
+            Id = songId,
+            Artist = "Test Artist",
+            Title = "Test Title",
+            Mp3FileName = "test.mp3",
+            CdgFileName = "test.cdg"
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
         // Assert
-        Assert.Equal(SongSourceType.Zip, song.SourceType);
-        Assert.Equal("archive.zip", song.ZipFileName);
-        Assert.Equal("songs/song.mp3", song.ZipEntryMp3Path);
-        Assert.Equal("songs/song.cdg", song.ZipEntryCdgPath);
-        Assert.Equal("/path/to/archive.zip", song.ZipFilePath);
+        Assert.Equal(songId.ToString(), dto.Id);
+        Assert.Equal("Test Artist", dto.Artist);
+        Assert.Equal("Test Title", dto.Title);
+        Assert.NotNull(dto); // Verify object created successfully
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_SetsMetadataJsonNull()
+    {
+        // Arrange
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Artist",
+            Title = "Title",
+            Mp3FileName = "song.mp3",
+            CdgFileName = "song.cdg"
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert
+        Assert.Null(dto.MetadataJson); // Reserved for future legitimate metadata (duration, genre)
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithMissingPaths_CreatesEmptyFilePaths()
+    {
+        // Arrange - Backend returns minimal data (Artist, Title only)
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Artist from Backend",
+            "title": "Title from Backend"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert - File paths should be empty/null (privacy protection)
+        Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789012"), song.Id);
+        Assert.Equal("Artist from Backend", song.Artist);
+        Assert.Equal("Title from Backend", song.Title);
+        Assert.Equal(string.Empty, song.Mp3FileName);
+        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Path);
+        Assert.Null(song.FullPath);
+        Assert.Null(song.ZipFilePath);
+        Assert.Null(song.ZipFileName);
+        Assert.Null(song.ZipEntryMp3Path);
+        Assert.Null(song.ZipEntryCdgPath);
+        Assert.Equal(SongSourceType.Directory, song.SourceType); // Default
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithPathsInJson_StillIgnoresThem()
+    {
+        // Arrange - Even if backend accidentally returns paths, they should be ignored
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Artist",
+            "title": "Title",
+            "path": "/this/should/be/ignored",
+            "fullPath": "/this/should/also/be/ignored",
+            "mp3FileName": "ignored.mp3",
+            "cdgFileName": "ignored.cdg",
+            "zipFilePath": "/also/ignored.zip"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert - All paths should be empty/null regardless of JSON content
+        Assert.Equal(string.Empty, song.Mp3FileName);
+        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Path);
+        Assert.Null(song.FullPath);
+        Assert.Null(song.ZipFilePath);
     }
 }

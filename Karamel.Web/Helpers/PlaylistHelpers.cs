@@ -11,6 +11,10 @@ public static class PlaylistHelpers
     /// <summary>
     /// Look up full Song metadata from LibraryState using a song ID.
     /// PlaylistItemDto is minimal (no file paths); use this helper to get full Song for playback.
+    /// 
+    /// IMPORTANT: In non-main tabs, the returned Song will have empty file paths (fetched from backend).
+    /// Only the main tab (with File System Access API handle) has usable file paths for playback.
+    /// Secondary tabs can use this for display purposes (Artist, Title) but cannot load song files.
     /// </summary>
     /// <param name="libraryState">Current library state containing all songs</param>
     /// <param name="songId">Song ID to look up (nullable)</param>

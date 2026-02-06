@@ -84,6 +84,7 @@ public class SessionService : ISessionService
 
     /// <summary>
     /// Upload sanitized library to server-side API for paginated listing (main tab only)
+    /// PRIVACY: Uses ConvertSongToUploadDto which excludes file paths
     /// </summary>
     public async Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null)
     {
@@ -92,7 +93,7 @@ public class SessionService : ISessionService
 
         var data = new
         {
-            songs = songs.Select(SongConverters.ConvertSongToDto).ToArray()
+            songs = songs.Select(SongConverters.ConvertSongToUploadDto).ToArray()  // PRIVACY: Use sanitized DTO
         };
 
         try
@@ -101,7 +102,7 @@ public class SessionService : ISessionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"SessionService: uploadLibraryToServer failed: {ex.Message}");
+            Console.WriteLine($"SessionService: uploadLibraryTo Server failed: {ex.Message}");
             return false;
         }
     }
@@ -353,6 +354,8 @@ public class SessionService : ISessionService
                 {
                     if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
                     {
+                        // IMPORTANT: Songs fetched from server have NO file paths (privacy protection)
+                        // Secondary tabs can browse/search library but cannot play songs (no file access)
                         var songs = itemsArr.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
                         _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
                         Console.WriteLine($"SessionService: Successfully loaded {songs.Count} songs from server");
