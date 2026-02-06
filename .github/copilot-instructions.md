@@ -1,8 +1,7 @@
 # Karamel-Web Copilot Instructions
 
 ## Project Overview
-Karamel-Web is a modern karaoke system consisting of a Blazor WebAssembly frontend and an ASP.NET Core backend. The frontend (Karamel.Web) runs in the browser and provides the UI and playback features; the backend (Karamel.Backend) exposes REST endpoints and a SignalR hub used for session coordination and multi-user scenarios. The app uses the **File System Access API** (Chrome/Edge only) for local media file access and the **Broadcast Channel API** for cross-tab state synchronization. Key features include singer management, playlist control, CDG+MP3 playback, and session sharing via QR codes.
-Karamel-Web is a modern karaoke system consisting of a Blazor WebAssembly frontend and an ASP.NET Core backend. The frontend (Karamel.Web) runs in the browser and provides the UI and playback features; the backend (Karamel.Backend) exposes REST endpoints and a SignalR hub used for session coordination and multi-user scenarios. The app uses the **File System Access API** (Chrome/Edge only) for local media file access and a **SignalR-based session synchronization** mechanism for cross-tab state synchronization. Key features include singer management, playlist control, CDG+MP3 playback, and session sharing via QR codes.
+Karamel-Web is a modern karaoke system consisting of a Blazor WebAssembly frontend and an ASP.NET Core backend. The frontend (Karamel.Web) runs in the browser and provides the UI and playback features; the backend (Karamel.Backend) exposes REST endpoints and a SignalR hub used for session coordination and multi-user scenarios. The app uses the **File System Access API** (Chrome/Edge only) for local media file access and a **SignalR-based session synchronization** mechanism (with BroadcastChannel fallback) for cross-tab state synchronization. Key features include singer management, playlist control, CDG+MP3 playback, and session sharing via QR codes.
 
 **Repository size**: Small (≈30–100 source files)  
 **Languages**: C# (Blazor frontend + ASP.NET Core backend), JavaScript (ES modules), CSS  
@@ -19,7 +18,7 @@ Karamel-Web is a modern karaoke system consisting of a Blazor WebAssembly fronte
 dotnet clean
 dotnet build
 
-# Expected warnings: 1 warning (CS8602 in SingerView.razor line 40) is known and acceptable
+# Expected warnings: None (build should be warning-free)
 # Build time: ~6-7 seconds on first build, ~2-3 seconds incremental for frontend; backend build can add a few seconds on first run
 ```
 
@@ -48,8 +47,8 @@ dotnet test Karamel.Web.Tests
 ```powershell
 cd Karamel.Web\wwwroot
 npm run test:run    # Single run (NOT: npm test:run)
-# Runs > 127 tests
-# Test time: ~3 seconds
+# Runs 163 tests in 12 test files
+# Test time: ~3-4 seconds
 # Watch mode: npm test
 ```
 
@@ -63,47 +62,14 @@ dotnet run --project Karamel.Web
 # Application start time: ~2-3 seconds
 ```
 
-## Azure Deployment Warning
+## Azure Deployment & Resources
 
-IMPORTANT: There is no development Azure environment for this repository. Do NOT deploy to the resource group `rg-karamel-dev` under any circumstances. All Azure deployments must target the production resource group `rg-karamel-prod` and must be reviewed before execution. Automated or manual deployments to `rg-karamel-dev` are strictly prohibited and can cause irreversible production-impacting configuration drift.
+⚠️ **CRITICAL**: See [.github/instructions/azure-deployment.instructions.md](.github/instructions/azure-deployment.instructions.md) for:
+- Azure deployment warnings (production-only environment)
+- Complete resource naming conventions
+- Resource names and URLs
 
-Guidance:
-- **Always** set `--resource-group rg-karamel-prod` when running `az deployment group create` or similar commands.
-- If you need a non-production environment, request the creation of a separate resource group and update the infra parameters accordingly.
-- Double-check parameters files (for example, infra/azure/parameters.dev.json) and ensure they reference `rg-karamel-prod` before running any deployment commands.
-
-## Azure Resource Names
-
-**CRITICAL**: Use these exact resource names when interacting with Azure resources. All resource names use the `rg-karamel-prod` prefix pattern.
-
-### Production Resources
-- **Resource Group**: `rg-karamel-prod`
-- **App Service (Backend API)**: `rg-karamel-prod-api`
-  - URL: `https://rg-karamel-prod-api.azurewebsites.net`
-- **App Service Plan**: `rg-karamel-prod-plan`
-- **SQL Server**: `rg-karamel-prod-sqlsrv`
-- **SQL Database**: `rg-karamel-prod-sqldb`
-- **Application Insights**: `rg-karamel-prod-ai`
-- **Key Vault**: `rg-karamel-prod-kv`
-- **Virtual Network (SQL)**: `rg-karamel-prod-sql-vnet`
-- **Static Web App**: (name varies, check Azure portal)
-- **GitHub Runner**: `rg-karamel-prod-runner` (self-hosted)
-
-### Common Mistakes to Avoid
-- ❌ `karamel-prod-api` → ✅ `rg-karamel-prod-api`
-- ❌ `karamel-prod-ai` → ✅ `rg-karamel-prod-ai`
-- ❌ `karamel-prod-sqlsrv` → ✅ `rg-karamel-prod-sqlsrv`
-
-### Resource Naming Convention
-All resources follow the pattern: `${namePrefix}-${resourceType}` where `namePrefix = "rg-karamel-prod"`
-
-This is defined in [infra/azure/main.bicep](infra/azure/main.bicep):
-```bicep
-var sqlServerName = '${namePrefix}-sqlsrv'
-var sqlDbName = '${namePrefix}-sqldb'
-var webAppName = '${namePrefix}-api'
-var appInsightsName = '${namePrefix}-ai'
-```
+**Quick Reference**: All resources use `rg-karamel-prod` prefix. Resource Group: `rg-karamel-prod`, Backend API: `rg-karamel-prod-api`
 
 
 ## Development Workflow
@@ -128,7 +94,7 @@ git push origin feature/your-feature-name
 3. For JavaScript changes: `cd Karamel.Web\wwwroot; npm run test:run`
 4. **For backend changes**: Request user to manually run `dotnet test .\Karamel.Backend.Tests\ -v minimal`
 5. Test the running application manually if UI changes were made
-6. If you are handling a step in an md file (e.g., DEVELOPMENT_PLAN.md), update the status accordingly
+
 
 ## Project Architecture
 
@@ -163,8 +129,18 @@ await hubConnection.invoke('AddItemAsync', currentSessionId, songId, singerName)
 
 **Database Schema**:
 - `Playlists` table: `Id` (PK), `SessionId` (FK to Sessions)
-- `PlaylistItems` table: `PlaylistId` (FK to Playlists), `SongId` (nullable FK to Songs)
+- `PlaylistItems` table: `PlaylistId` (FK to Playlists), `SongId` (nullable FK to Songs), **`Status` (INT)**, **`CompletedAt` (DATETIME)**
 - Playlist cleanup happens automatically via session TTL (30 minutes)
+
+### Playlist Status System
+
+**For detailed guidance on playlist status management**, see [.github/instructions/playlist-status-system.instructions.md](.github/instructions/playlist-status-system.instructions.md) (automatically loaded when working on playlist-related code).
+
+**Quick Reference** for non-playlist work:
+- `Status` field: `Queued (0)`, `UpNext (1)`, `NowPlaying (2)`, `Completed (3)`
+- Backend auto-promotes first Queued → UpNext when no UpNext exists
+- Use `PlaylistHelpers.GetSongById(LibraryState.Value, songId)` for song lookups
+- Dispatch `AdvanceToNextSongAction` for song transitions
 
 ### Directory Structure
 ```
@@ -199,12 +175,19 @@ Karamel-Web/                          # Solution root
 │       ├── package.json              # JavaScript dependencies (Vitest)
 │       ├── vitest.config.js          # Vitest configuration
 │       ├── js/                       # JavaScript modules
-│       │   ├── fileAccess.js         # File System Access API wrapper
+│       │   ├── fileAccess.js         # File System Access API wrapper (supports ZIP files)
 │       │   ├── metadata.js           # ID3 tag extraction (jsmediatags)
-│       │   ├── signalRBridge.js      # SignalR bridge (shim currently re-exports sessionBridge)
+│       │   ├── signalRBridge.js      # SignalR bridge with BroadcastChannel fallback
+│       │   ├── sessionBridge.js      # Legacy BroadcastChannel-only implementation
+│       │   ├── sessionProtection.js  # Main tab beforeunload protection
 │       │   ├── homeInterop.js        # Home page JS interop
 │       │   ├── player.js             # CDGraphics.js integration
 │       │   ├── qrcode.js             # QR code generation
+│       │   ├── progressBridge.js     # Library scan progress callbacks
+│       │   ├── fullscreen.js         # Fullscreen API wrapper
+│       │   ├── themeToggle.js        # Dark/light theme management
+│       │   ├── byteStore.js          # In-memory byte array storage
+│       │   ├── zipHelper.js          # ZIP file handling utilities
 │       │   └── *.test.js             # Vitest test files
 │       └── css/                      # Styling files
 ├── Karamel.Web.Tests/                # C# frontend test project (xUnit + bUnit)
@@ -256,30 +239,14 @@ Karamel-Web/                          # Solution root
 
 ### Logging & Observability
 
-**Application Insights Integration**: Production telemetry enabled for both backend and frontend.
+📊 See [.github/instructions/logging-observability.instructions.md](.github/instructions/logging-observability.instructions.md) for:
+- Structured logging patterns with `ILogger<T>`
+- Application Insights integration (backend & frontend)
+- Log levels and when to use them
+- Viewing logs in Azure Portal
+- Best practices when adding logging to new features
 
-**Backend (Karamel.Backend)**:
-- Uses `ILogger<T>` with structured logging throughout
-- Logged components: PlaylistHub, LibraryController, SessionsController, LinkTokenActionFilter, LinkTokenHubFilter
-- Pattern: `_logger.LogInformation("Message with {Param1} and {Param2}", value1, value2)` (structured, NOT string interpolation)
-- Error handling: Try-catch blocks with `_logger.LogError(ex, "Context message", contextData)`
-- Auth failures logged at Warning level with session IDs and IP addresses
-
-**Frontend (Karamel.Web)**:
-- Application Insights JavaScript SDK in index.html (client-side telemetry)
-- ErrorBoundary component in App.razor catches unhandled Blazor exceptions
-- Console.WriteLine used in development
-
-**Viewing Logs**:
-- Azure Portal → Application Insights → Live Metrics (real-time)
-- Logs (Kusto queries): `requests`, `exceptions`, `traces`, `dependencies`
-- See APPLICATION_INSIGHTS_DEPLOYMENT.md for query examples
-
-**When Adding New Features**:
-- Inject `ILogger<YourClass>` in constructors
-- Log at appropriate levels: Information (normal flow), Warning (validation failures), Error (exceptions)
-- Wrap risky operations in try-catch with structured logging
-- Never log sensitive data (passwords, full tokens)
+**Quick Reference**: Use structured logging `_logger.LogInformation("Message with {Param}", value)`, never log sensitive data
 
 ### CSS Architecture
 - Component-scoped CSS: `*.razor.css` files (e.g., `PlayerView.razor.css`)
@@ -392,10 +359,6 @@ describe('moduleName', () => {
 
 ## Known Issues & Workarounds
 
-### Build Warnings
-- **CS8602 warning in SingerView.razor:40**: Dereference warning - acceptable, not blocking
-- One build warning is expected and normal
-
 ### Test Failures
 - **C# tests**: 3 skipped tests (PlaylistPageTests x2, PlayerViewTests x1) due to bUnit async JSInterop limitations - this is intentional
 
@@ -439,10 +402,17 @@ describe('moduleName', () => {
 - `Store/Session/SessionState.cs`, `SessionActions.cs`, `SessionReducers.cs`
 
 **JavaScript modules**:
--- `wwwroot/js/fileAccess.js`: Directory scanning, file loading (File System Access API)
--- `wwwroot/js/signalRBridge.js`: SignalR bridge
+- `wwwroot/js/fileAccess.js`: Directory scanning, file loading (File System Access API, ZIP support)
+- `wwwroot/js/signalRBridge.js`: SignalR connection with BroadcastChannel fallback
+- `wwwroot/js/sessionBridge.js`: Legacy BroadcastChannel-only implementation
+- `wwwroot/js/sessionProtection.js`: Main tab beforeunload warning
 - `wwwroot/js/metadata.js`: ID3 tag extraction (jsmediatags from CDN)
 - `wwwroot/js/player.js`: CDG+MP3 playback (cdgraphics.js integration)
+- `wwwroot/js/progressBridge.js`: Library scan progress reporting
+- `wwwroot/js/fullscreen.js`: Fullscreen toggle and state management
+- `wwwroot/js/themeToggle.js`: Dark/light theme persistence
+- `wwwroot/js/zipHelper.js`: ZIP file validation and extraction
+- `wwwroot/js/byteStore.js`: In-memory storage for file bytes
 
 **Core pages**:
 - `Pages/Home.razor`: Session creation, library selection
@@ -456,6 +426,9 @@ describe('moduleName', () => {
 - **TESTING_STRATEGY.md**: Test patterns, conventions, coverage goals
 - **STYLING_GUIDE.md**: UI design, color palette, typography, responsive layout
 - **README.md**: Project overview, feature list
+- **.github/instructions/playlist-status-system.instructions.md**: Playlist status architecture (auto-loaded for playlist work)
+- **.github/instructions/logging-observability.instructions.md**: Application Insights integration and structured logging
+- **.github/instructions/azure-deployment.instructions.md**: Azure resource naming and deployment warnings
 
 ## Final Reminders
 1. **NEVER commit to `main`** - always use feature branches
