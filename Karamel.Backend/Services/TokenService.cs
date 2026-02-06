@@ -13,23 +13,89 @@ namespace Karamel.Backend.Services
             _secret = Encoding.UTF8.GetBytes(secret);
         }
 
-        public string GenerateLinkToken(Guid sessionId)
+        /// <summary>
+        /// Generates a role-based link token.
+        /// Token format: Base64({sessionId}|{role}|{hmac})
+        /// </summary>
+        public string GenerateLinkToken(Guid sessionId, string role = "admin")
         {
-            using var hmac = new HMACSHA256(_secret);
-            var bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(sessionId.ToString()));
-            // Use URL-safe base64 encoding: replace + with -, / with _, and remove padding =
-            return Convert.ToBase64String(bytes)
+            // Create payload: sessionId|role
+            var payload = $"{sessionId}|{role}";
+            var hmac = ComputeHmac(payload);
+            
+            // Combine payload and HMAC
+            var tokenData = $"{payload}|{hmac}";
+            
+            // Use URL-safe base64 encoding
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(tokenData))
                 .TrimEnd('=')
                 .Replace('+', '-')
                 .Replace('/', '_');
         }
 
+        /// <summary>
+        /// Validates a link token and extracts session ID and role.
+        /// Returns (sessionId, role, isValid) tuple.
+        /// </summary>
+        public (Guid sessionId, string role, bool isValid) ValidateLinkToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+                return (Guid.Empty, "", false);
+
+            try
+            {
+                // Decode from URL-safe base64
+                var base64 = token.Replace('-', '+').Replace('_', '/');
+                // Add padding if needed
+                var padding = (4 - base64.Length % 4) % 4;
+                base64 = base64.PadRight(base64.Length + padding, '=');
+                
+                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+                var parts = decoded.Split('|');
+                
+                // Expected format: {sessionId}|{role}|{hmac}
+                if (parts.Length != 3)
+                    return (Guid.Empty, "", false);
+                
+                if (!Guid.TryParse(parts[0], out var sessionId))
+                    return (Guid.Empty, "", false);
+                
+                var role = parts[1];
+                var providedHmac = parts[2];
+                
+                // Verify HMAC
+                var payload = $"{sessionId}|{role}";
+                var expectedHmac = ComputeHmac(payload);
+                
+                if (!AreEqualConstantTime(expectedHmac, providedHmac))
+                    return (Guid.Empty, "", false);
+                
+                return (sessionId, role, true);
+            }
+            catch
+            {
+                return (Guid.Empty, "", false);
+            }
+        }
+
+        /// <summary>
+        /// DEPRECATED: Old signature for backward compatibility.
+        /// Validates token and checks if session ID matches.
+        /// </summary>
         public bool ValidateLinkToken(Guid sessionId, string token)
         {
-            if (string.IsNullOrEmpty(token)) return false;
-            var expected = GenerateLinkToken(sessionId);
-            // constant time compare
-            return AreEqualConstantTime(expected, token);
+            var (tokenSessionId, _, isValid) = ValidateLinkToken(token);
+            return isValid && tokenSessionId == sessionId;
+        }
+
+        private string ComputeHmac(string payload)
+        {
+            using var hmac = new HMACSHA256(_secret);
+            var bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
+            return Convert.ToBase64String(bytes)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
         }
 
         private static bool AreEqualConstantTime(string a, string b)
