@@ -391,20 +391,33 @@
             // If the client uses a different session ID than the backend generated, all authenticated
             // requests (library upload, heartbeat, etc.) will fail with 401 Unauthorized.
             string? linkToken = null;
+            string? adminToken = null;
+            string? singerToken = null;
             try
             {
-                var createReq = new { RequireSingerName = _requireSingerName, PauseBetweenSongsSeconds = _pauseBetweenSongs };
+                var createReq = new { RequireSingerName = _requireSingerName, PauseBetweenSongsSeconds = _pauseBetweenSongs, AllowSingersToReorder = _allowSingerReorder };
                 var createRes = await Http.PostAsJsonAsync("/api/sessions", createReq);
                 if (createRes.IsSuccessStatusCode)
                 {
                     var json = await createRes.Content.ReadFromJsonAsync<JsonElement>();
                     Console.WriteLine($"Home.StartSession: Session creation response: {json}");
                     
-                    // Extract link token from response
+                    // Extract tokens from response (dual-token system)
+                    if (json.TryGetProperty("adminToken", out var adminTokenProp))
+                    {
+                        adminToken = adminTokenProp.GetString();
+                    }
+                    if (json.TryGetProperty("singerToken", out var singerTokenProp))
+                    {
+                        singerToken = singerTokenProp.GetString();
+                    }
+                    // Backward compat: linkToken is now adminToken
                     if (json.TryGetProperty("linkToken", out var tokenProp))
                     {
                         linkToken = tokenProp.GetString();
                     }
+                    // Use adminToken if available, fallback to linkToken
+                    linkToken = adminToken ?? linkToken;
                     
                     // CRITICAL: ALWAYS replace the client-generated session ID with the backend's ID
                     // Backend returns 'id' (lowercase), not 'sessionId'
@@ -442,10 +455,18 @@
             {
                 SessionId = Guid.Parse(sessionId),
                 RequireSingerName = _requireSingerName,
+                AllowSingersToReorder = _allowSingerReorder,
                 PauseBetweenSongs = true,
                 PauseBetweenSongsSeconds = _pauseBetweenSongs,
                 FilenamePattern = _filenamePattern
             };
+
+            // Store role and singerToken in sessionStorage for Playlist.razor role checking
+            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", $"karamel-session-{sessionId}-role", "admin");
+            if (!string.IsNullOrEmpty(singerToken))
+            {
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", $"karamel-session-{sessionId}-singerToken", singerToken);
+            }
 
             Dispatcher.Dispatch(new InitializeSessionAction(session));
 

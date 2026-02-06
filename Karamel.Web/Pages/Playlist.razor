@@ -92,7 +92,8 @@
                         {
                             var song = upNextSongs[i];
                             var position = i + 2; // +2 because position 1 is "Now Playing"
-                            var isDraggable = SessionState.Value.CurrentSession?.AllowSingersToReorder ?? false;
+                            // Admin tabs ALWAYS allow drag & drop; singer tabs respect AllowSingersToReorder
+                            var isDraggable = _isAdminTab || (SessionState.Value.CurrentSession?.AllowSingersToReorder ?? false);
                             var index = i;
 
                             <div class="song-item @(isDraggable ? "draggable" : "")" 
@@ -141,6 +142,7 @@
     private string dragOverClass = "";
     private bool isSessionValid = false;
     private bool isInitializing = true;
+    private bool _isAdminTab = false; // NEW: Track if current tab has admin privileges
     
 
     protected override void OnInitialized()
@@ -151,6 +153,27 @@
         PlaylistState.StateChanged += OnPlaylistStateChanged;
         // Subscribe to session state changes so we can re-evaluate session validity
         SessionState.StateChanged += OnSessionStateChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        // Check if this tab has admin privileges (role=admin in sessionStorage)
+        if (!string.IsNullOrWhiteSpace(SessionParam))
+        {
+            try
+            {
+                var role = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", $"karamel-session-{SessionParam}-role");
+                _isAdminTab = role == "admin";
+                Console.WriteLine($"Playlist.razor: Tab role = {role}, isAdminTab = {_isAdminTab}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Playlist.razor: Failed to check admin role: {ex.Message}");
+                _isAdminTab = false;
+            }
+        }
     }
 
     private void OnSessionStateChanged(object? sender, EventArgs e)
