@@ -73,7 +73,7 @@ public static class SongConverters
         ZipEntryMp3Path = null,
         ZipEntryCdgPath = null,
         ZipFilePath = null,
-        AddedBySinger = null
+        AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
     };
 
     public static Song ConvertDtoToSong(SongDto dto)

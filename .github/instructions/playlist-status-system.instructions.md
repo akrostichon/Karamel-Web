@@ -227,7 +227,7 @@ if (item.Status == (int)SongStatus.NowPlaying) { /* ... */ }
 **Wrong**:
 ```csharp
 var queueSongs = PlaylistState.Value.Items
-    .Where(i => i.Status != 3); // Filter Completed
+    .Where(i => i.Status != (int)SongStatus.Completed);
 ```
 
 **Right**:
