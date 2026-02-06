@@ -320,6 +320,106 @@ public class PlaylistPageTests : SessionTestBase
         }
     }
 
+    // NEW: Role-based drag & drop tests
+    [Fact(Skip = "Requires sessionStorage role check implementation - IsAdminTabAsync() not yet implemented")]
+    public void Playlist_WithAdminToken_EnablesDragDrop()
+    {
+        // Arrange: Mock admin role in sessionStorage
+        var queue = new Queue<Song>(_testSongs);
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
+        var session = _testSession with { AllowSingersToReorder = false }; // Even with false, admin can reorder
+        var sessionState = new SessionState 
+        { 
+            CurrentSession = session,
+            IsInitialized = true 
+        };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist");
+        
+        // Mock sessionStorage to return "admin" role
+        // JSInterop.SetupAsync<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role")
+        //     .SetResult("admin");
+
+        // Act
+        // var cut = RenderComponent<Playlist>(parameters => parameters
+        //     .Add(p => p.SessionParam, session.SessionId.ToString())
+        //     .Add(p => p.TokenParam, "admin-token"));
+
+        // Assert: Verify draggable=true attribute on playlist items
+        // var upNextSection = cut.Find(".up-next");
+        // var songItems = upNextSection.QuerySelectorAll(".song-item");
+        // foreach (var item in songItems)
+        // {
+        //     var draggable = item.GetAttribute("draggable");
+        //     Assert.Equal("true", draggable);
+        // }
+    }
+
+    [Fact(Skip = "Requires sessionStorage role check implementation - IsAdminTabAsync() not yet implemented")]
+    public void Playlist_WithSingerToken_AndAllowSingersToReorderFalse_DisablesDragDrop()
+    {
+        // Arrange: Mock singer role and AllowSingersToReorder=false
+        var queue = new Queue<Song>(_testSongs);
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
+        var session = _testSession with { AllowSingersToReorder = false };
+        var sessionState = new SessionState 
+        { 
+            CurrentSession = session,
+            IsInitialized = true 
+        };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist");
+        
+        // Mock sessionStorage to return "singer" role
+        // JSInterop.SetupAsync<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role")
+        //     .SetResult("singer");
+
+        // Act
+        // var cut = RenderComponent<Playlist>(parameters => parameters
+        //     .Add(p => p.SessionParam, session.SessionId.ToString())
+        //     .Add(p => p.TokenParam, "singer-token"));
+
+        // Assert: Verify draggable=false or absent
+        // var upNextSection = cut.Find(".up-next");
+        // var songItems = upNextSection.QuerySelectorAll(".song-item");
+        // foreach (var item in songItems)
+        // {
+        //     var draggable = item.GetAttribute("draggable");
+        //     Assert.True(draggable == null || draggable == "false");
+        // }
+    }
+
+    [Fact(Skip = "Requires sessionStorage role check implementation - IsAdminTabAsync() not yet implemented")]
+    public void Playlist_WithSingerToken_AndAllowSingersToReorderTrue_EnablesDragDrop()
+    {
+        // Arrange: Mock singer role and AllowSingersToReorder=true
+        var queue = new Queue<Song>(_testSongs);
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
+        var session = _testSession with { AllowSingersToReorder = true }; // Singer allowed to reorder
+        var sessionState = new SessionState 
+        { 
+            CurrentSession = session,
+            IsInitialized = true 
+        };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist");
+        
+        // Mock sessionStorage to return "singer" role
+        // JSInterop.SetupAsync<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role")
+        //     .SetResult("singer");
+
+        // Act
+        // var cut = RenderComponent<Playlist>(parameters => parameters
+        //     .Add(p => p.SessionParam, session.SessionId.ToString())
+        //     .Add(p => p.TokenParam, "singer-token"));
+
+        // Assert: Verify draggable=true attribute on playlist items
+        // var upNextSection = cut.Find(".up-next");
+        // var songItems = upNextSection.QuerySelectorAll(".song-item");
+        // foreach (var item in songItems)
+        // {
+        //     var draggable = item.GetAttribute("draggable");
+        //     Assert.Equal("true", draggable);
+        // }
+    }
+
     [Fact]
     public void Component_DisplaysQueuePositionNumbers()
     {

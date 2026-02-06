@@ -337,6 +337,132 @@ namespace Karamel.Backend.Tests
             Assert.Equal(2, receivedBroadcasts[1].Items.Count); // Second broadcast: 2 items total
         }
 
+        // NEW: Role-based permission tests
+        [Fact]
+        public async Task Hub_ReorderAsync_WithAdminToken_Succeeds()
+        {
+            var session = await CreateSessionAsync();
+            var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+            var song1 = await CreateSongAsync(session.Id, "A1", "T1");
+            var song2 = await CreateSongAsync(session.Id, "A2", "T2");
+            var song3 = await CreateSongAsync(session.Id, "A3", "T3");
+            
+            // Add items using repository
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, song1, null);
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, song2, null);
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, song3, null);
+
+            // Connect with admin token (for now, linkToken acts as admin token)
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act - reorder from position 0 to position 2
+            await _connection.InvokeAsync("ReorderAsync", session.Id, 0, 2);
+
+            // Assert - no exception means success (admin token allowed)
+            // Detailed verification would require fetching the playlist and checking positions
+        }
+
+        [Fact(Skip = "Requires dual-token implementation - singer token not yet available")]
+        public async Task Hub_ReorderAsync_WithSingerToken_AndAllowSingersToReorderFalse_ThrowsHubException()
+        {
+            // This test will be enabled once we have AdminToken and SingerToken in CreateResponse
+            // and Config.AllowSingersToReorder in Session model
+            
+            // Arrange: Create session with AllowSingersToReorder = false
+            // var session = await CreateSessionAsync(allowSingersToReorder: false);
+            // ... create playlist and items
+            
+            // Connect with SINGER token
+            // _connection = new HubConnectionBuilder()
+            //     .WithUrl(..., options => { options.Headers.Add("X-Link-Token", session.singerToken); })
+            
+            // Act & Assert
+            // var exception = await Assert.ThrowsAsync<HubException>(async () =>
+            //     await _connection.InvokeAsync("ReorderAsync", session.Id, 0, 1));
+            // Assert.Contains("admin permissions", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact(Skip = "Requires dual-token implementation - singer token not yet available")]
+        public async Task Hub_ReorderAsync_WithSingerToken_AndAllowSingersToReorderTrue_Succeeds()
+        {
+            // Arrange: Create session with AllowSingersToReorder = true
+            // var session = await CreateSessionAsync(allowSingersToReorder: true);
+            // ... create playlist and items
+            
+            // Connect with SINGER token
+            // _connection = new HubConnectionBuilder()
+            //     .WithUrl(..., options => { options.Headers.Add("X-Link-Token", session.singerToken); })
+            
+            // Act
+            // await _connection.InvokeAsync("ReorderAsync", session.Id, 0, 1);
+            
+            // Assert - no exception (singer token + AllowSingersToReorder=true allows reorder)
+        }
+
+        [Fact(Skip = "Requires dual-token implementation - singer token not yet available")]
+        public async Task Hub_AddItemAsync_WithSingerToken_Succeeds()
+        {
+            // Arrange
+            // var session = await CreateSessionAsync();
+            // var playlist = await CreatePlaylistAsync(session.Id, session.singerToken);
+            // var song = await CreateSongAsync(session.Id, "Artist", "Title");
+            
+            // Connect with SINGER token
+            // _connection = new HubConnectionBuilder()
+            //     .WithUrl(..., options => { options.Headers.Add("X-Link-Token", session.singerToken); })
+            
+            // Act
+            // await _connection.InvokeAsync("AddItemAsync", session.Id, song, "Singer1");
+            
+            // Assert - singers can always add songs
+        }
+
+        [Fact(Skip = "Requires dual-token implementation - singer token not yet available")]
+        public async Task Hub_ClearQueueAsync_WithSingerToken_ThrowsHubException()
+        {
+            // Arrange
+            // var session = await CreateSessionAsync();
+            // var playlist = await CreatePlaylistAsync(session.Id, session.singerToken);
+            
+            // Connect with SINGER token
+            // _connection = new HubConnectionBuilder()
+            //     .WithUrl(..., options => { options.Headers.Add("X-Link-Token", session.singerToken); })
+            
+            // Act & Assert
+            // var exception = await Assert.ThrowsAsync<HubException>(async () =>
+            //     await _connection.InvokeAsync("ClearQueueAsync", session.Id));
+            // Assert.Contains("admin", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact(Skip = "Requires dual-token implementation - singer token not yet available")]
+        public async Task Hub_RemoveItemAsync_WithSingerToken_AndAllowSingersToReorderTrue_Succeeds()
+        {
+            // Arrange: Session with AllowSingersToReorder = true
+            // var session = await CreateSessionAsync(allowSingersToReorder: true);
+            // var playlist = await CreatePlaylistAsync(session.Id, session.singerToken);
+            // var song = await CreateSongAsync(session.Id, "A", "T");
+            // var itemId = await AddPlaylistItemAsync(session.Id, playlist.id, session.singerToken, song, null);
+            
+            // Connect with SINGER token
+            // _connection = new HubConnectionBuilder()
+            //     .WithUrl(..., options => { options.Headers.Add("X-Link-Token", session.singerToken); })
+            
+            // Act
+            // await _connection.InvokeAsync("RemoveItemAsync", session.Id, itemId);
+            
+            // Assert - no exception (AllowSingersToReorder=true allows removal)
+        }
+
         // Helper methods
         private async Task<CreateResponse> CreateSessionAsync()
         {

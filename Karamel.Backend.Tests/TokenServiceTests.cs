@@ -146,5 +146,160 @@ namespace Karamel.Backend.Tests
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => new TokenService(""));
         }
+
+        // NEW: Role-based token tests
+        [Fact]
+        public void GenerateLinkToken_WithAdminRole_CreatesValidToken()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+
+            // Act
+            var token = tokenService.GenerateLinkToken(sessionId, "admin");
+
+            // Assert - token should be URL-safe base64
+            Assert.Matches(@"^[A-Za-z0-9\-_]+$", token);
+            Assert.NotEmpty(token);
+        }
+
+        [Fact]
+        public void GenerateLinkToken_WithSingerRole_CreatesValidToken()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+
+            // Act
+            var token = tokenService.GenerateLinkToken(sessionId, "singer");
+
+            // Assert - token should be URL-safe base64
+            Assert.Matches(@"^[A-Za-z0-9\-_]+$", token);
+            Assert.NotEmpty(token);
+        }
+
+        [Fact]
+        public void GenerateLinkToken_DifferentRoles_ProduceDifferentTokens()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+
+            // Act
+            var adminToken = tokenService.GenerateLinkToken(sessionId, "admin");
+            var singerToken = tokenService.GenerateLinkToken(sessionId, "singer");
+
+            // Assert - same session, different roles = different tokens
+            Assert.NotEqual(adminToken, singerToken);
+        }
+
+        [Fact]
+        public void ValidateLinkToken_WithValidAdminToken_ReturnsAdminRole()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+            var token = tokenService.GenerateLinkToken(sessionId, "admin");
+
+            // Act
+            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(token);
+
+            // Assert
+            Assert.True(isValid);
+            Assert.Equal(sessionId, returnedSessionId);
+            Assert.Equal("admin", role);
+        }
+
+        [Fact]
+        public void ValidateLinkToken_WithValidSingerToken_ReturnsSingerRole()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+            var token = tokenService.GenerateLinkToken(sessionId, "singer");
+
+            // Act
+            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(token);
+
+            // Assert
+            Assert.True(isValid);
+            Assert.Equal(sessionId, returnedSessionId);
+            Assert.Equal("singer", role);
+        }
+
+        [Fact]
+        public void ValidateLinkToken_WithTamperedRole_ReturnsFalse()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+            var adminToken = tokenService.GenerateLinkToken(sessionId, "admin");
+            
+            // Decode the token and tamper with the role
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(
+                adminToken.Replace('-', '+').Replace('_', '/').PadRight(adminToken.Length + (4 - adminToken.Length % 4) % 4, '=')));
+            var parts = decoded.Split('|');
+            
+            // Tamper: change "admin" to "singer" but keep the HMAC
+            var tamperedPayload = $"{parts[0]}|singer|{parts[2]}";
+            var tamperedToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(tamperedPayload))
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(tamperedToken);
+
+            // Assert - HMAC should not match because role was changed
+            Assert.False(isValid);
+            Assert.Equal(Guid.Empty, returnedSessionId);
+            Assert.Equal("", role);
+        }
+
+        [Fact]
+        public void ValidateLinkToken_WithInvalidToken_ReturnsFalse()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+
+            // Act
+            var (sessionId, role, isValid) = tokenService.ValidateLinkToken("invalid-token");
+
+            // Assert
+            Assert.False(isValid);
+            Assert.Equal(Guid.Empty, sessionId);
+            Assert.Equal("", role);
+        }
+
+        [Fact]
+        public void ValidateLinkToken_WithNullToken_ReturnsFalse()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+
+            // Act
+            var (sessionId, role, isValid) = tokenService.ValidateLinkToken(null!);
+
+            // Assert
+            Assert.False(isValid);
+            Assert.Equal(Guid.Empty, sessionId);
+            Assert.Equal("", role);
+        }
+
+        [Fact]
+        public void GenerateLinkToken_DefaultRole_IsAdmin()
+        {
+            // Arrange
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+
+            // Act - call without role parameter
+            var token = tokenService.GenerateLinkToken(sessionId);
+            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(token);
+
+            // Assert - should default to "admin" for backward compatibility
+            Assert.True(isValid);
+            Assert.Equal("admin", role);
+        }
     }
 }
