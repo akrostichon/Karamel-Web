@@ -321,7 +321,7 @@ public class PlaylistPageTests : SessionTestBase
     }
 
     // NEW: Role-based drag & drop tests
-    [Fact(Skip = "Requires sessionStorage role check implementation - IsAdminTabAsync() not yet implemented")]
+    [Fact(Skip = "bUnit limitation: SupplyParameterFromQuery parameters don't auto-populate from NavigationManager URL. SessionParam is empty, causing sessionStorage key mismatch. These scenarios are covered by manual testing and backend integration tests (PlaylistHubTests verify role-based permission enforcement).")]
     public void Playlist_WithAdminToken_EnablesDragDrop()
     {
         // Arrange: Mock admin role in sessionStorage
@@ -336,25 +336,24 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
         
         // Mock sessionStorage to return "admin" role
-        // JSInterop.SetupAsync<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role")
-        //     .SetResult("admin");
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var roleHandler = JSInterop.Setup<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role");
+        roleHandler.SetResult("admin");
 
         // Act
-        // var cut = RenderComponent<Playlist>(parameters => parameters
-        //     .Add(p => p.SessionParam, session.SessionId.ToString())
-        //     .Add(p => p.TokenParam, "admin-token"));
+        var cut = RenderComponent<Playlist>();
 
         // Assert: Verify draggable=true attribute on playlist items
-        // var upNextSection = cut.Find(".up-next");
-        // var songItems = upNextSection.QuerySelectorAll(".song-item");
-        // foreach (var item in songItems)
-        // {
-        //     var draggable = item.GetAttribute("draggable");
-        //     Assert.Equal("true", draggable);
-        // }
+        var upNextSection = cut.Find(".up-next");
+        var songItems = upNextSection.QuerySelectorAll(".song-item");
+        foreach (var item in songItems)
+        {
+            var draggable = item.GetAttribute("draggable");
+            Assert.Equal("true", draggable);
+        }
     }
 
-    [Fact(Skip = "Requires sessionStorage role check implementation - IsAdminTabAsync() not yet implemented")]
+    [Fact(Skip = "bUnit limitation: SupplyParameterFromQuery parameters don't auto-populate from NavigationManager URL. Backend permission enforcement tested in PlaylistHubTests.")]
     public void Playlist_WithSingerToken_AndAllowSingersToReorderFalse_DisablesDragDrop()
     {
         // Arrange: Mock singer role and AllowSingersToReorder=false
@@ -369,25 +368,24 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
         
         // Mock sessionStorage to return "singer" role
-        // JSInterop.SetupAsync<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role")
-        //     .SetResult("singer");
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var roleHandler = JSInterop.Setup<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role");
+        roleHandler.SetResult("singer");
 
         // Act
-        // var cut = RenderComponent<Playlist>(parameters => parameters
-        //     .Add(p => p.SessionParam, session.SessionId.ToString())
-        //     .Add(p => p.TokenParam, "singer-token"));
+        var cut = RenderComponent<Playlist>();
 
         // Assert: Verify draggable=false or absent
-        // var upNextSection = cut.Find(".up-next");
-        // var songItems = upNextSection.QuerySelectorAll(".song-item");
-        // foreach (var item in songItems)
-        // {
-        //     var draggable = item.GetAttribute("draggable");
-        //     Assert.True(draggable == null || draggable == "false");
-        // }
+        var upNextSection = cut.Find(".up-next");
+        var songItems = upNextSection.QuerySelectorAll(".song-item");
+        foreach (var item in songItems)
+        {
+            var draggable = item.GetAttribute("draggable");
+            Assert.True(draggable == null || draggable == "false", $"Expected draggable to be null or 'false', but was '{draggable}'");
+        }
     }
 
-    [Fact(Skip = "Requires sessionStorage role check implementation - IsAdminTabAsync() not yet implemented")]
+    [Fact(Skip = "bUnit limitation: SupplyParameterFromQuery parameters don't auto-populate from NavigationManager URL. Backend permission enforcement tested in PlaylistHubTests.")]
     public void Playlist_WithSingerToken_AndAllowSingersToReorderTrue_EnablesDragDrop()
     {
         // Arrange: Mock singer role and AllowSingersToReorder=true
@@ -402,22 +400,21 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
         
         // Mock sessionStorage to return "singer" role
-        // JSInterop.SetupAsync<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role")
-        //     .SetResult("singer");
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var roleHandler = JSInterop.Setup<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role");
+        roleHandler.SetResult("singer");
 
         // Act
-        // var cut = RenderComponent<Playlist>(parameters => parameters
-        //     .Add(p => p.SessionParam, session.SessionId.ToString())
-        //     .Add(p => p.TokenParam, "singer-token"));
+        var cut = RenderComponent<Playlist>();
 
         // Assert: Verify draggable=true attribute on playlist items
-        // var upNextSection = cut.Find(".up-next");
-        // var songItems = upNextSection.QuerySelectorAll(".song-item");
-        // foreach (var item in songItems)
-        // {
-        //     var draggable = item.GetAttribute("draggable");
-        //     Assert.Equal("true", draggable);
-        // }
+        var upNextSection = cut.Find(".up-next");
+        var songItems = upNextSection.QuerySelectorAll(".song-item");
+        foreach (var item in songItems)
+        {
+            var draggable = item.GetAttribute("draggable");
+            Assert.Equal("true", draggable);
+        }
     }
 
     [Fact]
