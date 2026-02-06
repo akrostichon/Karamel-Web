@@ -44,7 +44,7 @@ public class SongDtoConverterTests
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Equal(SongSourceType.Directory, song.SourceType);  // Default
-        Assert.Null(song.AddedBySinger);  // Not deserialized
+        Assert.Equal("John Doe", song.AddedBySinger);  // Singer name IS deserialized for playlist display
     }
 
     [Fact]

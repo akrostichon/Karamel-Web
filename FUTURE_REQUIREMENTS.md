@@ -70,6 +70,3 @@ Update automated UI tests to validate display limits and layout elements (no scr
 
 # REQUIREMENT 4
 ## Title: Allow to reorder Playlist - also: what about Queued
-
-# REQUIREMENT 5
-## Title: Show Singer names in Playlist
