@@ -392,7 +392,7 @@ public class SingerViewTests : SessionTestBase
 
         // Assert - GetSongCount() filters by singerName and Status != Completed
         var songCount = cut.Find(".song-count");
-        // All 3 items have SingerName="David" and Status=0 (Queued)
+        // All 3 items have SingerName="David" and Status=Queued (Queued)
         Assert.Contains("3 / 10 songs in queue", songCount.TextContent);
     }
 
@@ -472,7 +472,7 @@ public class SingerViewTests : SessionTestBase
             song1WithSinger.Title, 
             "Alice", 
             0, // position
-            0  // status (Queued)
+            (int)SongStatus.Queued  // status (Queued)
         );
         
         // Update the state that the mock returns
@@ -497,7 +497,7 @@ public class SingerViewTests : SessionTestBase
             song2WithSinger.Title, 
             "Alice", 
             1, // position
-            0  // status (Queued)
+            (int)SongStatus.Queued  // status (Queued)
         );
         
         currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto> { item1, item2 } };
@@ -516,7 +516,7 @@ public class SingerViewTests : SessionTestBase
     {
         // This test verifies that the song count updates correctly when all songs for
         // the current singer are removed or completed.
-        // Strategy: Start with songs in queue, update state to mark them as completed (Status=3),
+        // Strategy: Start with songs in queue, update state to mark them as completed (Status=Completed),
         // and verify the count returns to 0.
 
         // Arrange
@@ -533,7 +533,7 @@ public class SingerViewTests : SessionTestBase
             song1.Title, 
             "Bob", 
             0, 
-            0  // Queued
+            (int)SongStatus.Queued  // Queued
         );
         var item2 = new PlaylistItemDto(
             Guid.NewGuid().ToString(), 
@@ -542,7 +542,7 @@ public class SingerViewTests : SessionTestBase
             song2.Title, 
             "Bob", 
             1, 
-            0  // Queued
+            (int)SongStatus.Queued  // Queued
         );
         
         var currentPlaylistState = new PlaylistState { Items = new List<PlaylistItemDto> { item1, item2 } };
@@ -561,12 +561,12 @@ public class SingerViewTests : SessionTestBase
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
-        // Assert initial state - should show 2 songs (both with Status=0, not completed)
+        // Assert initial state - should show 2 songs (both with Status=Queued, not completed)
         var songCount = cut.Find(".song-count");
         Assert.Contains("2 / 10 songs in queue", songCount.TextContent);
 
-        // Act - mark first song as completed (Status=3)
-        var item1Completed = item1 with { Status = 3 };  // Completed
+        // Act - mark first song as completed (Status=Completed)
+        var item1Completed = item1 with { Status = (int)SongStatus.Completed };  // Completed
         currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto> { item1Completed, item2 } };
         mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
         mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
@@ -578,7 +578,7 @@ public class SingerViewTests : SessionTestBase
         Assert.Contains("1 / 10 songs in queue", songCount.TextContent);
 
         // Act - mark second song as completed too
-        var item2Completed = item2 with { Status = 3 };  // Completed
+        var item2Completed = item2 with { Status = (int)SongStatus.Completed };  // Completed
         currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto> { item1Completed, item2Completed } };
         mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
         mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
@@ -635,7 +635,7 @@ public class SingerViewTests : SessionTestBase
                 song.Title, 
                 "Charlie", 
                 i, 
-                0  // Queued
+                (int)SongStatus.Queued  // Queued
             );
             items.Add(item);
             
@@ -656,8 +656,8 @@ public class SingerViewTests : SessionTestBase
         Assert.Contains("5 / 10 songs in queue", songCount.TextContent);
 
         // Act - now remove 2 songs by marking them as completed
-        items[0] = items[0] with { Status = 3 };  // Completed
-        items[1] = items[1] with { Status = 3 };  // Completed
+        items[0] = items[0] with { Status = (int)SongStatus.Completed };  // Completed
+        items[1] = items[1] with { Status = (int)SongStatus.Completed };  // Completed
         currentPlaylistState = currentPlaylistState with { Items = new List<PlaylistItemDto>(items) };
         mockPlaylistState.Setup(s => s.Value).Returns(currentPlaylistState);
         mockPlaylistState.Raise(m => m.StateChanged += null, EventArgs.Empty);
@@ -679,7 +679,7 @@ public class SingerViewTests : SessionTestBase
                 song.Title, 
                 "Charlie", 
                 i, 
-                0  // Queued
+                (int)SongStatus.Queued  // Queued
             );
             items.Add(item);
         }

@@ -71,9 +71,9 @@
             No songs in queue. Add songs from the Singer view!
         </div>
     }
-    else if (PlaylistState.Value.Items.Any(i => i.Status == 0 || i.Status == 1))
+    else if (PlaylistState.Value.Items.Any(i => i.Status == (int)SongStatus.Queued || i.Status == (int)SongStatus.UpNext))
         {
-            var upNextSongs = PlaylistState.Value.Items.Where(i => i.Status == 0 || i.Status == 1).OrderBy(i => i.Position).ToList();
+            var upNextSongs = PlaylistState.Value.Items.Where(i => i.Status == (int)SongStatus.Queued || i.Status == (int)SongStatus.UpNext).OrderBy(i => i.Position).ToList();
 
             <div class="up-next card">
                 <div class="card-body">
