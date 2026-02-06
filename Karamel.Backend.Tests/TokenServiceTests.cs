@@ -1,6 +1,7 @@
 using Xunit;
 using Karamel.Backend.Services;
 using System;
+using System.Text;
 
 namespace Karamel.Backend.Tests
 {
@@ -129,8 +130,10 @@ namespace Karamel.Backend.Tests
             // Act
             var token = tokenService.GenerateLinkToken(sessionId);
 
-            // Assert - HMACSHA256 produces 32 bytes, base64 encoding produces 43 chars (with padding removed)
-            Assert.Equal(43, token.Length);
+            // Assert - New format: {sessionId}|{role}|{hmac} base64 encoded
+            // GUID (36) + "|" (1) + "admin" (5) + "|" (1) + HMAC (43) = ~115 chars after base64 encoding
+            Assert.True(token.Length > 100, $"Token length {token.Length} should be > 100 for role-based tokens");
+            Assert.True(token.Length < 200, $"Token length {token.Length} should be < 200");
         }
 
         [Fact]
