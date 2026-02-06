@@ -67,3 +67,9 @@ Apply responsive design principles to determine how many songs are shown based o
 Ensure readability and visual hierarchy between the current and next songs.
 Verify consistent styling and layout alignment with the current Playlist View component.
 Update automated UI tests to validate display limits and layout elements (no scroll, QR code visibility, font scaling).
+
+# REQUIREMENT 4
+## Title: Allow to reorder Playlist - also: what about Queued
+
+# REQUIREMENT 5
+## Title: Show Singer names in Playlist

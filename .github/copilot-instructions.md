@@ -226,10 +226,23 @@ Karamel-Web/                          # Solution root
 
 **Main tab** (Home page with directory access) remains the authoritative source of local file handles; other tabs use SignalR to receive live updates and sessionStorage for initial snapshots when necessary.
 
+#### Privacy Architecture
+
+🔐 **File paths NEVER leave the main tab**:
+- `SongUploadDto` sanitizes uploads (Artist, Title, MetadataJson only)
+- Backend stores NO file paths (Mp3FileName, CdgFileName, etc.)
+- `ConvertJsonToSong` always returns empty file paths when fetching from backend
+- MetadataJson reserved for legitimate metadata (duration, genre, album - NEVER paths)
+
+**Multi-Tab Behavior**:
+- **Main tab**: Full Song objects with paths (for playback via File System Access API)
+- **Secondary tabs**: Songs with Artist/Title only (display-only, NO file access)
+
 #### File System Access API
 - **Main tab only** retains directory handle in JavaScript module scope (`fileAccess.js`)
-- Other tabs receive song metadata via sessionStorage (no file access)
+- Secondary tabs receive song metadata via sessionStorage and SignalR (NO paths, NO file access)
 - `loadSongFiles(mp3FileName, cdgFileName)` loads files for playback from main tab's handle
+- **PlayerView validation**: Checks `SessionService.IsMainTab` before attempting playback
 
 #### Session Parameter Validation
 **ALL pages** except Home.razor must:

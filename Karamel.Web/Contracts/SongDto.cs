@@ -22,6 +22,21 @@ public record SongDto(
 
 public static class SongConverters
 {
+    /// <summary>
+    /// Convert Song to sanitized upload DTO (PRIVACY: excludes filecodes paths).
+    /// Use this for uploading to backend - only contains Artist, Title, and future metadata fields.
+    /// </summary>
+    public static SongUploadDto ConvertSongToUploadDto(Song s) => new(
+        Id: s.Id.ToString(),
+        Artist: s.Artist,
+        Title: s.Title,
+        MetadataJson: null  // TODO: Serialize duration, genre when implemented
+    );
+
+    /// <summary>
+    /// Convert Song to full DTO (includes file paths for internal use).
+    /// WARNING: This contains private file paths - use ConvertSongToUploadDto for backend uploads.
+    /// </summary>
     public static SongDto ConvertSongToDto(Song s) => new(
         Id: s.Id.ToString(),
         Artist: s.Artist,
@@ -38,21 +53,27 @@ public static class SongConverters
         AddedBySinger: s.AddedBySinger
     );
 
+    /// <summary>
+    /// Convert JSON from backend to Song model.
+   /// PRIVACY: Backend never returns file paths - all path fields will be empty/null.
+    /// Secondary tabs use this for display-only (browse/search) without playback capability.
+    /// </summary>
     public static Song ConvertJsonToSong(JsonElement s) => new Song
     {
         Id = Guid.Parse(s.GetProperty("id").GetString()!),
         Artist = s.GetProperty("artist").GetString() ?? string.Empty,
         Title = s.GetProperty("title").GetString() ?? string.Empty,
-        Mp3FileName = s.TryGetProperty("mp3FileName", out var mp3) ? mp3.GetString() ?? string.Empty : string.Empty,
-        CdgFileName = s.TryGetProperty("cdgFileName", out var cdg) ? cdg.GetString() ?? string.Empty : string.Empty,
-        Path = s.TryGetProperty("path", out var p) ? p.GetString() : null,
-        FullPath = s.TryGetProperty("fullPath", out var fp) ? fp.GetString() : null,
-        SourceType = GetSourceTypeFromJson(s, "sourceType"),
-        ZipFileName = s.TryGetProperty("zipFileName", out var zfn) ? zfn.GetString() : null,
-        ZipEntryMp3Path = s.TryGetProperty("zipEntryMp3Path", out var zmp3) ? zmp3.GetString() : null,
-        ZipEntryCdgPath = s.TryGetProperty("zipEntryCdgPath", out var zcdg) ? zcdg.GetString() : null,
-        ZipFilePath = s.TryGetProperty("zipFilePath", out var zfp) ? zfp.GetString() : null,
-        AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
+        // PRIVACY: File paths never returned from backend (empty/null for secondary tabs)
+        Mp3FileName = string.Empty,
+        CdgFileName = string.Empty,
+        Path = null,
+        FullPath = null,
+        SourceType = SongSourceType.Directory,
+        ZipFileName = null,
+        ZipEntryMp3Path = null,
+        ZipEntryCdgPath = null,
+        ZipFilePath = null,
+        AddedBySinger = null
     };
 
     public static Song ConvertDtoToSong(SongDto dto)

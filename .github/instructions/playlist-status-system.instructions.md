@@ -131,50 +131,28 @@ public record PlaylistState
 **File**: [Karamel.Web/Pages/PlayerView.razor](../../Karamel.Web/Pages/PlayerView.razor)
 
 **Current Implementation**:
-- ✅ Gets Song via `LibraryState.Value.Songs.FirstOrDefault(s => s.Id.ToString() == currentItem.SongId)` (line 136)
+- ✅ Uses `PlaylistHelpers.GetSongById` for song lookup (consolidated logic)
 - ✅ Dispatches `AdvanceToNextSongAction` on song end (lines 316, 335)
-- ❌ **NOT using PlaylistHelpers.GetSongById** - should be refactored for consistency
-
-**Pattern to Follow**:
-```csharp
-// Get full Song for playback
-var currentItem = PlaylistState.Value.CurrentSong;
-var song = PlaylistHelpers.GetSongById(LibraryState.Value, currentItem?.SongId);
-
-// On song end
-Dispatcher.Dispatch(new AdvanceToNextSongAction());
-```
+- ✅ Validates `SessionService.IsMainTab` before playback (only main tab can play)
 
 ### Playlist.razor
 **File**: [Karamel.Web/Pages/Playlist.razor](../../Karamel.Web/Pages/Playlist.razor)
 
 **Current Implementation**:
-- ✅ "Now Playing": `PlaylistState.Value.CurrentSong` (line 50)
-- ✅ "Up Next": `Items.Where(i => i.Status == 0 || i.Status == 1)` (line 76)
+- ✅ "Now Playing": `PlaylistState.Value.CurrentSong`
+- ✅ "Up Next": `Items.Where(i => i.Status == (int)SongStatus.Queued || i.Status == (int)SongStatus.UpNext)`
 - ✅ Filters Completed items automatically (handled by backend)
-
-**Pattern to Follow**:
-```csharp
-// Display current song
-var currentSong = PlaylistState.Value.CurrentSong;
-
-// Display queue (Queued + UpNext)
-var upNextSongs = PlaylistState.Value.Items
-    .Where(i => i.Status == 0 || i.Status == 1)  // Queued or UpNext
-    .OrderBy(i => i.Position)
-    .ToList();
-```
 
 ### NextSongView.razor
 **File**: [Karamel.Web/Pages/NextSongView.razor](../../Karamel.Web/Pages/NextSongView.razor)
 
 **Current Implementation**:
 - ✅ Dispatches `AdvanceToNextSongAction` to start next song (line 500)
-- ⚠️ Uses **local `GetSongById` helper** (line 412) instead of shared `PlaylistHelpers` - but needs to get song with metadata and filenames for playback.
+- ✅ Uses shared `PlaylistHelpers.GetSongById` for song lookup (removed local duplicate)
 
 **Pattern to Follow**:
 ```csharp
-// Use shared helper (NOT local duplicate)
+// Use shared helper (for lookup, NOT playback)
 using Karamel.Web.Helpers;
 
 var song = PlaylistHelpers.GetSongById(LibraryState.Value, nextItem?.SongId);
@@ -185,7 +163,7 @@ Dispatcher.Dispatch(new AdvanceToNextSongAction());
 
 ## Song Lookup Pattern
 
-**CRITICAL**: `PlaylistItemDto` is minimal (no file paths). Always look up full `Song` from `LibraryState` for playback.
+**CRITICAL**: `PlaylistItemDto` is minimal (no file paths). Always look up full `Song` from `LibraryState` for display or playback.
 
 ### Shared Helper
 **File**: [Karamel.Web/Helpers/PlaylistHelpers.cs](../../Karamel.Web/Helpers/PlaylistHelpers.cs)
@@ -199,10 +177,14 @@ if (song == null) {
 }
 ```
 
+⚠️ **Multi-Tab Limitation**: In secondary tabs (without File System Access API handle), the returned `Song` will have **empty file paths** (fetched from backend). Only the main tab can load song files for playback. PlayerView validates this with `SessionService.IsMainTab` check.
+
 **Benefits**:
 - Centralized lookup logic
 - Handles null/empty song IDs
-- Type-safe Song object with file handles for playback
+- Type-safe Song object
+- Main tab: Full paths for playback
+- Secondary tabs: Artist/Title for display only
 
 ## Database Schema
 
@@ -220,7 +202,7 @@ if (song == null) {
 ### ❌ Don't Manually Set UpNext
 **Wrong**:
 ```csharp
-Dispatcher.Dispatch(new SetSongStatusAction(itemId, 1)); // Manual UpNext promotion
+Dispatcher.Dispatch(new SetSongStatusAction(itemId, (int)SongStatus.UpNext)); // Manual UpNext promotion
 ```
 
 **Right**:
@@ -241,20 +223,6 @@ using Karamel.Web.Contracts;
 if (item.Status == (int)SongStatus.NowPlaying) { /* ... */ }
 ```
 
-### ❌ Don't Create Local GetSongById Helpers
-**Wrong**:
-```csharp
-// Inside component
-private Song? GetSongById(string? songId) { /* duplicate logic */ }
-```
-
-**Right**:
-```csharp
-using Karamel.Web.Helpers;
-
-var song = PlaylistHelpers.GetSongById(LibraryState.Value, songId);
-```
-
 ### ❌ Don't Filter Items in Components
 **Wrong**:
 ```csharp
@@ -264,9 +232,11 @@ var queueSongs = PlaylistState.Value.Items
 
 **Right**:
 ```csharp
+using Karamel.Web.Contracts;
+
 // Backend already filters Completed - use Items as-is
 var queueSongs = PlaylistState.Value.Items
-    .Where(i => i.Status == 0 || i.Status == 1); // Queued or UpNext
+    .Where(i => i.Status == (int)SongStatus.Queued || i.Status == (int)SongStatus.UpNext);
 ```
 
 ## Testing

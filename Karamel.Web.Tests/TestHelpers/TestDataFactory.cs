@@ -11,7 +11,7 @@ public static class TestDataFactory
     /// <summary>
     /// Creates a PlaylistItemDto from a Song for testing purposes.
     /// </summary>
-    public static PlaylistItemDto CreatePlaylistItem(Song song, int position = 0, int status = 0)
+    public static PlaylistItemDto CreatePlaylistItem(Song song, int position = 0, int status = (int)SongStatus.Queued)
     {
         return new PlaylistItemDto(
             Id: Guid.NewGuid().ToString(),
@@ -27,7 +27,7 @@ public static class TestDataFactory
     /// <summary>
     /// Creates a list of PlaylistItemDtos from a collection of Songs.
     /// </summary>
-    public static List<PlaylistItemDto> CreatePlaylistItems(IEnumerable<Song> songs, int startingStatus = 0)
+    public static List<PlaylistItemDto> CreatePlaylistItems(IEnumerable<Song> songs, int startingStatus = (int)SongStatus.Queued)
     {
         int position = 0;
         return songs.Select(song => CreatePlaylistItem(song, position++, startingStatus)).ToList();

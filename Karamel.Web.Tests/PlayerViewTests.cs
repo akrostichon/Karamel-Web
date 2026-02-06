@@ -507,12 +507,44 @@ public class PlayerViewTests : SessionTestBase
         Assert.Contains(_testSession.SessionId.ToString(), fakeNavManager.Uri);
     }
 
+    [Fact]
+    public void Component_WhenNotMainTab_ShowsMainTabRequiredError()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        // Create playlist item with NowPlaying status (2) to trigger LoadAndPlaySong
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong, status: 2) };
+        
+        // Mock SessionService.IsMainTab = false (secondary tab)
+        var mockSessionService = new Mock<Services.ISessionService>();
+        mockSessionService.Setup(s => s.IsMainTab).Returns(false);
+        
+        SetupTestWithSession(sessionState, playlistState, view: "player");
+        Services.AddSingleton(mockSessionService.Object);
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+        cut.WaitForAssertion(() => 
+        {
+            var modalBackdrop = cut.Find(".modal-backdrop");
+            Assert.Contains("block", modalBackdrop.GetAttribute("style"));
+        }, timeout: TimeSpan.FromSeconds(2));
+
+        // Assert
+        var modalBody = cut.Find(".modal-body");
+        Assert.Contains("main tab", modalBody.TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("library access", modalBody.TextContent, StringComparison.OrdinalIgnoreCase);
+    }
+
     // Helper methods
 
     private void SetupJSRuntime()
     {
         var mockFileAccess = new Mock<IJSObjectReference>();
         var mockPlayer = new Mock<IJSObjectReference>();
+        var mockByteStore = new Mock<IJSObjectReference>();
+        var mockFullscreen = new Mock<IJSObjectReference>();
 
         var mockJSRuntime = new Mock<IJSRuntime>();
         mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
@@ -524,6 +556,16 @@ public class PlayerViewTests : SessionTestBase
             "import",
             It.Is<object[]>(args => args[0].ToString()!.Contains("player.js"))))
             .ReturnsAsync(mockPlayer.Object);
+
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("byteStore.js"))))
+            .ReturnsAsync(mockByteStore.Object);
+
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("fullscreen.js"))))
+            .ReturnsAsync(mockFullscreen.Object);
 
         Services.AddSingleton(mockJSRuntime.Object);
     }

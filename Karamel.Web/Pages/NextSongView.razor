@@ -252,9 +252,9 @@
         try
         {
             var itemsCount = PlaylistState.Value.Items?.Count ?? 0;
-            var queuedCount = PlaylistState.Value.Items?.Count(i => i.Status == 0) ?? 0;
-            var upNextCount = PlaylistState.Value.Items?.Count(i => i.Status == 1) ?? 0;
-            var nowPlayingCount = PlaylistState.Value.Items?.Count(i => i.Status == 2) ?? 0;
+            var queuedCount = PlaylistState.Value.Items?.Count(i => i.Status == (int)SongStatus.Queued) ?? 0;
+            var upNextCount = PlaylistState.Value.Items?.Count(i => i.Status == (int)SongStatus.UpNext) ?? 0;
+            var nowPlayingCount = PlaylistState.Value.Items?.Count(i => i.Status == (int)SongStatus.NowPlaying) ?? 0;
             
             Console.WriteLine($"NextSongView: OnPlaylistStateChanged - Total: {itemsCount}, Queued: {queuedCount}, UpNext: {upNextCount}, NowPlaying: {nowPlayingCount}, CurrentSong={(PlaylistState.Value.CurrentSong != null ? $"set (ID: {PlaylistState.Value.CurrentSong.Id})" : "null")}");
             
@@ -324,7 +324,7 @@
         else if (!firstRender && isSessionValid)
         {
             // Check if playlist changed
-            var currentItems = PlaylistState.Value.Items.Where(i => i.Status == 0).ToList();
+            var currentItems = PlaylistState.Value.Items.Where(i => i.Status == (int)SongStatus.Queued).ToList();
             if (previousItems == null || !ItemsEqual(previousItems, currentItems))
             {
                 // Update next song when playlist changes
@@ -417,10 +417,10 @@
 
     private void UpdateNextSong()
     {
-        // Look for UpNext song (Status == 1)
-        // Fallback to first Queued (Status == 0) during transition periods
+        // Look for UpNext song (Status == UpNext)
+        // Fallback to first Queued (Status == Queued) during transition periods
         nextSong = PlaylistState.Value.Items
-            .Where(i => i.Status == 1)
+            .Where(i => i.Status == (int)SongStatus.UpNext)
             .OrderBy(i => i.Position)
             .FirstOrDefault();
         
@@ -428,7 +428,7 @@
         {
             // Fallback: check for Queued songs (shouldn't happen after backend auto-promotion)
             nextSong = PlaylistState.Value.Items
-                .Where(i => i.Status == 0)
+                .Where(i => i.Status == (int)SongStatus.Queued)
                 .OrderBy(i => i.Position)
                 .FirstOrDefault();
             
@@ -439,12 +439,6 @@
         }
         
         Console.WriteLine($"NextSongView: UpdateNextSong found {(nextSong != null ? $"song {nextSong.Id} ('{nextSong.Artist} - {nextSong.Title}') with status {nextSong.Status}" : "no song")}");
-    }
-
-    private Song? GetSongById(string? songId)
-    {
-        if (string.IsNullOrEmpty(songId)) return null;
-        return LibraryState.Value.Songs.FirstOrDefault(s => s.Id.ToString() == songId);
     }
 
     private bool ItemsEqual(List<PlaylistItemDto> a, List<PlaylistItemDto> b)
@@ -476,7 +470,7 @@
         countdownTimer = null;
 
         // Only start timer if we have a next song (Queued or UpNext) and pause is enabled
-        if (nextSong != null && (nextSong.Status == 0 || nextSong.Status == 1) && 
+        if (nextSong != null && (nextSong.Status == (int)SongStatus.Queued || nextSong.Status == (int)SongStatus.UpNext) && 
             SessionState.Value.CurrentSession?.PauseBetweenSongs == true)
         {
             Console.WriteLine($"NextSongView: Starting timer for song {newNextSongId} (previous: {_currentNextSongId})");
