@@ -20,7 +20,7 @@ namespace Karamel.Backend.Tests
         {
             var client = _factory.CreateDefaultClient();
 
-            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5 };
+            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
@@ -46,7 +46,7 @@ namespace Karamel.Backend.Tests
         public async Task Post_Library_TooLarge_IsRejected()
         {
             var client = _factory.CreateDefaultClient();
-            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5 };
+            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
@@ -64,7 +64,7 @@ namespace Karamel.Backend.Tests
         public async Task BulkUpsert_Allows_Duplicates_WithSameArtistTitle()
         {
             var client = _factory.CreateDefaultClient();
-            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5 };
+            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();

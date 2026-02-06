@@ -34,10 +34,7 @@ namespace Karamel.Backend.Controllers
                         RequireSingerName = req.RequireSingerName,
                         PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds,
                         AllowSingersToReorder = req.AllowSingersToReorder
-                    },
-                    // DEPRECATED: Keep for backward compat during migration
-                    RequireSingerName = req.RequireSingerName,
-                    PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds
+                    }
                 };
 
                 // Generate dual tokens

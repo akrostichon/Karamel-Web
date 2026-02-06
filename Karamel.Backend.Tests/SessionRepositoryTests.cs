@@ -25,7 +25,13 @@ namespace Karamel.Backend.Tests
             using var db = CreateInMemoryContext();
             var repo = new SessionRepository(db, NullLogger<SessionRepository>.Instance);
 
-            var session = new Session { Id = Guid.NewGuid(), LinkToken = "token123", CreatedAt = DateTime.UtcNow };
+            var session = new Session 
+            { 
+                Id = Guid.NewGuid(), 
+                LinkToken = "token123", 
+                CreatedAt = DateTime.UtcNow,
+                Config = new SessionConfig()
+            };
             await repo.AddAsync(session);
 
             var fetched = await repo.GetByIdAsync(session.Id);
@@ -39,7 +45,13 @@ namespace Karamel.Backend.Tests
             using var db = CreateInMemoryContext();
             var repo = new SessionRepository(db, NullLogger<SessionRepository>.Instance);
 
-            var session = new Session { Id = Guid.NewGuid(), LinkToken = "link-abc", CreatedAt = DateTime.UtcNow };
+            var session = new Session 
+            { 
+                Id = Guid.NewGuid(), 
+                LinkToken = "link-abc", 
+                CreatedAt = DateTime.UtcNow,
+                Config = new SessionConfig()
+            };
             await repo.AddAsync(session);
 
             var fetched = await repo.GetByLinkTokenAsync("link-abc");

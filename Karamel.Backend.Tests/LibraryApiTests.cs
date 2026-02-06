@@ -22,7 +22,7 @@ namespace Karamel.Backend.Tests
             var client = _factory.CreateDefaultClient();
 
             // Create a session first
-            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5 };
+            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
@@ -56,7 +56,7 @@ namespace Karamel.Backend.Tests
             var client = _factory.CreateDefaultClient();
 
             // Create session
-            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1 };
+            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
@@ -99,7 +99,7 @@ namespace Karamel.Backend.Tests
             var client = _factory.CreateDefaultClient();
 
             // Create session
-            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1 };
+            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
@@ -147,7 +147,7 @@ namespace Karamel.Backend.Tests
             var client = _factory.CreateDefaultClient();
 
             // Create session
-            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1 };
+            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();

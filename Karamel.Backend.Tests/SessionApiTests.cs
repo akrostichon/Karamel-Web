@@ -21,7 +21,7 @@ namespace Karamel.Backend.Tests
         {
             var client = _factory.CreateDefaultClient();
 
-            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5 };
+            var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             try
             {

@@ -11,9 +11,5 @@ namespace Karamel.Backend.Models
         
         // NEW: JSON config column (EF Core Owned Entity Type)
         public SessionConfig Config { get; set; } = new();
-        
-        // DEPRECATED: Migrated to Config (will be removed after migration)
-        public bool RequireSingerName { get; set; }
-        public int PauseBetweenSongsSeconds { get; set; }
     }
 }

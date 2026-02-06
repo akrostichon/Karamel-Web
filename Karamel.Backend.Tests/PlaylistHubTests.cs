@@ -30,7 +30,7 @@ namespace Karamel.Backend.Tests
         public async Task Adding_Item_Broadcasts_PlaylistUpdate()
         {
             // create session
-            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1 };
+            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false };
             var resp = await _client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
@@ -466,7 +466,7 @@ namespace Karamel.Backend.Tests
         // Helper methods
         private async Task<CreateResponse> CreateSessionAsync()
         {
-            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1 };
+            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false };
             var resp = await _client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
