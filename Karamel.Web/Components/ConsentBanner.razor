@@ -11,10 +11,10 @@
                 <a href="/privacy" class="consent-banner-link">Datenschutzerklärung</a>
             </p>
             <div class="consent-banner-actions">
-                <button class="btn btn-sm btn-outline-secondary" @onclick="HandleRejectAsync">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="HandleRejectAsync" disabled="@_isProcessing">
                     Ablehnen
                 </button>
-                <button class="btn btn-sm btn-primary" @onclick="HandleAcceptAsync">
+                <button class="btn btn-sm btn-primary" @onclick="HandleAcceptAsync" disabled="@_isProcessing">
                     Akzeptieren
                 </button>
             </div>
@@ -24,6 +24,7 @@
 
 @code {
     private bool _showBanner = false;
+    private bool _isProcessing = false;
     private IJSObjectReference? _module;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -55,37 +56,61 @@
 
     private async Task HandleAcceptAsync()
     {
+        if (_isProcessing) return; // Prevent double-clicks
+        _isProcessing = true;
+        
         try
         {
+            // Close banner immediately
+            _showBanner = false;
+            StateHasChanged();
+            
+            // Store consent decision
             if (_module != null)
             {
                 await _module.InvokeVoidAsync("setConsentDecision", "true");
             }
+            
+            // Start telemetry (has internal guard against double-initialization)
             await JSRuntime.InvokeVoidAsync("karamel.startTelemetry");
-            _showBanner = false;
-            StateHasChanged();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[ConsentBanner] Error accepting consent: {ex.Message}");
         }
+        finally
+        {
+            _isProcessing = false;
+        }
     }
 
     private async Task HandleRejectAsync()
     {
+        if (_isProcessing) return; // Prevent double-clicks
+        _isProcessing = true;
+        
         try
         {
+            // Close banner immediately
+            _showBanner = false;
+            StateHasChanged();
+            
+            // Store consent decision
             if (_module != null)
             {
                 await _module.InvokeVoidAsync("setConsentDecision", "false");
             }
+            
+            // Disable telemetry
             await JSRuntime.InvokeVoidAsync("karamel.disableTelemetry");
-            _showBanner = false;
-            StateHasChanged();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[ConsentBanner] Error rejecting consent: {ex.Message}");
+        }
+        finally
+        {
+            _isProcessing = false;
         }
     }
 

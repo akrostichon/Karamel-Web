@@ -40,10 +40,17 @@
          */
         window.karamel.startTelemetry = function() {
             if (!window.karamel.telemetryStarted && window.appInsights) {
-                window.appInsights.loadAppInsights();
-                window.appInsights.trackPageView();
-                window.karamel.telemetryStarted = true;
-                console.log('[Karamel] Analytics tracking enabled (user consent given)');
+                try {
+                    window.karamel.telemetryStarted = true; // Set flag BEFORE loadAppInsights to prevent race conditions
+                    window.appInsights.loadAppInsights();
+                    window.appInsights.trackPageView();
+                    console.log('[Karamel] Analytics tracking enabled (user consent given)');
+                } catch (error) {
+                    console.error('[Karamel] Error starting telemetry:', error);
+                    // Keep telemetryStarted = true to prevent retries that would cause "already initialized" errors
+                }
+            } else if (window.karamel.telemetryStarted) {
+                console.log('[Karamel] Telemetry already started, ignoring duplicate call');
             }
         };
         
