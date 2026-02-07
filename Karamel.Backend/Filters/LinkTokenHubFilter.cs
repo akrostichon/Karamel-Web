@@ -12,6 +12,29 @@ namespace Karamel.Backend.Filters
     /// </summary>
     public class LinkTokenHubFilter : IHubFilter
     {
+        private const string AdminRole = "admin";
+        private const string TokenHeaderKey = "X-Link-Token";
+        
+        private static readonly HashSet<string> PublicMethods = new(StringComparer.Ordinal)
+        {
+            "JoinSession",
+            "LeaveSession"
+        };
+
+        private static readonly HashSet<string> AdminOnlyMethods = new(StringComparer.Ordinal)
+        {
+            "ClearQueueAsync",
+            "SetSongStatusAsync",
+            "CompleteCurrentSongAsync",
+            "AdvanceToNextSongAsync"
+        };
+
+        private static readonly HashSet<string> ConditionalAdminMethods = new(StringComparer.Ordinal)
+        {
+            "ReorderAsync",
+            "RemoveItemAsync"
+        };
+
         private readonly ITokenService _tokenService;
         private readonly ISessionRepository _sessionRepo;
         private readonly ILogger<LinkTokenHubFilter> _logger;
@@ -27,26 +50,24 @@ namespace Karamel.Backend.Filters
             HubInvocationContext invocationContext,
             Func<HubInvocationContext, ValueTask<object?>> next)
         {
-            // Skip validation for JoinSession and LeaveSession (public methods)
-            if (invocationContext.HubMethodName == "JoinSession" ||
-                invocationContext.HubMethodName == "LeaveSession")
+            if (IsPublicMethod(invocationContext.HubMethodName))
             {
                 return await next(invocationContext);
             }
 
-            // For mutation methods, validate token from connection context
-            var token = invocationContext.Context.Items.TryGetValue("X-Link-Token", out var tokenObj) 
-                ? tokenObj?.ToString() 
-                : null;
+            var sessionId = ExtractSessionId(invocationContext);
+            var token = ExtractToken(invocationContext);
+            var role = ValidateTokenAndExtractRole(token, sessionId, invocationContext);
+            
+            await ValidatePermissionsAsync(invocationContext.HubMethodName, role, sessionId);
 
-            if (string.IsNullOrEmpty(token))
-            {
-                _logger.LogWarning("Missing X-Link-Token for hub method {MethodName} from connection {ConnectionId}", 
-                    invocationContext.HubMethodName, invocationContext.Context.ConnectionId);
-                throw new HubException("Missing X-Link-Token header");
-            }
+            return await next(invocationContext);
+        }
 
-            // Extract sessionId from first parameter (convention for all mutation methods)
+        private static bool IsPublicMethod(string methodName) => PublicMethods.Contains(methodName);
+
+        private Guid ExtractSessionId(HubInvocationContext invocationContext)
+        {
             if (invocationContext.HubMethodArguments.Count == 0 ||
                 invocationContext.HubMethodArguments[0] is not Guid sessionId)
             {
@@ -55,7 +76,27 @@ namespace Karamel.Backend.Filters
                 throw new HubException("Invalid method signature: sessionId required as first parameter");
             }
 
-            // Validate token and extract role
+            return sessionId;
+        }
+
+        private string ExtractToken(HubInvocationContext invocationContext)
+        {
+            var token = invocationContext.Context.Items.TryGetValue(TokenHeaderKey, out var tokenObj) 
+                ? tokenObj?.ToString() 
+                : null;
+
+            if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogWarning("Missing {TokenHeader} for hub method {MethodName} from connection {ConnectionId}", 
+                    TokenHeaderKey, invocationContext.HubMethodName, invocationContext.Context.ConnectionId);
+                throw new HubException($"Missing {TokenHeaderKey} header");
+            }
+
+            return token;
+        }
+
+        private string ValidateTokenAndExtractRole(string token, Guid sessionId, HubInvocationContext invocationContext)
+        {
             var (tokenSessionId, role, isValid) = _tokenService.ValidateLinkToken(token);
 
             if (!isValid || tokenSessionId != sessionId)
@@ -65,39 +106,41 @@ namespace Karamel.Backend.Filters
                 throw new HubException("Invalid or expired link token");
             }
 
-            // Define admin-only operations
-            var adminOnlyMethods = new[] 
-            { 
-                "ClearQueueAsync", 
-                "SetSongStatusAsync", 
-                "CompleteCurrentSongAsync", 
-                "AdvanceToNextSongAsync" 
-            };
+            return role;
+        }
 
-            // Check if operation is admin-only
-            if (adminOnlyMethods.Contains(invocationContext.HubMethodName) && role != "admin")
+        private async Task ValidatePermissionsAsync(string methodName, string role, Guid sessionId)
+        {
+            if (IsAdminRole(role))
+            {
+                return; // Admin has full access
+            }
+
+            if (AdminOnlyMethods.Contains(methodName))
             {
                 _logger.LogWarning("Singer token attempted admin-only operation {MethodName} in session {SessionId}", 
-                    invocationContext.HubMethodName, sessionId);
+                    methodName, sessionId);
                 throw new HubException("This operation requires admin permissions");
             }
 
-            // Conditional operations: admin OR singer + AllowSingersToReorder=true
-            var conditionalAdminMethods = new[] { "ReorderAsync", "RemoveItemAsync" };
-            if (conditionalAdminMethods.Contains(invocationContext.HubMethodName) && role != "admin")
+            if (ConditionalAdminMethods.Contains(methodName))
             {
-                // Singer token: Check if AllowSingersToReorder is enabled
-                var session = await _sessionRepo.GetByIdAsync(sessionId);
-                if (session == null || !session.Config.AllowSingersToReorder)
-                {
-                    _logger.LogWarning("Singer token attempted {MethodName} but AllowSingersToReorder=false in session {SessionId}", 
-                        invocationContext.HubMethodName, sessionId);
-                    throw new HubException("Singer reordering/removal is not allowed for this session");
-                }
+                await ValidateConditionalPermissionAsync(methodName, sessionId);
             }
-
-            // Token validated and permissions checked, proceed with method invocation
-            return await next(invocationContext);
         }
+
+        private async Task ValidateConditionalPermissionAsync(string methodName, Guid sessionId)
+        {
+            var session = await _sessionRepo.GetByIdAsync(sessionId);
+            
+            if (session == null || !session.Config.AllowSingersToReorder)
+            {
+                _logger.LogWarning("Singer token attempted {MethodName} but AllowSingersToReorder=false in session {SessionId}", 
+                    methodName, sessionId);
+                throw new HubException("Singer reordering/removal is not allowed for this session");
+            }
+        }
+
+        private static bool IsAdminRole(string role) => role == AdminRole;
     }
 }

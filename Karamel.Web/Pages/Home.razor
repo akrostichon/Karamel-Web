@@ -337,7 +337,7 @@
 
     private async Task StartSession()
     {
-        if (_homeInteropModule == null || _selectedSongs == null)
+        if (!ValidateCanStartSession())
             return;
 
         _isStartingSession = true;
@@ -346,171 +346,208 @@
 
         try
         {
-            // IMPORTANT: Generate temporary session ID for initial configuration
-            // This will be REPLACED by the backend's authoritative session ID after POST /api/sessions
-            // The backend's session ID is used for token validation (HMAC-SHA256 of session ID)
-            var sessionId = await _homeInteropModule.InvokeAsync<string>("generateSessionId");
-
-            // Read current theme from themeToggle (if present)
-            string? currentTheme = null;
-            try
-            {
-                currentTheme = await JSRuntime.InvokeAsync<string>("eval", "window.themeToggle && window.themeToggle.getTheme ? window.themeToggle.getTheme() : null");
-            }
-            catch
-            {
-                // ignore
-            }
-
-            // Create session configuration
-            var config = new SessionConfig
-            {
-                SessionId = sessionId,
-                RequireSingerName = _requireSingerName,
-                AllowSingerReorder = _allowSingerReorder,
-                PauseBetweenSongs = _pauseBetweenSongs,
-                FilenamePattern = _filenamePattern,
-                Theme = currentTheme ?? _themeChoice
-            };
-
-            // Validate configuration
-            var validation = await _homeInteropModule.InvokeAsync<ValidationResult>(
-                "validateConfiguration", config);
-
-            if (!validation.IsValid)
-            {
-                _startSessionError = $"Invalid configuration: {string.Join(", ", validation.Errors)}";
-                _isStartingSession = false;
-                StateHasChanged();
+            var sessionId = await GenerateTemporarySessionId();
+            var config = await CreateSessionConfig(sessionId);
+            
+            if (!await ValidateConfiguration(config))
                 return;
-            }
 
-            // Create server-side session and obtain link token
-            // CRITICAL: The backend generates the authoritative session ID and link token.
-            // The link token is an HMAC-SHA256 hash of the session ID, so they MUST match exactly.
-            // If the client uses a different session ID than the backend generated, all authenticated
-            // requests (library upload, heartbeat, etc.) will fail with 401 Unauthorized.
-            string? linkToken = null;
-            string? adminToken = null;
-            string? singerToken = null;
-            try
-            {
-                var createReq = new { RequireSingerName = _requireSingerName, PauseBetweenSongsSeconds = _pauseBetweenSongs, AllowSingersToReorder = _allowSingerReorder };
-                var createRes = await Http.PostAsJsonAsync("/api/sessions", createReq);
-                if (createRes.IsSuccessStatusCode)
-                {
-                    var json = await createRes.Content.ReadFromJsonAsync<JsonElement>();
-                    Console.WriteLine($"Home.StartSession: Session creation response: {json}");
-                    
-                    // Extract tokens from response (dual-token system)
-                    if (json.TryGetProperty("adminToken", out var adminTokenProp))
-                    {
-                        adminToken = adminTokenProp.GetString();
-                    }
-                    if (json.TryGetProperty("singerToken", out var singerTokenProp))
-                    {
-                        singerToken = singerTokenProp.GetString();
-                    }
-                    // Backward compat: linkToken is now adminToken
-                    if (json.TryGetProperty("linkToken", out var tokenProp))
-                    {
-                        linkToken = tokenProp.GetString();
-                    }
-                    // Use adminToken if available, fallback to linkToken
-                    linkToken = adminToken ?? linkToken;
-                    
-                    // CRITICAL: ALWAYS replace the client-generated session ID with the backend's ID
-                    // Backend returns 'id' (lowercase), not 'sessionId'
-                    // The link token is derived from this ID, so using a mismatched ID causes 401 errors
-                    if (json.TryGetProperty("id", out var sidProp))
-                    {
-                        var backendSessionId = sidProp.GetString();
-                        if (!string.IsNullOrEmpty(backendSessionId))
-                        {
-                            Console.WriteLine($"Home.StartSession: Replacing client sessionId {sessionId} with backend sessionId {backendSessionId}");
-                            sessionId = backendSessionId;
-                            // CRITICAL: Also update the config object that was created with the old ID
-                            config.SessionId = backendSessionId;
-                        }
-                    }
-                }
-                else
-                {
-                    _startSessionError = $"Failed to create server session: {createRes.StatusCode}";
-                    _isStartingSession = false;
-                    StateHasChanged();
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                _startSessionError = $"Failed to create server session: {ex.Message}";
-                _isStartingSession = false;
-                StateHasChanged();
-                return;
-            }
-
-            // Initialize session in local state (include same sessionId)
-            var session = new Models.Session
-            {
-                SessionId = Guid.Parse(sessionId),
-                RequireSingerName = _requireSingerName,
-                AllowSingersToReorder = _allowSingerReorder,
-                PauseBetweenSongs = true,
-                PauseBetweenSongsSeconds = _pauseBetweenSongs,
-                FilenamePattern = _filenamePattern
-            };
-
-            // Store role and singerToken in sessionStorage for Playlist.razor role checking
-            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", $"karamel-session-{sessionId}-role", "admin");
-            if (!string.IsNullOrEmpty(singerToken))
-            {
-                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", $"karamel-session-{sessionId}-singerToken", singerToken);
-            }
-
-            Dispatcher.Dispatch(new InitializeSessionAction(session));
-
-            // Initialize SessionService as main tab with link token so SignalR can connect with the token
-            try
-            {
-                await SessionService.InitializeAsync(session.SessionId, true, linkToken);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Home.StartSession: SessionService.InitializeAsync failed: {ex.Message}");
-            }
-
-            // Upload sanitized catalog to server
-            try
-            {
-                if (_selectedSongs != null)
-                {
-                    var uploaded = await SessionService.UploadLibraryToServerAsync(session.SessionId, _selectedSongs, linkToken);
-                    Console.WriteLine($"Library upload to server result: {uploaded}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Home.StartSession: library upload failed: {ex.Message}");
-            }
-
-            // Lock theme for this session so other tabs cannot change it
+            var (backendSessionId, adminToken, singerToken) = await CreateBackendSession();
+            
+            await InitializeLocalSession(backendSessionId, adminToken, singerToken, config);
+            await UploadLibraryAsync(backendSessionId, adminToken);
+            
             _themeLocked = true;
             StateHasChanged();
 
-            // Start karaoke session (opens tabs and returns navigation URL)
-            var result = await _homeInteropModule.InvokeAsync<SessionStartResult>(
-                "startKaraokeSession", config, _selectedSongs, linkToken);
-
-            // Navigate current tab to NextSongView
-            NavigationManager.NavigateTo(result.NextSongUrl, false);
+            await StartAndNavigateAsync(config, adminToken);
         }
         catch (Exception ex)
         {
-            _startSessionError = $"Failed to start session: {ex.Message}";
+            HandleStartSessionError(ex);
+        }
+    }
+
+    private bool ValidateCanStartSession()
+    {
+        return _homeInteropModule != null && _selectedSongs != null;
+    }
+
+    private async Task<string> GenerateTemporarySessionId()
+    {
+        // IMPORTANT: Generate temporary session ID for initial configuration
+        // This will be REPLACED by the backend's authoritative session ID after POST /api/sessions
+        return await _homeInteropModule!.InvokeAsync<string>("generateSessionId");
+    }
+
+    private async Task<SessionConfig> CreateSessionConfig(string sessionId)
+    {
+        var currentTheme = await GetCurrentThemeAsync();
+        
+        return new SessionConfig
+        {
+            SessionId = sessionId,
+            RequireSingerName = _requireSingerName,
+            AllowSingerReorder = _allowSingerReorder,
+            PauseBetweenSongs = _pauseBetweenSongs,
+            FilenamePattern = _filenamePattern,
+            Theme = currentTheme ?? _themeChoice
+        };
+    }
+
+    private async Task<string?> GetCurrentThemeAsync()
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<string>("eval", 
+                "window.themeToggle && window.themeToggle.getTheme ? window.themeToggle.getTheme() : null");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<bool> ValidateConfiguration(SessionConfig config)
+    {
+        var validation = await _homeInteropModule!.InvokeAsync<ValidationResult>(
+            "validateConfiguration", config);
+
+        if (!validation.IsValid)
+        {
+            _startSessionError = $"Invalid configuration: {string.Join(", ", validation.Errors)}";
             _isStartingSession = false;
             StateHasChanged();
+            return false;
         }
+
+        return true;
+    }
+
+    private async Task<(string sessionId, string? adminToken, string? singerToken)> CreateBackendSession()
+    {
+        // CRITICAL: The backend generates the authoritative session ID and tokens.
+        // The admin token is an HMAC-SHA256 hash of the session ID, so they MUST match exactly.
+        var request = new 
+        { 
+            RequireSingerName = _requireSingerName, 
+            PauseBetweenSongsSeconds = _pauseBetweenSongs, 
+            AllowSingersToReorder = _allowSingerReorder 
+        };
+        
+        var response = await Http.PostAsJsonAsync("/api/sessions", request);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Failed to create server session: {response.StatusCode}");
+        }
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Console.WriteLine($"Home.StartSession: Session creation response: {json}");
+        
+        return ExtractSessionTokens(json);
+    }
+
+    private (string sessionId, string? adminToken, string? singerToken) ExtractSessionTokens(JsonElement json)
+    {
+        string? adminToken = json.TryGetProperty("adminToken", out var adminTokenProp) 
+            ? adminTokenProp.GetString() 
+            : null;
+        
+        string? singerToken = json.TryGetProperty("singerToken", out var singerTokenProp) 
+            ? singerTokenProp.GetString() 
+            : null;
+        
+        // Backward compatibility: linkToken is now adminToken
+        if (adminToken == null && json.TryGetProperty("linkToken", out var tokenProp))
+        {
+            adminToken = tokenProp.GetString();
+        }
+
+        // CRITICAL: Extract backend's authoritative session ID
+        if (!json.TryGetProperty("id", out var sidProp))
+        {
+            throw new InvalidOperationException("Backend did not return session ID");
+        }
+
+        var sessionId = sidProp.GetString();
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            throw new InvalidOperationException("Backend returned empty session ID");
+        }
+
+        Console.WriteLine($"Home.StartSession: Using backend sessionId {sessionId}");
+        return (sessionId, adminToken, singerToken);
+    }
+
+    private async Task InitializeLocalSession(string sessionId, string? adminToken, string? singerToken, SessionConfig config)
+    {
+        // Update config with backend's session ID
+        config.SessionId = sessionId;
+
+        var session = new Models.Session
+        {
+            SessionId = Guid.Parse(sessionId),
+            RequireSingerName = _requireSingerName,
+            AllowSingersToReorder = _allowSingerReorder,
+            PauseBetweenSongs = true,
+            PauseBetweenSongsSeconds = _pauseBetweenSongs,
+            FilenamePattern = _filenamePattern
+        };
+
+        // Store role and tokens in sessionStorage for authorization
+        await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", 
+            $"karamel-session-{sessionId}-role", "admin");
+        
+        if (!string.IsNullOrEmpty(singerToken))
+        {
+            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", 
+                $"karamel-session-{sessionId}-singerToken", singerToken);
+        }
+
+        Dispatcher.Dispatch(new InitializeSessionAction(session));
+
+        // Initialize SessionService as main tab
+        try
+        {
+            await SessionService.InitializeAsync(session.SessionId, true, adminToken);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Home.StartSession: SessionService.InitializeAsync failed: {ex.Message}");
+        }
+    }
+
+    private async Task UploadLibraryAsync(string sessionId, string? adminToken)
+    {
+        try
+        {
+            if (_selectedSongs != null)
+            {
+                var uploaded = await SessionService.UploadLibraryToServerAsync(
+                    Guid.Parse(sessionId), _selectedSongs, adminToken);
+                Console.WriteLine($"Library upload to server result: {uploaded}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Home.StartSession: library upload failed: {ex.Message}");
+        }
+    }
+
+    private async Task StartAndNavigateAsync(SessionConfig config, string? adminToken)
+    {
+        var result = await _homeInteropModule!.InvokeAsync<SessionStartResult>(
+            "startKaraokeSession", config, _selectedSongs, adminToken);
+
+        NavigationManager.NavigateTo(result.NextSongUrl, false);
+    }
+
+    private void HandleStartSessionError(Exception ex)
+    {
+        _startSessionError = $"Failed to start session: {ex.Message}";
+        _isStartingSession = false;
+        StateHasChanged();
     }
 
     public async ValueTask DisposeAsync()

@@ -1,14 +1,13 @@
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc;
 using Karamel.Backend.Services;
-using System;
 
 namespace Karamel.Backend.Filters
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
     public sealed class LinkTokenAttribute : Attribute, IAsyncActionFilter
     {
-        public async System.Threading.Tasks.Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+        public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             var tokenService = context.HttpContext.RequestServices.GetService(typeof(ITokenService)) as ITokenService;
             var logger = context.HttpContext.RequestServices.GetService(typeof(ILogger<LinkTokenAttribute>)) as ILogger<LinkTokenAttribute>;
@@ -48,7 +47,8 @@ namespace Karamel.Backend.Filters
                 "Token validation for session {SessionId}: ReceivedLength={ReceivedLength}, ExpectedLength={ExpectedLength}, ReceivedPrefix={ReceivedPrefix}, ExpectedPrefix={ExpectedPrefix}",
                 sessionId, token.Length, expectedToken.Length, receivedTokenMasked, expectedTokenMasked);
             
-            if (!tokenService.ValidateLinkToken(sessionId, token))
+            var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(token);
+            if (!isValid || tokenSessionId != sessionId)
             {
                 logger?.LogWarning(
                     "Invalid link token for session {SessionId} from {RemoteIP}. ReceivedToken={ReceivedToken}, ExpectedToken={ExpectedToken}", 

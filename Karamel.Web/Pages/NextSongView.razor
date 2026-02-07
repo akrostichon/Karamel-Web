@@ -168,6 +168,8 @@
     private TaskCompletionSource<bool>? _playlistUpdateAwaiter;
     private string? _currentNextSongId; // Track current next song to prevent timer resets
 
+    private const int CountdownUpdateIntervalMs = 100;
+
     // Progress bar shows REMAINING time (empties from right to left as countdown proceeds)
     private double progressPercentage => totalSeconds > 0 ? (remainingSeconds / totalSeconds) * 100 : 0;
 
@@ -324,7 +326,7 @@
         else if (!firstRender && isSessionValid)
         {
             // Check if playlist changed
-            var currentItems = PlaylistState.Value.Items.Where(i => i.Status == (int)SongStatus.Queued).ToList();
+            var currentItems = (PlaylistState.Value.Items ?? new List<PlaylistItemDto>()).Where(i => i.Status == (int)SongStatus.Queued).ToList();
             if (previousItems == null || !ItemsEqual(previousItems, currentItems))
             {
                 // Update next song when playlist changes
@@ -453,59 +455,106 @@
 
     private void StartAutoAdvanceTimer()
     {
-        // Check if next song ID changed to prevent unnecessary timer resets
         var newNextSongId = nextSong?.Id;
-        if (_currentNextSongId == newNextSongId && isTimerActive)
+        
+        // Guard: Skip if timer is already running for the same song
+        if (ShouldSkipTimerRestart(newNextSongId))
         {
             Console.WriteLine($"NextSongView: Timer already running for song {newNextSongId}, skipping restart");
             return;
         }
         
         _currentNextSongId = newNextSongId;
+        StopAllTimers();
+
+        // Guard: Only start timer if conditions are met
+        if (!ShouldStartAutoAdvanceTimer())
+        {
+            isTimerActive = false;
+            return;
+        }
         
-        // Cancel existing timers
+        InitializeTimerState();
+        StartCountdownTimer();
+        StartNavigationTimer();
+    }
+
+    private bool ShouldSkipTimerRestart(string? newNextSongId)
+    {
+        return _currentNextSongId == newNextSongId && isTimerActive;
+    }
+
+    private bool ShouldStartAutoAdvanceTimer()
+    {
+        return nextSong != null 
+            && IsValidNextSongStatus(nextSong.Status)
+            && SessionState.Value.CurrentSession?.PauseBetweenSongs == true;
+    }
+
+    private bool IsValidNextSongStatus(int status)
+    {
+        return status == (int)SongStatus.Queued || status == (int)SongStatus.UpNext;
+    }
+
+    private void StopAllTimers()
+    {
         autoAdvanceTimer?.Dispose();
         countdownTimer?.Dispose();
         autoAdvanceTimer = null;
         countdownTimer = null;
+    }
 
-        // Only start timer if we have a next song (Queued or UpNext) and pause is enabled
-        if (nextSong != null && (nextSong.Status == (int)SongStatus.Queued || nextSong.Status == (int)SongStatus.UpNext) && 
-            SessionState.Value.CurrentSession?.PauseBetweenSongs == true)
+    private void InitializeTimerState()
+    {
+        if (SessionState.Value.CurrentSession == null)
         {
-            Console.WriteLine($"NextSongView: Starting timer for song {newNextSongId} (previous: {_currentNextSongId})");
-            totalSeconds = SessionState.Value.CurrentSession.PauseBetweenSongsSeconds;
-            remainingSeconds = totalSeconds;
-            isTimerActive = true;
-            countdownStart = DateTime.UtcNow;
-
-            // Start countdown timer (updates every 100ms)
-            countdownTimer = new Timer(_ =>
-            {
-                var elapsed = (DateTime.UtcNow - countdownStart).TotalSeconds;
-                remainingSeconds = Math.Max(0, totalSeconds - elapsed);
-                if (remainingSeconds <= 0)
-                {
-                    isTimerActive = false;
-                    countdownTimer?.Dispose();
-                    countdownTimer = null;
-                }
-                InvokeAsync(StateHasChanged);
-            }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
-
-            // Start auto-advance timer
-            autoAdvanceTimer = new Timer(async _ =>
-            {
-                if (!isDisposed)
-                {
-                    await InvokeAsync(async () => await NavigateToPlayer());
-                }
-            }, null, TimeSpan.FromSeconds(totalSeconds), Timeout.InfiniteTimeSpan);
+            return;
         }
-        else
+
+        totalSeconds = SessionState.Value.CurrentSession.PauseBetweenSongsSeconds;
+        remainingSeconds = totalSeconds;
+        isTimerActive = true;
+        countdownStart = DateTime.UtcNow;
+        
+        Console.WriteLine($"NextSongView: Starting {totalSeconds}s timer for song {nextSong?.Id}");
+    }
+
+    private void StartCountdownTimer()
+    {
+        countdownTimer = new Timer(_ =>
         {
-            isTimerActive = false;
+            UpdateCountdown();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(CountdownUpdateIntervalMs));
+    }
+
+    private void UpdateCountdown()
+    {
+        var elapsed = (DateTime.UtcNow - countdownStart).TotalSeconds;
+        remainingSeconds = Math.Max(0, totalSeconds - elapsed);
+        
+        if (remainingSeconds <= 0)
+        {
+            StopCountdownTimer();
         }
+    }
+
+    private void StopCountdownTimer()
+    {
+        isTimerActive = false;
+        countdownTimer?.Dispose();
+        countdownTimer = null;
+    }
+
+    private void StartNavigationTimer()
+    {
+        autoAdvanceTimer = new Timer(async _ =>
+        {
+            if (!isDisposed)
+            {
+                await InvokeAsync(NavigateToPlayer);
+            }
+        }, null, TimeSpan.FromSeconds(totalSeconds), Timeout.InfiniteTimeSpan);
     }
 
     private async Task NavigateToPlayer()

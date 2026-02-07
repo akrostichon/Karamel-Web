@@ -78,16 +78,6 @@ namespace Karamel.Backend.Services
             }
         }
 
-        /// <summary>
-        /// DEPRECATED: Old signature for backward compatibility.
-        /// Validates token and checks if session ID matches.
-        /// </summary>
-        public bool ValidateLinkToken(Guid sessionId, string token)
-        {
-            var (tokenSessionId, _, isValid) = ValidateLinkToken(token);
-            return isValid && tokenSessionId == sessionId;
-        }
-
         private string ComputeHmac(string payload)
         {
             using var hmac = new HMACSHA256(_secret);
