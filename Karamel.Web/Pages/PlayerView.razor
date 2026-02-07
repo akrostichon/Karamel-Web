@@ -258,76 +258,119 @@
 
     private async Task LoadAndPlaySong()
     {
+        if (!ValidatePlaybackPreconditions())
+        {
+            return;
+        }
+
+        var song = GetCurrentSong();
+        if (!ValidateRequiredModules(song))
+        {
+            return;
+        }
+
+        errorMessage = null;
+
         try
         {
-            // Validate this is main tab (only main tab can play songs)
-            if (!SessionService.IsMainTab)
-            {
-                blockingErrorMessage = "⚠️ Playback requires the main tab with library access. Please use the main tab to play songs.";
-                showBlockingError = true;
-                StateHasChanged();
-                return;
-            }
-
-            var song = GetCurrentSong();
-            if (song == null || fileAccessModule == null || byteStoreModule == null || playerModule == null)
-            {
-                return;
-            }
-
-            errorMessage = null;
-
-            // CRITICAL: Clear byteStore cache before loading new files to prevent race condition
-            // where initializePlayerWithCallback reads stale MP3 data from previous song
-            await byteStoreModule.InvokeVoidAsync("clearByteStore");
-
-            // Load song files from directory handle
-            try
-            {
-                var dirPath = song.Path ?? string.Empty;
-                // If song has zip metadata, pass zip info so loader can extract lazily
-                if (!string.IsNullOrEmpty(song.ZipFileName))
-                {
-                    var zipInfo = new {
-                        zipFileName = song.ZipFileName,
-                        zipEntryMp3Path = song.ZipEntryMp3Path,
-                        zipEntryCdgPath = song.ZipEntryCdgPath,
-                        zipFilePath = song.ZipFilePath
-                    };
-
-                    await fileAccessModule.InvokeVoidAsync("loadSongFiles", dirPath,
-                        System.IO.Path.GetFileName(song.Mp3FileName),
-                        System.IO.Path.GetFileName(song.CdgFileName), zipInfo);
-                }
-                else
-                {
-                    await fileAccessModule.InvokeVoidAsync("loadSongFiles", 
-                        dirPath,
-                        System.IO.Path.GetFileName(song.Mp3FileName),
-                        System.IO.Path.GetFileName(song.CdgFileName));
-                }
-            }
-            catch (JSException jsEx)
-            {
-                // If the JS loader threw a corrupt-zip or related error, surface a blocking modal
-                var msg = jsEx.Message ?? "Failed to load song files.";
-                blockingErrorMessage = MapExceptionToUserMessage(jsEx, initializing: false);
-                showBlockingError = true;
-                StateHasChanged();
-                return; // don't proceed to initialize player
-            }
-
-            // Initialize player with callback for song end
-            await playerModule.InvokeVoidAsync("initializePlayerWithCallback", dotNetRef);
-            
-            isPlaying = true;
-            StateHasChanged();
+            await PrepareByteStoreForNewSong();
+            await LoadSongFilesFromDirectory(song!);
+            await InitializePlayerForPlayback();
+            StartPlayback();
+        }
+        catch (JSException jsEx)
+        {
+            HandleBlockingPlaybackError(jsEx);
         }
         catch (Exception ex)
         {
-            errorMessage = MapExceptionToUserMessage(ex, initializing: false);
-            StateHasChanged();
+            HandleNonBlockingPlaybackError(ex);
         }
+    }
+
+    private bool ValidatePlaybackPreconditions()
+    {
+        if (SessionService.IsMainTab)
+        {
+            return true;
+        }
+
+        blockingErrorMessage = "⚠️ Playback requires the main tab with library access. Please use the main tab to play songs.";
+        showBlockingError = true;
+        StateHasChanged();
+        return false;
+    }
+
+    private bool ValidateRequiredModules(Song? song)
+    {
+        return song != null
+            && fileAccessModule != null
+            && byteStoreModule != null
+            && playerModule != null;
+    }
+
+    private async Task PrepareByteStoreForNewSong()
+    {
+        // CRITICAL: Clear byteStore cache before loading new files to prevent race condition
+        // where initializePlayerWithCallback reads stale MP3 data from previous song
+        await byteStoreModule!.InvokeVoidAsync("clearByteStore");
+    }
+
+    private async Task LoadSongFilesFromDirectory(Song song)
+    {
+        var dirPath = song.Path ?? string.Empty;
+        var mp3FileName = System.IO.Path.GetFileName(song.Mp3FileName);
+        var cdgFileName = System.IO.Path.GetFileName(song.CdgFileName);
+
+        if (SongIsFromZipFile(song))
+        {
+            var zipInfo = CreateZipInfo(song);
+            await fileAccessModule!.InvokeVoidAsync("loadSongFiles", dirPath, mp3FileName, cdgFileName, zipInfo);
+        }
+        else
+        {
+            await fileAccessModule!.InvokeVoidAsync("loadSongFiles", dirPath, mp3FileName, cdgFileName);
+        }
+    }
+
+    private static bool SongIsFromZipFile(Song song)
+    {
+        return !string.IsNullOrEmpty(song.ZipFileName);
+    }
+
+    private static object CreateZipInfo(Song song)
+    {
+        return new
+        {
+            zipFileName = song.ZipFileName,
+            zipEntryMp3Path = song.ZipEntryMp3Path,
+            zipEntryCdgPath = song.ZipEntryCdgPath,
+            zipFilePath = song.ZipFilePath
+        };
+    }
+
+    private async Task InitializePlayerForPlayback()
+    {
+        await playerModule!.InvokeVoidAsync("initializePlayerWithCallback", dotNetRef);
+    }
+
+    private void StartPlayback()
+    {
+        isPlaying = true;
+        StateHasChanged();
+    }
+
+    private void HandleBlockingPlaybackError(JSException jsEx)
+    {
+        blockingErrorMessage = MapExceptionToUserMessage(jsEx, initializing: false);
+        showBlockingError = true;
+        StateHasChanged();
+    }
+
+    private void HandleNonBlockingPlaybackError(Exception ex)
+    {
+        errorMessage = MapExceptionToUserMessage(ex, initializing: false);
+        StateHasChanged();
     }
 
     private async Task OnBlockingErrorAccepted()

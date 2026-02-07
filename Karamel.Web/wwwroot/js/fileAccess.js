@@ -59,10 +59,6 @@ async function buildZipSong(zip, zipFileName, zipFilePath, mp3EntryPath, cdgEntr
     };
 }
 
-async function ensureJSZip() {
-    // Delegate to zipHelper which centralizes import/fallback behavior
-    return zipHelper.ensureZipModule();
-}
 
 export async function pickMp3File() {
     try {
@@ -107,197 +103,156 @@ export async function pickCdgFile() {
     }
 }
 
+// ======================== LIBRARY SCANNING HELPERS ========================
+
+/**
+ * Report library scan progress
+ * @private
+ */
+function reportScanProgress(matchedCount, progressStep, isComplete = false) {
+    try {
+        const detail = isComplete 
+            ? { scanned: matchedCount, complete: true }
+            : { scanned: matchedCount };
+        window.dispatchEvent(new CustomEvent('library-scan-progress', { detail }));
+    } catch (e) {
+        console.warn('Failed to dispatch library-scan-progress event', e);
+    }
+}
+
+/**
+ * Process a ZIP file entry and extract song metadata
+ * @private
+ */
+async function processZipEntry(entry, relativePath, filenamePattern) {
+    const zipFileObj = await entry.getFile();
+    
+    if (typeof zipFileObj.size === 'number' && zipHelper.isZipTooLarge(zipFileObj.size, MAX_ZIP_SIZE)) {
+        console.warn('Skipping large ZIP file during scan:', entry.name, `(${zipFileObj.size} bytes)`);
+        return null;
+    }
+
+    const zipBuf = await zipFileObj.arrayBuffer();
+    const pair = await zipHelper.findMp3CdgRootPairFromBuffer(zipBuf);
+    
+    if (!pair || !pair.mp3Entry || !pair.cdgEntry) {
+        return null;
+    }
+
+    const jszip = await zipHelper.ensureZipModule();
+    const zip = await jszip.loadAsync(zipBuf);
+    const zipFilePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+    
+    return await buildZipSong(zip, entry.name, zipFilePath, pair.mp3Entry, pair.cdgEntry, filenamePattern);
+}
+
+/**
+ * Categorize directory entries into MP3 files, CDG files, ZIP files, and subdirectories
+ * @private
+ */
+async function categorizeDirectoryEntries(directoryHandle) {
+    const mp3Files = new Map();
+    const cdgFiles = new Set();
+    const zipFiles = [];
+    const subdirectories = [];
+
+    for await (const entry of directoryHandle.values()) {
+        if (entry.kind === 'file') {
+            const fileName = entry.name.toLowerCase();
+
+            if (fileName.endsWith('.mp3')) {
+                const baseName = entry.name.slice(0, -4);
+                const file = await entry.getFile();
+                mp3Files.set(baseName, { handle: entry, file });
+            } else if (fileName.endsWith('.cdg')) {
+                const baseName = entry.name.slice(0, -4);
+                cdgFiles.add(baseName);
+            } else if (fileName.endsWith('.zip')) {
+                zipFiles.push(entry);
+            }
+        } else if (entry.kind === 'directory') {
+            subdirectories.push(entry);
+        }
+    }
+
+    return { mp3Files, cdgFiles, zipFiles, subdirectories };
+}
+
+/**
+ * Process MP3/CDG pairs and add matching songs to the collection
+ * @private
+ */
+async function processMp3CdgPairs(mp3Files, cdgFiles, relativePath, filenamePattern, songsAcc, progressStep, matchedCountRef) {
+    for (const [baseName, mp3Data] of mp3Files) {
+        if (!cdgFiles.has(baseName)) continue;
+
+        const song = await buildDirectorySong(mp3Data, relativePath, filenamePattern);
+        songsAcc.push(song);
+        matchedCountRef.count++;
+
+        if (matchedCountRef.count % progressStep === 0) {
+            reportScanProgress(matchedCountRef.count, progressStep);
+        }
+    }
+}
+
+/**
+ * Process ZIP files and add valid songs to the collection
+ * @private
+ */
+async function processZipFiles(zipFiles, relativePath, filenamePattern, songsAcc, matchedCountRef) {
+    for (const zipEntry of zipFiles) {
+        try {
+            const song = await processZipEntry(zipEntry, relativePath, filenamePattern);
+            if (song) {
+                songsAcc.push(song);
+                matchedCountRef.count++;
+            }
+        } catch (e) {
+            console.warn('Failed to read ZIP file during scan:', zipEntry.name, e);
+        }
+    }
+}
+
 /**
  * Pick a library directory and scan for karaoke files (MP3 + CDG pairs)
  * @param {string} filenamePattern - Pattern for parsing filenames (default: "%artist - %title")
+ * @param {number} progressStep - Frequency of progress updates (default: 10)
  * @returns {Promise<Array>} Array of song metadata objects
  */
 export async function pickLibraryDirectory(filenamePattern = '%artist - %title', progressStep = 10) {
     try {
-        // Request directory access
         libraryDirectoryHandle = await window.showDirectoryPicker({ mode: 'read' });
-
-        // Validate pattern
         const validPattern = validatePattern(filenamePattern);
-
-        // Recursively scan for songs
+        
         const songs = [];
-        let matchedCount = 0;
+        const matchedCountRef = { count: 0 };
 
-        async function scanWrapper(directoryHandle, songsAcc, relativePath = '', filenamePatternInner = '%artist - %title') {
-            const mp3Files = new Map();
-            const cdgFiles = new Set();
-            const subdirectories = [];
+        async function scanDirectory(directoryHandle, songsAcc, relativePath = '') {
+            const { mp3Files, cdgFiles, zipFiles, subdirectories } = 
+                await categorizeDirectoryEntries(directoryHandle);
 
-            for await (const entry of directoryHandle.values()) {
-                if (entry.kind === 'file') {
-                    const fileName = entry.name.toLowerCase();
+            // Process ZIP files first (they're already complete songs)
+            await processZipFiles(zipFiles, relativePath, validPattern, songsAcc, matchedCountRef);
 
-                    if (fileName.endsWith('.mp3')) {
-                        const baseName = entry.name.slice(0, -4);
-                        const file = await entry.getFile();
-                        mp3Files.set(baseName, { handle: entry, file: file });
-                    } else if (fileName.endsWith('.cdg')) {
-                        const baseName = entry.name.slice(0, -4);
-                        cdgFiles.add(baseName);
-                    } else if (fileName.endsWith('.zip')) {
-                        // ZIP scanning: use zipHelper to detect root entries without extracting full contents
-                        try {
-                            const zipFileObj = await entry.getFile();
-                            if (typeof zipFileObj.size === 'number' && zipHelper.isZipTooLarge(zipFileObj.size, MAX_ZIP_SIZE)) {
-                                console.warn('Skipping large ZIP file during scan:', entry.name, `(${zipFileObj.size} bytes)`);
-                            } else {
-                                const zipBuf = await zipFileObj.arrayBuffer();
-                                const pair = await zipHelper.findMp3CdgRootPairFromBuffer(zipBuf);
-                                if (pair && pair.mp3Entry && pair.cdgEntry) {
-                                    // load JSZip instance to allow reading ID3 metadata from mp3 entry
-                                    const jszip = await zipHelper.ensureZipModule();
-                                    const zip = await jszip.loadAsync(zipBuf);
-                                    const zipFilePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-                                    const song = await buildZipSong(zip, entry.name, zipFilePath, pair.mp3Entry, pair.cdgEntry, filenamePatternInner);
-                                    songsAcc.push(song);
-                                    matchedCount++;
-                                }
-                            }
-                        } catch (e) {
-                            console.warn('Failed to read ZIP file during scan:', entry.name, e);
-                        }
-                    }
-                } else if (entry.kind === 'directory') {
-                    subdirectories.push(entry);
-                }
-            }
+            // Process MP3/CDG pairs
+            await processMp3CdgPairs(mp3Files, cdgFiles, relativePath, validPattern, songsAcc, progressStep, matchedCountRef);
 
-            for (const [baseName, mp3Data] of mp3Files) {
-                const hasCdg = cdgFiles.has(baseName);
-                if (!hasCdg) continue;
-                const song = await buildDirectorySong(mp3Data, relativePath, filenamePatternInner);
-                songsAcc.push(song);
-                matchedCount++;
-                try {
-                    if (matchedCount % progressStep === 0) {
-                        window.dispatchEvent(new CustomEvent('library-scan-progress', { detail: { scanned: matchedCount } }));
-                    }
-                } catch (e) {
-                    console.warn('Failed to dispatch library-scan-progress event', e);
-                }
-            }
-
+            // Recursively scan subdirectories
             for (const subdir of subdirectories) {
                 const newPath = relativePath ? `${relativePath}/${subdir.name}` : subdir.name;
-                await scanWrapper(subdir, songsAcc, newPath, filenamePatternInner);
+                await scanDirectory(subdir, songsAcc, newPath);
             }
         }
 
-        await scanWrapper(libraryDirectoryHandle, songs, '', validPattern);
-
-        try {
-            window.dispatchEvent(new CustomEvent('library-scan-progress', { detail: { scanned: songs.length, complete: true } }));
-        } catch (e) { /* ignore */ }
+        await scanDirectory(libraryDirectoryHandle, songs);
+        reportScanProgress(songs.length, progressStep, true);
 
         console.log(`Library scan complete: ${songs.length} songs found`);
         return songs;
     } catch (error) {
         console.error('Error picking library directory:', error);
         return null;
-    }
-}
-
-/**
- * Recursively scan directory for MP3 files and their matching CDG files
- * @param {FileSystemDirectoryHandle} directoryHandle 
- * @param {Array} songs - Accumulator array for found songs
- * @param {string} relativePath - Current relative path from library root
- * @param {string} filenamePattern - Pattern for parsing filenames
- */
-async function scanDirectoryForSongs(directoryHandle, songs, relativePath = '', filenamePattern = '%artist - %title') {
-    try {
-        const mp3Files = new Map(); // Map of basename -> {handle, file}
-        const cdgFiles = new Set(); // Set of basenames that have CDG files
-        const subdirectories = [];
-
-        // First pass: collect all files
-        for await (const entry of directoryHandle.values()) {
-            if (entry.kind === 'file') {
-                const fileName = entry.name.toLowerCase();
-                
-                if (fileName.endsWith('.mp3')) {
-                    const baseName = entry.name.slice(0, -4); // Remove .mp3 extension
-                    const file = await entry.getFile();
-                    mp3Files.set(baseName, { handle: entry, file: file });
-                } else if (fileName.endsWith('.cdg')) {
-                    const baseName = entry.name.slice(0, -4); // Remove .cdg extension
-                    cdgFiles.add(baseName);
-                    } else if (fileName.endsWith('.zip')) {
-                        try {
-                            const zipFileObj = await entry.getFile();
-                            if (typeof zipFileObj.size === 'number' && zipHelper.isZipTooLarge(zipFileObj.size, MAX_ZIP_SIZE)) {
-                                console.warn('Skipping large ZIP file during scan:', entry.name, `(${zipFileObj.size} bytes)`);
-                            } else {
-                                const zipBuf = await zipFileObj.arrayBuffer();
-                                const pair = await zipHelper.findMp3CdgRootPairFromBuffer(zipBuf);
-                                if (pair && pair.mp3Entry && pair.cdgEntry) {
-                                    const baseName = pair.mp3Entry.substring(0, pair.mp3Entry.length - 4);
-                                    let artist = '';
-                                    let title = baseName;
-                                    try {
-                                        const jszip = await zipHelper.ensureZipModule();
-                                        const zipInstance = await jszip.loadAsync(zipBuf);
-                                        const mp3ArrayBuffer = await zipInstance.file(pair.mp3Entry).async('arraybuffer');
-                                        const metaFileName = `${zipFilePath}/${pair.mp3Entry}`;
-                                        const metaFile = new File([mp3ArrayBuffer], pair.mp3Entry, { type: 'audio/mpeg' });
-                                        const md = await extractMetadata(metaFile, metaFileName, filenamePattern);
-                                        artist = md.artist; title = md.title;
-                                    } catch (e) { /* ignore */ }
-                                    const zipFilePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-                                    songs.push({
-                                        id: crypto.randomUUID(),
-                                        artist,
-                                        title,
-                                        mp3FileName: `${baseName}.mp3`,
-                                        cdgFileName: `${baseName}.cdg`,
-                                        path: '',
-                                        fullPath: baseName,
-                                        sourceType: 'zip',
-                                        zipFileName: entry.name,
-                                        zipFilePath: zipFilePath,
-                                        zipEntryMp3Path: pair.mp3Entry,
-                                        zipEntryCdgPath: pair.cdgEntry
-                                    });
-                                }
-                            }
-                        } catch (e) {
-                            console.warn('Failed to read ZIP file during scan:', entry.name, e);
-                        }
-                }
-            } else if (entry.kind === 'directory') {
-                subdirectories.push(entry);
-            }
-        }
-
-        // Second pass: match MP3s with CDGs and extract metadata
-        for (const [baseName, mp3Data] of mp3Files) {
-            const hasCdg = cdgFiles.has(baseName);
-            
-            // Only include songs that have both MP3 and CDG files
-            if (!hasCdg) {
-                continue;
-            }
-            
-            const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
-
-            // Extract metadata (ID3 tags or filename parsing)
-            const song = await buildDirectorySong(mp3Data, relativePath, filenamePattern);
-            songs.push(song);
-        }
-
-        // Recursively scan subdirectories
-        for (const subdir of subdirectories) {
-            const newPath = relativePath ? `${relativePath}/${subdir.name}` : subdir.name;
-            await scanDirectoryForSongs(subdir, songs, newPath, filenamePattern);
-        }
-    } catch (error) {
-        console.error(`Error scanning directory ${relativePath}:`, error);
     }
 }
 
