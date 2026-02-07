@@ -26,7 +26,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
     public void Integration_DisplaysNextSongFromQueue()
     {
         // Arrange - dispatch initial session action with test session ID
-        var initialSession = new Models.Session
+        var initialSession = new Session
         {
             SessionId = TestSessionId,
             PauseBetweenSongsSeconds = 5
@@ -65,7 +65,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
     public void Integration_DisplaysEmptySongMessage_WhenQueueIsEmpty()
     {
         // Arrange - dispatch initial session action with test session ID
-        var initialSession = new Models.Session
+        var initialSession = new Session
         {
             SessionId = TestSessionId,
             PauseBetweenSongsSeconds = 5
@@ -84,7 +84,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
     public void Integration_LoadsQRCodeModule()
     {
         // Arrange - initialize session
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = TestSessionId,
             PauseBetweenSongsSeconds = 5
@@ -103,7 +103,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
     public void Integration_ShowsQRCode_WhenQueueIsEmpty()
     {
         // Arrange - initialize session
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = TestSessionId,
             PauseBetweenSongsSeconds = 5
@@ -122,7 +122,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
     public async Task Component_UpdatesDisplay_WhenPlaylistStateChanges()
     {
         // Arrange - initialize session with test session ID
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = TestSessionId,
             PauseBetweenSongsSeconds = 5
@@ -208,7 +208,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
     public async Task Component_UpdatesDisplay_WhenQueueBecomesEmpty()
     {
         // Arrange - initialize session with test session ID and add song
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = TestSessionId,
             PauseBetweenSongsSeconds = 5
@@ -269,7 +269,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
     public async Task Component_ReactsTo_MultipleQueueChanges()
     {
         // Arrange - initialize session with test session ID
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = TestSessionId,
             PauseBetweenSongsSeconds = 5

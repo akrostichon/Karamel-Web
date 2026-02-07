@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Karamel.Backend.Controllers;
 
 namespace Karamel.Backend.Repositories

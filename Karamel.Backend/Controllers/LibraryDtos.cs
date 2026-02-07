@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Karamel.Backend.Controllers
 {
     public record SongListItemDto(Guid Id, Guid SessionId, string Artist, string Title, string? MetadataJson, DateTime AddedAt);

@@ -50,7 +50,7 @@ Execute these steps in order for the target markdown file:
    - Add "Tests" substep to the markdown
    - Specify all tests with file paths, types, and acceptance criteria
 
-3. **Test driven steps**
+3. **Test Driven Development**
    - Create test file in appropriate projects (`Karamel.Web.Tests`, `Karamel.Backend.Tests`, or `wwwroot/js/*.test.js`)
    - Use mocks and dependency injection appropriately
    - Keep tests focused and atomic

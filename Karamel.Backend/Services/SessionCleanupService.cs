@@ -1,8 +1,3 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Karamel.Backend.Repositories;
-using Karamel.Backend.Hubs;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Karamel.Backend.Services
@@ -56,8 +51,8 @@ namespace Karamel.Backend.Services
         public async Task CleanupOnceAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _services.CreateScope();
-            var repo = scope.ServiceProvider.GetRequiredService<Karamel.Backend.Repositories.ISessionRepository>();
-            var hubContext = scope.ServiceProvider.GetService<IHubContext<Karamel.Backend.Hubs.PlaylistHub>>();
+            var repo = scope.ServiceProvider.GetRequiredService<Repositories.ISessionRepository>();
+            var hubContext = scope.ServiceProvider.GetService<IHubContext<Hubs.PlaylistHub>>();
 
             var now = DateTime.UtcNow;
             var sessions = await repo.ListAsync();
@@ -72,7 +67,7 @@ namespace Karamel.Backend.Services
 
                     if (hubContext != null)
                     {
-                        var group = Karamel.Backend.Hubs.PlaylistHub.GetSessionGroupName(s.Id.ToString());
+                        var group = Hubs.PlaylistHub.GetSessionGroupName(s.Id.ToString());
                         await hubContext.Clients.Group(group).SendAsync("ReceiveSessionEnded", s.Id, cancellationToken);
                     }
                 }

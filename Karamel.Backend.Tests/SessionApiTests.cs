@@ -38,7 +38,7 @@ namespace Karamel.Backend.Tests
 
             // Validate that the token service accepts the token for the created session
             using var scope = _factory.Services.CreateScope();
-            var tokenService = scope.ServiceProvider.GetRequiredService<Karamel.Backend.Services.ITokenService>();
+            var tokenService = scope.ServiceProvider.GetRequiredService<Services.ITokenService>();
             var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(created.linkToken);
             Assert.True(isValid && tokenSessionId == created.Id, "Generated link token should validate for the session");
         }

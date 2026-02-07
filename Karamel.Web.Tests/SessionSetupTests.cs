@@ -1,6 +1,4 @@
 using Bunit;
-using Microsoft.JSInterop;
-using Xunit;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;

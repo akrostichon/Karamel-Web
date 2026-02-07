@@ -1,15 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Karamel.Backend.Repositories;
 
 namespace Karamel.Backend.Controllers
 {
     [ApiController]
     [Route("api/sessions/{sessionId:guid}/[controller]")]
-    [Karamel.Backend.Filters.LinkToken]
+    [Filters.LinkToken]
     public class LibraryController : ControllerBase
     {
         private readonly ISongRepository _songRepo;
