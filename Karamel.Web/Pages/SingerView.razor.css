@@ -165,8 +165,8 @@ div[id$="-qrcode"] img {
 }
 
 .k-singer-toast .toast-header {
-    background: transparent;
-    color: inherit;
+    background: black !important;
+    color: var(--color-text);
     border-bottom: none;
     padding: 12px 14px;
 }

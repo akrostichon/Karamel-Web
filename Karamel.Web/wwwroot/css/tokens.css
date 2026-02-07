@@ -260,6 +260,11 @@ html:not([data-theme="dark"]) .card .text-white {
   color: var(--color-text) !important;
 }
 
+.toast-primary {
+  background: black !important;
+  color: var(--color-text) !important;
+}
+
 .toast-error {
   background-color: var(--color-error) !important;
   color: var(--color-text) !important;
