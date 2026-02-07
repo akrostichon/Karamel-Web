@@ -157,6 +157,8 @@ namespace Karamel.Backend.Migrations
 
                             b1.Property<int>("PauseBetweenSongsSeconds");
 
+                            b1.Property<int>("PlaybackMode");
+
                             b1.Property<bool>("RequireSingerName");
 
                             b1.HasKey("SessionId");

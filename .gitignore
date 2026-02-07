@@ -16,3 +16,4 @@ publish/
 app.zip
 latest-logs/
 karamel.db*
+/migrations_backup/

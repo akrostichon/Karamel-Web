@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Karamel.Backend.Migrations
 {
     [DbContext(typeof(BackendDbContext))]
-    [Migration("20260206201715_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260207115917_MigrateSessionToTokenAndConfigModel")]
+    partial class MigrateSessionToTokenAndConfigModel
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -159,6 +159,8 @@ namespace Karamel.Backend.Migrations
                             b1.Property<bool>("AllowSingersToReorder");
 
                             b1.Property<int>("PauseBetweenSongsSeconds");
+
+                            b1.Property<int>("PlaybackMode");
 
                             b1.Property<bool>("RequireSingerName");
 
