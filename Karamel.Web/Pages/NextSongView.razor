@@ -324,7 +324,7 @@
         else if (!firstRender && isSessionValid)
         {
             // Check if playlist changed
-            var currentItems = PlaylistState.Value.Items.Where(i => i.Status == (int)SongStatus.Queued).ToList();
+            var currentItems = (PlaylistState.Value.Items ?? new List<PlaylistItemDto>()).Where(i => i.Status == (int)SongStatus.Queued).ToList();
             if (previousItems == null || !ItemsEqual(previousItems, currentItems))
             {
                 // Update next song when playlist changes

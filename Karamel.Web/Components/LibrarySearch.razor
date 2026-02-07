@@ -5,6 +5,7 @@
 @using Karamel.Web.Store.Playlist
 
 @inherits FluxorComponent
+@implements IDisposable
 
 @inject IState<LibraryState> LibraryState
 @inject IDispatcher Dispatcher
@@ -152,6 +153,10 @@
     [Parameter]
     public EventCallback<Song> OnAddToQueue { get; set; }
 
+    private const int DebounceDelayMs = 300;
+    private const int SearchPageSize = 50;
+    private const int SearchPageNumber = 1;
+
     private bool showToast = false;
     private string toastMessage = string.Empty;
     private string toastTitle = string.Empty;
@@ -163,54 +168,102 @@
             .OrderBy(s => s.Artist)
             .ThenBy(s => s.Title);
 
-    // Removed suggestions overlay logic
-
-    private void OnSearchInput(ChangeEventArgs e)
+    private async void OnSearchInput(ChangeEventArgs e)
     {
         var searchText = e.Value?.ToString() ?? string.Empty;
-        // Debounce rapid input to avoid excessive server requests
+        await PerformDebouncedSearchAsync(searchText);
+    }
+
+    private async Task PerformDebouncedSearchAsync(string searchText)
+    {
+        // Cancel any pending search operation
         _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
         _debounceCts = new System.Threading.CancellationTokenSource();
-        var token = _debounceCts.Token;
-
-        _ = Task.Run(async () =>
+        
+        try
         {
-            try
-            {
-                await Task.Delay(300, token);
-                if (token.IsCancellationRequested) return;
+            await Task.Delay(DebounceDelayMs, _debounceCts.Token);
+            await FetchAndUpdateLibraryAsync(searchText, _debounceCts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            // Expected when user types rapidly - noop
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"LibrarySearch: Search failed: {ex.Message}");
+            await FallbackToLocalFilteringAsync(searchText);
+        }
+    }
 
-                var session = SessionState.Value.CurrentSession;
-                // Only fetch the page of full results (no suggestions overlay)
-                try
-                {
-                    if (session != null)
-                    {
-                        var pageResult = await SessionService.FetchLibraryPageAsync(session.SessionId, 1, 50, searchText, null);
-                        if (pageResult.ValueKind != System.Text.Json.JsonValueKind.Undefined && pageResult.ValueKind != System.Text.Json.JsonValueKind.Null)
-                        {
-                            if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
-                            {
-                                var songs = itemsArr.EnumerateArray().Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong).ToList();
-                                Dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
-                                return;
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"LibrarySearch: FetchLibraryPageAsync failed: {ex.Message}");
-                }
+    private async Task FetchAndUpdateLibraryAsync(string searchText, System.Threading.CancellationToken cancellationToken)
+    {
+        var session = SessionState.Value.CurrentSession;
+        if (session == null)
+        {
+            await FallbackToLocalFilteringAsync(searchText);
+            return;
+        }
 
-                // Fallback to local filtering
-                Dispatcher.Dispatch(new FilterSongsAction(searchText));
-            }
-            catch (TaskCanceledException) { }
-            catch (Exception ex)
+        try
+        {
+            var pageResult = await SessionService.FetchLibraryPageAsync(
+                session.SessionId, 
+                SearchPageNumber, 
+                SearchPageSize, 
+                searchText, 
+                null);
+
+            if (TryParseSongsFromResult(pageResult, out var songs))
             {
-                Console.WriteLine($"LibrarySearch debounce task failed: {ex.Message}");
+                await InvokeAsync(() =>
+                {
+                    Dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
+                    StateHasChanged();
+                });
             }
+            else
+            {
+                await FallbackToLocalFilteringAsync(searchText);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"LibrarySearch: FetchLibraryPageAsync failed: {ex.Message}");
+            await FallbackToLocalFilteringAsync(searchText);
+        }
+    }
+
+    private bool TryParseSongsFromResult(System.Text.Json.JsonElement result, out List<Song> songs)
+    {
+        songs = new List<Song>();
+
+        if (result.ValueKind == System.Text.Json.JsonValueKind.Undefined || 
+            result.ValueKind == System.Text.Json.JsonValueKind.Null)
+        {
+            return false;
+        }
+
+        if (!result.TryGetProperty("items", out var itemsArr) || 
+            itemsArr.ValueKind != System.Text.Json.JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        songs = itemsArr.EnumerateArray()
+            .Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong)
+            .ToList();
+
+        return songs.Any();
+    }
+
+    private async Task FallbackToLocalFilteringAsync(string searchText)
+    {
+        await InvokeAsync(() =>
+        {
+            Dispatcher.Dispatch(new FilterSongsAction(searchText));
+            StateHasChanged();
         });
     }
 
@@ -269,5 +322,11 @@
     {
         showToast = false;
         StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
     }
 }

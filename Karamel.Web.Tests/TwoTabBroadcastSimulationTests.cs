@@ -61,7 +61,7 @@ namespace Karamel.Web.Tests
             singerCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
             var singerStore = singerCtx.Services.GetRequiredService<IStore>();
             var singerDispatcher = singerCtx.Services.GetRequiredService<IDispatcher>();
-            singerStore.InitializeAsync().Wait();
+            await singerStore.InitializeAsync();
 
             // Initialize session in singer context
             var initialSession = new Session { SessionId = sessionId };
@@ -104,7 +104,7 @@ namespace Karamel.Web.Tests
             nextCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
             var nextStore = nextCtx.Services.GetRequiredService<IStore>();
             var nextDispatcher = nextCtx.Services.GetRequiredService<IDispatcher>();
-            nextStore.InitializeAsync().Wait();
+            await nextStore.InitializeAsync();
 
             // Initialize session in next context (secondary tab)
             nextDispatcher.Dispatch(new InitializeSessionAction(initialSession));

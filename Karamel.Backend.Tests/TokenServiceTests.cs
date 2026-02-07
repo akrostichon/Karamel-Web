@@ -50,10 +50,11 @@ namespace Karamel.Backend.Tests
             var token = tokenService.GenerateLinkToken(sessionId);
 
             // Act
-            var isValid = tokenService.ValidateLinkToken(sessionId, token);
+            var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(token);
 
             // Assert
             Assert.True(isValid);
+            Assert.Equal(sessionId, tokenSessionId);
         }
 
         [Fact]
@@ -64,7 +65,7 @@ namespace Karamel.Backend.Tests
             var sessionId = Guid.NewGuid();
 
             // Act
-            var isValid = tokenService.ValidateLinkToken(sessionId, "invalid-token");
+            var (_, _, isValid) = tokenService.ValidateLinkToken("invalid-token");
 
             // Assert
             Assert.False(isValid);
@@ -78,8 +79,10 @@ namespace Karamel.Backend.Tests
             var sessionId = Guid.NewGuid();
 
             // Act & Assert
-            Assert.False(tokenService.ValidateLinkToken(sessionId, null!));
-            Assert.False(tokenService.ValidateLinkToken(sessionId, ""));
+            var (_, _, isValid1) = tokenService.ValidateLinkToken(null!);
+            var (_, _, isValid2) = tokenService.ValidateLinkToken("");
+            Assert.False(isValid1);
+            Assert.False(isValid2);
         }
 
         [Fact]
@@ -92,10 +95,12 @@ namespace Karamel.Backend.Tests
             var token = tokenService.GenerateLinkToken(sessionId1);
 
             // Act
-            var isValid = tokenService.ValidateLinkToken(sessionId2, token);
+            var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(token);
 
             // Assert
-            Assert.False(isValid);
+            Assert.True(isValid);
+            Assert.Equal(sessionId1, tokenSessionId);
+            Assert.NotEqual(sessionId2, tokenSessionId);
         }
 
         [Fact]
@@ -110,7 +115,7 @@ namespace Karamel.Backend.Tests
             var standardBase64Token = urlSafeToken.Replace('-', '+').Replace('_', '/');
 
             // Act
-            var isValid = tokenService.ValidateLinkToken(sessionId, standardBase64Token);
+            var (_, _, isValid) = tokenService.ValidateLinkToken(standardBase64Token);
 
             // Assert - if the token contained + or /, this should fail
             // (only passes if the original token happened to have no + or / characters)

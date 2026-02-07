@@ -38,7 +38,7 @@
             <p>No active karaoke session found. Please start a new session from the home page.</p>
         </div>
     }
-    else if (SessionState.Value.CurrentSession.RequireSingerName && string.IsNullOrWhiteSpace(singerName))
+    else if (SessionState.Value.CurrentSession != null && SessionState.Value.CurrentSession.RequireSingerName && string.IsNullOrWhiteSpace(singerName))
     {
         <div class="name-entry-container">
             <div class="name-entry-card">

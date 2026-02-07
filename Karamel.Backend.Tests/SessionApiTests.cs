@@ -1,5 +1,4 @@
 using System;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Xunit;
@@ -40,8 +39,8 @@ namespace Karamel.Backend.Tests
             // Validate that the token service accepts the token for the created session
             using var scope = _factory.Services.CreateScope();
             var tokenService = scope.ServiceProvider.GetRequiredService<Karamel.Backend.Services.ITokenService>();
-            var ok = tokenService.ValidateLinkToken(created.Id, created.linkToken);
-            Assert.True(ok, "Generated link token should validate for the session");
+            var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(created.linkToken);
+            Assert.True(isValid && tokenSessionId == created.Id, "Generated link token should validate for the session");
         }
 
         private record CreateResponse(Guid Id, string linkToken);

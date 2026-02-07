@@ -112,7 +112,8 @@ else
         // Validate session parameter
         if (Guid.TryParse(SessionParam, out var sessionId))
         {
-            _isSessionValid = SessionState.Value.CurrentSession.SessionId == sessionId;
+            _isSessionValid = SessionState.Value.CurrentSession != null && 
+                              SessionState.Value.CurrentSession.SessionId == sessionId;
         }
 
         // Load session protection module and enable protection
