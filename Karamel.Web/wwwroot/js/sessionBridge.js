@@ -28,98 +28,132 @@ function getSessionKey(sessionId) {
 }
 
 /**
+ * Generate a unique tab identifier
+ * @returns {string} Unique tab ID
+ */
+function generateTabId() {
+    try {
+        return (typeof crypto !== 'undefined' && crypto.randomUUID) 
+            ? crypto.randomUUID() 
+            : `tab-${Math.random().toString(36).slice(2)}`;
+    } catch (error) {
+        return `tab-${Math.random().toString(36).slice(2)}`;
+    }
+}
+
+/**
+ * Handle incoming messages for the main tab
+ * @param {MessageEvent} event - Broadcast channel message event
+ */
+function handleMainTabMessage(event) {
+    // Ignore messages originated from this tab
+    if (event.data?.senderId === tabId) return;
+
+    try {
+        console.log('Main tab received message:', event.data);
+    } catch (error) {
+        console.log('Main tab received message (unserializable data)');
+    }
+
+    if (event.data?.type === 'request-state') {
+        console.log('Main tab: Sending current state to requesting tab');
+        const currentState = getSessionState();
+        broadcastChannel.postMessage({
+            type: 'state-sync-response',
+            data: currentState,
+            timestamp: Date.now(),
+            senderId: tabId
+        });
+    } else if (event.data?.type) {
+        console.log(`Main tab: Processing message type: ${event.data.type}`);
+        try {
+            handleBroadcastMessage(event.data);
+        } catch (error) {
+            console.error('Main tab: Error handling broadcast message:', error);
+        }
+    }
+}
+
+/**
+ * Handle incoming messages for secondary tabs
+ * @param {MessageEvent} event - Broadcast channel message event
+ * @param {string} sessionId - Current session ID
+ */
+function handleSecondaryTabMessage(event, sessionId) {
+    // Ignore messages sent by this same tab
+    if (event.data?.senderId === tabId) return;
+
+    if (event.data?.type === 'state-sync-response') {
+        console.log('Secondary tab: Received state sync response');
+        // Save the full state to this tab's sessionStorage
+        sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(event.data.data));
+        // Trigger custom event for Blazor to reload state
+        const stateEvent = new CustomEvent('session-state-synced', {
+            detail: event.data.data
+        });
+        window.dispatchEvent(stateEvent);
+    } else {
+        handleBroadcastMessage(event.data);
+    }
+}
+
+/**
+ * Request initial state from main tab (secondary tabs only)
+ */
+function requestStateFromMainTab() {
+    console.log('Secondary tab: Requesting state from main tab');
+    broadcastChannel.postMessage({
+        type: 'request-state',
+        timestamp: Date.now(),
+        senderId: tabId
+    });
+}
+
+/**
+ * Create and configure broadcast channel
+ * @param {string} sessionId - Session GUID
+ * @param {boolean} asMainTab - Whether this is the main tab
+ * @throws {Error} If Broadcast Channel API is not supported
+ */
+function createBroadcastChannel(sessionId, asMainTab) {
+    try {
+        const channel = new BroadcastChannel(getChannelName(sessionId));
+        
+        if (asMainTab) {
+            channel.onmessage = handleMainTabMessage;
+        } else {
+            channel.onmessage = (event) => handleSecondaryTabMessage(event, sessionId);
+            // Request initial state after setting up the message handler
+            requestStateFromMainTab();
+        }
+        
+        return channel;
+    } catch (error) {
+        console.error('Failed to create Broadcast Channel:', error);
+        throw new Error('Broadcast Channel API is not supported in this browser');
+    }
+}
+
+/**
  * Initialize session bridge
  * @param {string} sessionId - Session GUID
  * @param {boolean} asMainTab - Whether this tab has directory handle (main tab)
- * @returns {Promise<void>}
+ * @throws {Error} If sessionId is missing or Broadcast Channel API is not supported
  */
 export function initializeSession(sessionId, asMainTab) {
     if (!sessionId) {
-        throw new Error('sessionId is required');
+        throw new Error('initializeSession: sessionId is required');
     }
     
+    // Set module-level state
     currentSessionId = sessionId;
     isMainTab = asMainTab;
-    // Assign a unique tab id
-    try {
-        tabId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('tab-' + Math.random().toString(36).slice(2));
-    } catch (e) {
-        tabId = 'tab-' + Math.random().toString(36).slice(2);
-    }
+    tabId = generateTabId();
     
-    try {
-        broadcastChannel = new BroadcastChannel(getChannelName(sessionId));
-        
-        if (isMainTab) {
-            // Main tab listens for state requests from secondary tabs
-            broadcastChannel.onmessage = (event) => {
-                // Ignore messages originated from this tab
-                if (event.data && event.data.senderId === tabId) return;
-
-                // Diagnostic logging for any message received by main tab
-                try {
-                    console.log('Main tab onmessage received:', event.data);
-                } catch (e) {
-                    console.log('Main tab onmessage received (unserializable data)');
-                }
-
-                if (event.data && event.data.type === 'request-state') {
-                    console.log('Main tab received state request, sending current state...');
-                    const currentState = getSessionState();
-                    broadcastChannel.postMessage({
-                        type: 'state-sync-response',
-                        data: currentState,
-                        timestamp: Date.now(),
-                        senderId: tabId
-                    });
-                } else {
-                    // For non-request messages, process them the same way as secondary tabs
-                    if (event.data && event.data.type) {
-                        console.log(`Main tab received non-request message type: ${event.data.type}`);
-                    }
-
-                    try {
-                        // Reuse the same handling path so main tab persists state and notifies Blazor
-                        handleBroadcastMessage(event.data);
-                    } catch (e) {
-                        console.error('Error handling broadcast message on main tab:', e);
-                    }
-                }
-            };
-        } else {
-            // Secondary tabs listen for updates and state sync responses
-            broadcastChannel.onmessage = (event) => {
-                // Ignore messages sent by this same tab
-                if (event.data && event.data.senderId === tabId) return;
-
-                if (event.data.type === 'state-sync-response') {
-                    console.log('Secondary tab received state sync response:', event.data.data);
-                    // Save the full state to this tab's sessionStorage
-                    sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(event.data.data));
-                    // Trigger custom event for Blazor to reload state
-                    const stateEvent = new CustomEvent('session-state-synced', {
-                        detail: event.data.data
-                    });
-                    window.dispatchEvent(stateEvent);
-                } else {
-                    handleBroadcastMessage(event.data);
-                }
-            };
-            
-            // Request current state from main tab
-            console.log('Secondary tab requesting state from main tab...');
-            broadcastChannel.postMessage({
-                type: 'request-state',
-                timestamp: Date.now(),
-                senderId: tabId
-            });
-        }
-        
-        console.log(`Session bridge initialized as ${isMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId}`);
-    } catch (error) {
-        console.error('Failed to initialize Broadcast Channel:', error);
-        throw new Error('Broadcast Channel API is not supported in this browser');
-    }
+    // Create and configure broadcast channel
+    broadcastChannel = createBroadcastChannel(sessionId, asMainTab);
+    
+    console.log(`Session bridge initialized as ${asMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId}`);
 }
 
 /**
