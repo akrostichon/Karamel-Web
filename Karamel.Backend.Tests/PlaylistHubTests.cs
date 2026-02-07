@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
@@ -297,6 +298,115 @@ namespace Karamel.Backend.Tests
         }
 
         [Fact]
+        public async Task Hub_ReorderAsync_OnlyReordersActiveItems_PreservesNowPlayingAndCompleted()
+        {
+            // Arrange: Create session with multiple playlist items in different states
+            var session = await CreateSessionAsync();
+            var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+            
+            // Create 7 songs
+            var songIds = new List<Guid>();
+            for (int i = 1; i <= 7; i++)
+            {
+                songIds.Add(await CreateSongAsync(session.Id, $"Artist{i}", $"Title{i}"));
+            }
+
+            // Add items directly to repository and set different statuses to simulate real scenario
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var repo = scope.ServiceProvider.GetRequiredService<IPlaylistRepository>();
+                var songRepo = scope.ServiceProvider.GetRequiredService<ISongRepository>();
+                var pl = await repo.GetAsync(playlist.id);
+                
+                // Add items in order:
+                // [0] Completed (should be filtered out in broadcast, won't be reordered)
+                // [1] NowPlaying (should appear as CurrentSong, won't be in active items)
+                // [2-6] Queued/UpNext (these 5 items will be reordered: indices 0-4 in active filtering)
+                
+                var songs = new List<(Guid songId, string artist, string title, SongStatus status, int position)>
+                {
+                    (songIds[0], "Artist1", "Title1", SongStatus.Completed, 0),
+                    (songIds[1], "Artist2", "Title2", SongStatus.NowPlaying, 1),
+                    (songIds[2], "Artist3", "Title3", SongStatus.UpNext, 2),     // Active index 0
+                    (songIds[3], "Artist4", "Title4", SongStatus.Queued, 3),     // Active index 1
+                    (songIds[4], "Artist5", "Title5", SongStatus.Queued, 4),     // Active index 2
+                    (songIds[5], "Artist6", "Title6", SongStatus.Queued, 5),     // Active index 3
+                    (songIds[6], "Artist7", "Title7", SongStatus.Queued, 6)      // Active index 4 (will be moved to active index 1)
+                };
+
+                foreach (var song in songs)
+                {
+                    var songDto = await songRepo.GetByIdAsync(session.Id, song.songId);
+                    var item = new PlaylistItem
+                    {
+                        Id = Guid.NewGuid(),
+                        PlaylistId = playlist.id,
+                        Position = song.position,
+                        Artist = song.artist,
+                        Title = song.title,
+                        SingerName = null,
+                        SongId = song.songId,
+                        Status = song.status
+                    };
+                    pl!.Items.Add(item);
+                }
+                await repo.UpdateAsync(pl!);
+            }
+
+            // Connect to hub with token
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act: Reorder active item at index 4 to index 1 (dragging Artist7 between Artist3 and Artist4)
+            // This simulates the user scenario: dragging the 5th active item to position 2
+            await _connection.InvokeAsync("ReorderAsync", session.Id, 4, 1);
+
+            // Assert: Verify broadcast received and active items reordered correctly
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = await tcs.Task.WaitAsync(cts.Token);
+            Assert.NotNull(received);
+            
+            // Verify CurrentSong is the NowPlaying item (not in Items list)
+            Assert.NotNull(received!.CurrentSong);
+            Assert.Equal("Artist2", received.CurrentSong!.Artist);
+            Assert.Equal("Title2", received.CurrentSong.Title);
+
+            // Verify only active items (Queued/UpNext) are in the Items list (5 items total)
+            Assert.Equal(5, received.Items.Count);
+            
+            // Expected order after reorder (active items only):
+            // [0] Artist3 (was active[0], stays at 0)
+            // [1] Artist7 (was active[4], moved to 1) <-- MOVED HERE
+            // [2] Artist4 (was active[1], shifted to 2)
+            // [3] Artist5 (was active[2], shifted to 3)
+            // [4] Artist6 (was active[3], shifted to 4)
+            Assert.Equal("Artist3", received.Items[0].Artist);
+            Assert.Equal("Artist7", received.Items[1].Artist); // Moved item
+            Assert.Equal("Artist4", received.Items[2].Artist);
+            Assert.Equal("Artist5", received.Items[3].Artist);
+            Assert.Equal("Artist6", received.Items[4].Artist);
+            
+            // Verify positions are sequential
+            Assert.Equal(0, received.Items[0].Position);
+            Assert.Equal(1, received.Items[1].Position);
+            Assert.Equal(2, received.Items[2].Position);
+            Assert.Equal(3, received.Items[3].Position);
+            Assert.Equal(4, received.Items[4].Position);
+        }
+
+        [Fact]
         public async Task Hub_MultipleAdds_BroadcastsCumulativeState()
         {
             // Create session and playlist
@@ -463,6 +573,176 @@ namespace Karamel.Backend.Tests
             // Assert - no exception (AllowSingersToReorder=true allows removal)
         }
 
+        [Fact]
+        public async Task Hub_SetStopAfterCurrentAsync_SetsPlaybackModeAndBroadcasts()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+
+            // Connect to hub with token
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act - call SetStopAfterCurrentAsync
+            await _connection.InvokeAsync("SetStopAfterCurrentAsync", session.Id);
+
+            // Assert - verify broadcast received with PlaybackMode = StopAfterCurrent (1)
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = await tcs.Task.WaitAsync(cts.Token);
+            Assert.NotNull(received);
+            Assert.Equal(1, received!.PlaybackMode); // StopAfterCurrent = 1
+        }
+
+        [Fact]
+        public async Task Hub_AdvanceToNextSongAsync_WithStopAfterCurrent_TransitionsToStopped()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+            
+            // Add songs to queue
+            var song1Id = await CreateSongAsync(session.Id, "Artist1", "Title1");
+            var song2Id = await CreateSongAsync(session.Id, "Artist2", "Title2");
+            var item1Id = await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, song1Id, "Singer1");
+            var item2Id = await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, song2Id, "Singer2");
+
+            // Set first item as NowPlaying
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var repo = scope.ServiceProvider.GetRequiredService<IPlaylistRepository>();
+                var pl = await repo.GetAsync(playlist.id);
+                var item = pl!.Items.First(i => i.Id == item1Id);
+                item.Status = Models.SongStatus.NowPlaying;
+                await repo.UpdateAsync(pl);
+            }
+
+            // Connect to hub
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            var broadcasts = new List<PlaylistUpdatedDto>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => broadcasts.Add(dto));
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Set StopAfterCurrent mode
+            await _connection.InvokeAsync("SetStopAfterCurrentAsync", session.Id);
+            await Task.Delay(100); // Allow broadcast
+
+            // Act - advance to next song
+            await _connection.InvokeAsync("AdvanceToNextSongAsync", session.Id);
+            await Task.Delay(100); // Allow broadcast
+
+            // Assert - verify PlaybackMode transitioned to Stopped (2) and no new song is playing
+            var latestBroadcast = broadcasts.Last();
+            Assert.Equal(2, latestBroadcast.PlaybackMode); // Stopped = 2
+            Assert.Null(latestBroadcast.CurrentSong); // No song playing
+        }
+
+        [Fact]
+        public async Task Hub_ProceedPlaybackAsync_AdvancesToNextSongAndSetsNormalMode()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+            
+            // Add songs to queue
+            var song1Id = await CreateSongAsync(session.Id, "Artist1", "Title1");
+            var song2Id = await CreateSongAsync(session.Id, "Artist2", "Title2");
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, song1Id, "Singer1");
+            await AddPlaylistItemAsync(session.Id, playlist.id, session.linkToken, song2Id, "Singer2");
+
+            // Set session to Stopped mode
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var sessionRepo = scope.ServiceProvider.GetRequiredService<ISessionRepository>();
+                var sess = await sessionRepo.GetByIdAsync(session.Id);
+                sess!.Config.PlaybackMode = Models.PlaybackMode.Stopped;
+                await sessionRepo.UpdateAsync(sess);
+            }
+
+            // Connect to hub
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act - proceed playback
+            await _connection.InvokeAsync("ProceedPlaybackAsync", session.Id);
+
+            // Assert - verify broadcast with Normal mode (0) and a current song
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = await tcs.Task.WaitAsync(cts.Token);
+            Assert.NotNull(received);
+            Assert.Equal(0, received!.PlaybackMode); // Normal = 0
+            Assert.NotNull(received.CurrentSong); // Song is now playing
+            Assert.Equal("Artist1", received.CurrentSong!.Artist);
+        }
+
+        [Fact]
+        public async Task Hub_PlaylistBroadcast_IncludesPlaybackMode()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            var playlist = await CreatePlaylistAsync(session.Id, session.linkToken);
+            var songId = await CreateSongAsync(session.Id, "TestArtist", "TestTitle");
+
+            // Connect to hub
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act - trigger any mutation that broadcasts
+            await _connection.InvokeAsync("AddItemAsync", session.Id, songId, "TestSinger");
+
+            // Assert - verify broadcast includes PlaybackMode (defaults to Normal = 0)
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = await tcs.Task.WaitAsync(cts.Token);
+            Assert.NotNull(received);
+            Assert.Equal(0, received!.PlaybackMode); // Normal = 0 (default)
+        }
+
         // Helper methods
         private async Task<CreateResponse> CreateSessionAsync()
         {
@@ -535,7 +815,7 @@ namespace Karamel.Backend.Tests
 
         private record CreateResponse(Guid Id, string linkToken);
         private record PlaylistDto(Guid id, Guid sessionId);
-        private record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId);
-        private record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, List<PlaylistItemDto> Items);
+        private record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId, int Status);
+        private record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong, int PlaybackMode);
     }
 }
