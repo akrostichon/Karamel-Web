@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
+using Karamel.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 // Configure EF Core DbContext with provider-agnostic options
@@ -81,8 +82,11 @@ builder.Services.AddSignalR(options =>
     options.AddFilter<Karamel.Backend.Filters.LinkTokenHubFilter>();
 });
 
-// Add Application Insights telemetry
+// Add Application Insights telemetry with IP masking
 builder.Services.AddApplicationInsightsTelemetry();
+
+// Add custom telemetry initializer to mask IP addresses (Privacy-by-Design: Always mask IP addresses)
+builder.Services.AddSingleton<Microsoft.ApplicationInsights.Extensibility.ITelemetryInitializer, IpMaskingTelemetryInitializer>();
 
 // Allow cross-origin requests from the frontend during local development so
 // the browser can POST/OPTIONS to the API when frontend is served from a

@@ -48,7 +48,7 @@ async function ensureSignalRLoaded() {
 
 		const script = document.createElement('script');
 		script.setAttribute('data-signalr', '1');
-		script.src = 'https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js';
+		script.src = '/lib/signalr/signalr.min.js';
 		script.onload = () => resolve(typeof signalR !== 'undefined');
 		script.onerror = () => resolve(false);
 		document.head.appendChild(script);

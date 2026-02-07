@@ -1,6 +1,6 @@
 // Karaoke player - CDG and audio synchronization
 
-import CDGraphics from 'https://cdn.jsdelivr.net/npm/cdgraphics@7.0.0/+esm';
+import CDGraphics from '/lib/cdgraphics/cdgraphics.esm.js';
 import * as byteStore from './byteStore.js';
 
 let cdgPlayer = null;

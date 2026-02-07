@@ -13,5 +13,11 @@
     "jsmediatags": "^3.9.7",
     "jszip": "^3.10.1",
     "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "@microsoft/signalr": "^10.0.0",
+    "bootstrap-icons": "^1.13.1",
+    "cdgraphics": "^7.0.0",
+    "qrcodejs": "^1.0.0"
   }
 }

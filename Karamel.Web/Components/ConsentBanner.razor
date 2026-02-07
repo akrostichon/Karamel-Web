@@ -1,0 +1,131 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+@if (_showBanner)
+{
+    <div class="consent-banner">
+        <div class="consent-banner-content">
+            <p class="consent-banner-text">
+                Wir nutzen Analytics zur Verbesserung der App. 
+                <a href="/privacy" class="consent-banner-link">Datenschutzerklärung</a>
+            </p>
+            <div class="consent-banner-actions">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="HandleRejectAsync" disabled="@_isProcessing">
+                    Ablehnen
+                </button>
+                <button class="btn btn-sm btn-primary" @onclick="HandleAcceptAsync" disabled="@_isProcessing">
+                    Akzeptieren
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _showBanner = false;
+    private bool _isProcessing = false;
+    private IJSObjectReference? _module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        
+        try
+        {
+            _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/consentBanner.js");
+            var hasConsent = await _module.InvokeAsync<string?>("getConsentDecision");
+            
+            // Show banner if no decision has been made yet
+            if (string.IsNullOrEmpty(hasConsent))
+            {
+                _showBanner = true;
+                StateHasChanged();
+            }
+            else if (hasConsent == "true")
+            {
+                // User previously accepted, start telemetry
+                await JSRuntime.InvokeVoidAsync("karamel.startTelemetry");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConsentBanner] Error initializing: {ex.Message}");
+        }
+    }
+
+    private async Task HandleAcceptAsync()
+    {
+        if (_isProcessing) return; // Prevent double-clicks
+        _isProcessing = true;
+        
+        try
+        {
+            // Close banner immediately
+            _showBanner = false;
+            StateHasChanged();
+            
+            // Store consent decision
+            if (_module != null)
+            {
+                await _module.InvokeVoidAsync("setConsentDecision", "true");
+            }
+            
+            // Start telemetry (has internal guard against double-initialization)
+            await JSRuntime.InvokeVoidAsync("karamel.startTelemetry");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConsentBanner] Error accepting consent: {ex.Message}");
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task HandleRejectAsync()
+    {
+        if (_isProcessing) return; // Prevent double-clicks
+        _isProcessing = true;
+        
+        try
+        {
+            // Close banner immediately
+            _showBanner = false;
+            StateHasChanged();
+            
+            // Store consent decision
+            if (_module != null)
+            {
+                await _module.InvokeVoidAsync("setConsentDecision", "false");
+            }
+            
+            // Disable telemetry
+            await JSRuntime.InvokeVoidAsync("karamel.disableTelemetry");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConsentBanner] Error rejecting consent: {ex.Message}");
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module != null)
+        {
+            try
+            {
+                await _module.DisposeAsync();
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+        }
+    }
+}
