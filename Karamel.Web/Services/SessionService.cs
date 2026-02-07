@@ -298,15 +298,24 @@ public class SessionService : ISessionService
             // Initialize library from server (no longer using sessionStorage)
             await InitializeLibraryAsync(sessionId);
 
-            // Note: Playlist state doesn't need to be restored here initially as it starts empty
-            // It will be updated via broadcast when songs are added
-
-            // Restore playlist if present in sessionStorage (useful if main tab saved it)
-            // DEPRECATED: SignalR now handles playlist sync, this is a no-op for backward compat
+            // Restore playlist if present in sessionStorage (for same-device tab reopening)
+            // SignalR will also send initial state (for new devices), providing redundancy
             if (stateJson.TryGetProperty("playlist", out var playlistData) &&
                 playlistData.ValueKind != JsonValueKind.Null)
             {
-                Console.WriteLine($"SessionService: Found playlist data in sessionStorage (ignored - SignalR handles sync)");
+                Console.WriteLine($"SessionService: Found playlist data in sessionStorage - initializing state");
+                try
+                {
+                    HandlePlaylistUpdate(playlistData);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SessionService: Failed to restore playlist from sessionStorage: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"SessionService: No playlist data in sessionStorage - will receive initial state from SignalR");
             }
         }
         catch (Exception ex)

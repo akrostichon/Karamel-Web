@@ -49,6 +49,7 @@ Afterwards navigate back to solution root with `cd ..\..`
 ```
 
 **CRITICAL**: Always run both test suites before committing. C# tests must pass with maximum 3 allowed skips; JavaScript tests should have zero failures.
+**CRITICAL**: While you are trying to fix tests and you modify a single test file, only run this test to verify the changes. Only if this passes run the whole test suite. Executing all tests can take a very long time.
 
 ### Run Application
 ```powershell

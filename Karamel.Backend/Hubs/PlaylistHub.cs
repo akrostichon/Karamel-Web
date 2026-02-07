@@ -55,11 +55,46 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Join a session group to receive real-time playlist updates.
+        /// Sends the current playlist state to the newly joined client if session exists.
         /// No authorization required (public method).
         /// </summary>
         public async Task JoinSession(string sessionId)
         {
+            if (!Guid.TryParse(sessionId, out var sessionGuid))
+            {
+                _logger.LogWarning("JoinSession called with invalid session ID: {SessionId}", sessionId);
+                throw new HubException("Invalid session ID format");
+            }
+
+            // Always add to group (allows future broadcasts even if session doesn't exist yet)
             await Groups.AddToGroupAsync(Context.ConnectionId, GetSessionGroupName(sessionId));
+            
+            try
+            {
+                var playlist = await _playlistRepo.GetBySessionIdAsync(sessionGuid);
+                var session = await _sessionRepo.GetByIdAsync(sessionGuid);
+                
+                // Only send initial state if session exists (best-effort initialization)
+                if (playlist != null && session != null)
+                {
+                    var dto = BuildPlaylistDto(playlist, session);
+                    
+                    _logger.LogInformation("Sending initial playlist state to newly joined client for session {SessionId}: {ActiveCount} active items",
+                        sessionGuid, dto.Items.Count);
+                    
+                    await Clients.Caller.SendAsync("ReceivePlaylistUpdated", dto);
+                }
+                else
+                {
+                    _logger.LogInformation("Client joined session {SessionId} group, but session/playlist not found (will receive future updates)",
+                        sessionGuid);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send initial playlist state to client joining session {SessionId}", sessionGuid);
+                // Don't throw - client is already in group and will receive future updates
+            }
         }
 
         /// <summary>
@@ -589,8 +624,50 @@ namespace Karamel.Backend.Hubs
         }
 
         /// <summary>
+        /// Builds a PlaylistUpdatedDto from the current playlist and session state.
+        /// Filters out Completed items, includes CurrentSong (first NowPlaying item).
+        /// Read-only operation - does NOT modify playlist state.
+        /// </summary>
+        private PlaylistUpdatedDto BuildPlaylistDto(Playlist playlist, Session session)
+        {
+            // Filter out Completed and NowPlaying items (NowPlaying goes to CurrentSong)
+            var activeItems = playlist.Items
+                .Where(i => i.Status != SongStatus.Completed && i.Status != SongStatus.NowPlaying)
+                .OrderBy(i => i.Position)
+                .ToList();
+            
+            // Get CurrentSong (first NowPlaying item, or null)
+            var currentSongItem = playlist.Items.FirstOrDefault(i => i.Status == SongStatus.NowPlaying);
+            PlaylistItemDto? currentSong = currentSongItem != null 
+                ? new PlaylistItemDto(
+                    currentSongItem.Id,
+                    currentSongItem.Artist,
+                    currentSongItem.Title,
+                    currentSongItem.SingerName,
+                    currentSongItem.Position,
+                    currentSongItem.SongId,
+                    (int)currentSongItem.Status)
+                : null;
+            
+            return new PlaylistUpdatedDto(
+                playlist.Id,
+                playlist.SessionId,
+                activeItems.Select(i => new PlaylistItemDto(
+                    i.Id,
+                    i.Artist,
+                    i.Title,
+                    i.SingerName,
+                    i.Position,
+                    i.SongId,
+                    (int)i.Status
+                )).ToList(),
+                currentSong,
+                (int)session.Config.PlaybackMode
+            );
+        }
+
+        /// <summary>
         /// Helper method to broadcast playlist updates to all clients in a session group.
-        /// Filters out Completed items and includes CurrentSong (first NowPlaying item).
         /// Auto-promotes first Queued song to UpNext when queue needs a next song.
         /// </summary>
         private async Task BroadcastPlaylistUpdate(Guid sessionId, Playlist playlist)
@@ -621,53 +698,16 @@ namespace Karamel.Backend.Hubs
                     firstQueued.Id, firstQueued.Artist, firstQueued.Title, sessionId);
             }
             
-            // Filter out Completed and NowPlaying items (NowPlaying goes to CurrentSong)
-            var activeItems = playlist.Items
-                .Where(i => i.Status != SongStatus.Completed && i.Status != SongStatus.NowPlaying)
-                .OrderBy(i => i.Position)
-                .ToList();
+            // Build DTO and broadcast to all clients in session
+            var dto = BuildPlaylistDto(playlist, session);
             
             // Log current playlist state for diagnostics
-            _logger.LogInformation("Broadcasting playlist update for session {SessionId}: {ActiveCount} active items (Queued: {QueuedCount}, UpNext: {UpNextCount}, NowPlaying: {NowPlayingCount})",
+            _logger.LogInformation("Broadcasting playlist update for session {SessionId}: {ActiveCount} active items (Queued: {QueuedCount}, UpNext: {UpNextCount}), CurrentSong: {HasCurrentSong}",
                 sessionId,
-                activeItems.Count,
-                activeItems.Count(i => i.Status == SongStatus.Queued),
-                activeItems.Count(i => i.Status == SongStatus.UpNext),
-                activeItems.Count(i => i.Status == SongStatus.NowPlaying));
-            
-            // Get CurrentSong (first NowPlaying item, or null)
-            var currentSongItem = playlist.Items.FirstOrDefault(i => i.Status == SongStatus.NowPlaying);
-            if (currentSongItem != null)
-            {
-                _logger.LogInformation("Current song in session {SessionId}: {ItemId} ('{Artist} - {Title}')",
-                    sessionId, currentSongItem.Id, currentSongItem.Artist, currentSongItem.Title);
-            }
-            PlaylistItemDto? currentSong = currentSongItem != null 
-                ? new PlaylistItemDto(
-                    currentSongItem.Id,
-                    currentSongItem.Artist,
-                    currentSongItem.Title,
-                    currentSongItem.SingerName,
-                    currentSongItem.Position,
-                    currentSongItem.SongId,
-                    (int)currentSongItem.Status)
-                : null;
-            
-            var dto = new PlaylistUpdatedDto(
-                playlist.Id,
-                playlist.SessionId,
-                activeItems.Select(i => new PlaylistItemDto(
-                    i.Id,
-                    i.Artist,
-                    i.Title,
-                    i.SingerName,
-                    i.Position,
-                    i.SongId,
-                    (int)i.Status  // Include Status
-                )).ToList(),
-                currentSong,  // Include CurrentSong
-                (int)session.Config.PlaybackMode  // Include PlaybackMode
-            );
+                dto.Items.Count,
+                dto.Items.Count(i => i.Status == (int)SongStatus.Queued),
+                dto.Items.Count(i => i.Status == (int)SongStatus.UpNext),
+                dto.CurrentSong != null ? $"{dto.CurrentSong.Artist} - {dto.CurrentSong.Title}" : "None");
 
             await Clients.Group(groupName).SendAsync("ReceivePlaylistUpdated", dto);
         }

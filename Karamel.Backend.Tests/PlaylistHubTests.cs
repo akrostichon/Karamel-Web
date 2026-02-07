@@ -54,11 +54,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", created.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Add an item via the hub mutation (with token provided on connection)
             await _connection.InvokeAsync("AddItemAsync", created.Id, songId, "Z");
@@ -112,11 +114,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Call hub mutation method
             await _connection.InvokeAsync("AddItemAsync", session.Id, songId, "Singer1");
@@ -240,11 +244,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Remove item via hub (no playlistId parameter)
             await _connection.InvokeAsync("RemoveItemAsync", session.Id, itemId);
@@ -277,11 +283,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Reorder: move item at position 1 to position 0 (no playlistId parameter)
             await _connection.InvokeAsync("ReorderAsync", session.Id, 1, 0);
@@ -363,11 +371,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Act: Reorder active item at index 4 to index 1 (dragging Artist7 between Artist3 and Artist4)
             // This simulates the user scenario: dragging the 5th active item to position 2
@@ -432,6 +442,7 @@ namespace Karamel.Backend.Tests
 
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to be received
 
             // Add first item
             await _connection.InvokeAsync("AddItemAsync", session.Id, songId1, "Singer1");
@@ -441,10 +452,11 @@ namespace Karamel.Backend.Tests
             await _connection.InvokeAsync("AddItemAsync", session.Id, songId2, "Singer2");
             await Task.Delay(500); // Wait for broadcast
 
-            // Verify we got 2 broadcasts with cumulative state
-            Assert.Equal(2, receivedBroadcasts.Count);
-            Assert.Single(receivedBroadcasts[0].Items); // First broadcast: 1 item
-            Assert.Equal(2, receivedBroadcasts[1].Items.Count); // Second broadcast: 2 items total
+            // Verify we got 3 broadcasts total (1 initial + 2 mutations)
+            Assert.Equal(3, receivedBroadcasts.Count);
+            Assert.Empty(receivedBroadcasts[0].Items); // Initial state: 0 items
+            Assert.Single(receivedBroadcasts[1].Items); // First add: 1 item
+            Assert.Equal(2, receivedBroadcasts[2].Items.Count); // Second add: 2 items total
         }
 
         // NEW: Role-based permission tests
@@ -590,11 +602,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Act - call SetStopAfterCurrentAsync
             await _connection.InvokeAsync("SetStopAfterCurrentAsync", session.Id);
@@ -691,11 +705,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Act - proceed playback
             await _connection.InvokeAsync("ProceedPlaybackAsync", session.Id);
@@ -727,11 +743,13 @@ namespace Karamel.Backend.Tests
                 })
                 .Build();
 
-            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
-            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
-
             await _connection.StartAsync();
             await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100); // Allow initial state broadcast to complete
+
+            // Register handler AFTER JoinSession to only capture mutation broadcasts (not initial state)
+            var tcs = new TaskCompletionSource<PlaylistUpdatedDto?>();
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", dto => tcs.TrySetResult(dto));
 
             // Act - trigger any mutation that broadcasts
             await _connection.InvokeAsync("AddItemAsync", session.Id, songId, "TestSinger");
