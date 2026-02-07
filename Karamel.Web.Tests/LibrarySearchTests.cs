@@ -118,11 +118,11 @@ public class LibrarySearchTests : TestContext
         var mockDispatcher = new Mock<IDispatcher>();
         var mockState = new Mock<IState<LibraryState>>();
         var mockActionSubscriber = new Mock<IActionSubscriber>();
-        var mockSessionState = new Mock<IState<Karamel.Web.Store.Session.SessionState>>();
-        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
+        var mockSessionState = new Mock<IState<Store.Session.SessionState>>();
+        var mockSessionService = new Mock<Services.ISessionService>();
         
         mockState.Setup(s => s.Value).Returns(state);
-        mockSessionState.Setup(s => s.Value).Returns(new Karamel.Web.Store.Session.SessionState { 
+        mockSessionState.Setup(s => s.Value).Returns(new Store.Session.SessionState { 
             CurrentSession = new Session { SessionId = sessionId } 
         });
         
@@ -341,11 +341,11 @@ public class LibrarySearchTests : TestContext
         var mockDispatcher = new Mock<IDispatcher>();
         var mockState = new Mock<IState<LibraryState>>();
         var mockActionSubscriber = new Mock<IActionSubscriber>();
-        var mockSessionState = new Mock<IState<Karamel.Web.Store.Session.SessionState>>();
-        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
+        var mockSessionState = new Mock<IState<Store.Session.SessionState>>();
+        var mockSessionService = new Mock<Services.ISessionService>();
         
         mockState.Setup(s => s.Value).Returns(state);
-        mockSessionState.Setup(s => s.Value).Returns(new Karamel.Web.Store.Session.SessionState { CurrentSession = new Session { SessionId = Guid.NewGuid() } });
+        mockSessionState.Setup(s => s.Value).Returns(new Store.Session.SessionState { CurrentSession = new Session { SessionId = Guid.NewGuid() } });
 
         Services.AddSingleton(mockDispatcher.Object);
         Services.AddSingleton(mockState.Object);

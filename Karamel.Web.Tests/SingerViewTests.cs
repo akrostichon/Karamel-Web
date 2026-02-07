@@ -9,7 +9,6 @@ using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
 using Moq;
 using Fluxor;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Karamel.Web.Tests;
 
@@ -20,8 +19,8 @@ namespace Karamel.Web.Tests;
 public class SingerViewTests : SessionTestBase
 {
     private readonly List<Song> _testSongs;
-    private readonly Models.Session _testSessionWithNameRequired;
-    private readonly Models.Session _testSessionWithoutNameRequired;
+    private readonly Session _testSessionWithNameRequired;
+    private readonly Session _testSessionWithoutNameRequired;
 
     public SingerViewTests()
     {
@@ -32,13 +31,13 @@ public class SingerViewTests : SessionTestBase
             new Song { Id = Guid.NewGuid(), Artist = "Queen", Title = "Bohemian Rhapsody", Mp3FileName = "queen-bohemian-rhapsody.mp3", CdgFileName = "queen-bohemian-rhapsody.cdg" }
         };
 
-        _testSessionWithNameRequired = new Models.Session
+        _testSessionWithNameRequired = new Session
         {
             SessionId = Guid.NewGuid(),
             RequireSingerName = true
         };
 
-        _testSessionWithoutNameRequired = new Models.Session
+        _testSessionWithoutNameRequired = new Session
         {
             SessionId = Guid.NewGuid(),
             RequireSingerName = false

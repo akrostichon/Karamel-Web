@@ -17,8 +17,8 @@ namespace Karamel.Web.Tests;
 public class NextSongViewTests : SessionTestBase
 {
     private readonly List<Song> _testSongs;
-    private readonly Models.Session _testSessionWithPause;
-    private readonly Models.Session _testSessionWithoutPause;
+    private readonly Session _testSessionWithPause;
+    private readonly Session _testSessionWithoutPause;
 
     public NextSongViewTests()
     {
@@ -45,7 +45,7 @@ public class NextSongViewTests : SessionTestBase
             }
         };
 
-        _testSessionWithPause = new Models.Session
+        _testSessionWithPause = new Session
         {
             SessionId = Guid.NewGuid(),
             RequireSingerName = true,
@@ -53,7 +53,7 @@ public class NextSongViewTests : SessionTestBase
             PauseBetweenSongsSeconds = 5
         };
 
-        _testSessionWithoutPause = new Models.Session
+        _testSessionWithoutPause = new Session
         {
             SessionId = Guid.NewGuid(),
             RequireSingerName = true,
@@ -130,7 +130,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
+        var playlistState = new PlaylistState { Items = new List<Contracts.PlaylistItemDto>() };
         SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -156,7 +156,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
+        var playlistState = new PlaylistState { Items = new List<Contracts.PlaylistItemDto>() };
         SetupTestWithNonLocalhostSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -225,7 +225,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var sessionId = Guid.NewGuid();
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = sessionId,
             PauseBetweenSongs = true,
@@ -267,7 +267,7 @@ public class NextSongViewTests : SessionTestBase
     public void Component_WhenPauseBetweenSongsEnabled_UsesConfiguredPauseDuration()
     {
         // Arrange
-        var sessionWithLongPause = new Models.Session
+        var sessionWithLongPause = new Session
         {
             SessionId = Guid.NewGuid(),
             PauseBetweenSongs = true,
@@ -315,7 +315,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange - Set up session with empty queue from the start
         var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
-        var emptyPlaylistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
+        var emptyPlaylistState = new PlaylistState { Items = new List<Contracts.PlaylistItemDto>() };
         SetupTestWithNonLocalhostSession(sessionState, emptyPlaylistState, view: "nextsong");
         SetupJSRuntime();
 
@@ -339,7 +339,7 @@ public class NextSongViewTests : SessionTestBase
     {
         // Arrange
         var validGuid = Guid.NewGuid();
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = validGuid,
             PauseBetweenSongs = true,
@@ -367,7 +367,7 @@ public class NextSongViewTests : SessionTestBase
     public void Component_HandlesPauseDurationVariations(int duration)
     {
         // Arrange
-        var session = new Models.Session
+        var session = new Session
         {
             SessionId = Guid.NewGuid(),
             PauseBetweenSongs = true,

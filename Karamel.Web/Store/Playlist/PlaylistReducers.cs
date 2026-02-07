@@ -1,13 +1,9 @@
 using Fluxor;
-using Karamel.Web.Models;
-using Karamel.Web.Contracts;
 
 namespace Karamel.Web.Store.Playlist;
 
 public static class PlaylistReducers
 {
-    private const int MaxSongsPerSinger = 10;
-
     [ReducerMethod]
     public static PlaylistState ReduceAddToPlaylistSuccessAction(PlaylistState state, AddToPlaylistSuccessAction action)
     {

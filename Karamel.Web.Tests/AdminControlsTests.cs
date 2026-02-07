@@ -1,12 +1,9 @@
 using Bunit;
-using Microsoft.JSInterop;
-using Xunit;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Models;
 using Karamel.Web.Tests.TestHelpers;
-using System.Collections.Generic;
 
 namespace Karamel.Web.Tests
 {
@@ -85,7 +82,7 @@ namespace Karamel.Web.Tests
             cut.Render();
 
             // Assert - Dropdown should disappear
-            Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".admin-dropdown"));
+            Assert.Throws<ElementNotFoundException>(() => cut.Find(".admin-dropdown"));
         }
 
         [Fact]

@@ -799,7 +799,7 @@ namespace Karamel.Backend.Tests
             using var scope = _factory.Services.CreateScope();
             var songRepo = scope.ServiceProvider.GetRequiredService<ISongRepository>();
             var songId = Guid.NewGuid();
-            var songDto = new Karamel.Backend.Controllers.SongUploadDto(songId, artist, title, null);
+            var songDto = new Controllers.SongUploadDto(songId, artist, title, null);
             await songRepo.BulkUpsertAsync(sessionId, new[] { songDto });
             return songId;
         }

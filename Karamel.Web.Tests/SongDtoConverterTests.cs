@@ -1,8 +1,6 @@
-using System;
 using System.Text.Json;
 using Karamel.Web.Contracts;
 using Karamel.Web.Models;
-using Xunit;
 
 namespace Karamel.Web.Tests;
 

@@ -107,14 +107,14 @@ public class SessionService : ISessionService
         }
     }
 
-    public async Task<System.Text.Json.JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
+    public async Task<JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
     {
         if (_sessionBridgeModule == null)
             return default;
 
         try
         {
-            var result = await _sessionBridgeModule.InvokeAsync<System.Text.Json.JsonElement>("fetchLibraryPage", sessionId.ToString(), page, pageSize, search, sort);
+            var result = await _sessionBridgeModule.InvokeAsync<JsonElement>("fetchLibraryPage", sessionId.ToString(), page, pageSize, search, sort);
             return result;
         }
         catch (Exception ex)
@@ -124,14 +124,14 @@ public class SessionService : ISessionService
         }
     }
 
-    public async Task<System.Text.Json.JsonElement> SearchLibraryAsync(Guid sessionId, string query, int maxResults = 10)
+    public async Task<JsonElement> SearchLibraryAsync(Guid sessionId, string query, int maxResults = 10)
     {
         if (_sessionBridgeModule == null)
             return default;
 
         try
         {
-            var result = await _sessionBridgeModule.InvokeAsync<System.Text.Json.JsonElement>("searchLibrary", sessionId.ToString(), query, maxResults);
+            var result = await _sessionBridgeModule.InvokeAsync<JsonElement>("searchLibrary", sessionId.ToString(), query, maxResults);
             return result;
         }
         catch (Exception ex)
@@ -277,7 +277,7 @@ public class SessionService : ISessionService
                 sessionData.ValueKind != JsonValueKind.Null)
             {
                 Console.WriteLine($"SessionService: Found session data in sessionStorage");
-                var session = new Models.Session
+                var session = new Session
                 {
                     SessionId = sessionId,
                     RequireSingerName = sessionData.GetProperty("requireSingerName").GetBoolean(),

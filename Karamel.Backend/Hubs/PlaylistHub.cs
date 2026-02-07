@@ -13,17 +13,17 @@ namespace Karamel.Backend.Hubs
     {
         private readonly IPlaylistRepository _playlistRepo;
         private readonly ISessionRepository _sessionRepo;
-        private readonly Karamel.Backend.Repositories.ISongRepository _songRepo;
+        private readonly ISongRepository _songRepo;
         private readonly ILogger<PlaylistHub> _logger;
 
         // Per-session semaphores to serialize mutations and avoid races.
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, System.Threading.SemaphoreSlim> _sessionLocks
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, SemaphoreSlim> _sessionLocks
             = new();
 
-        private static System.Threading.SemaphoreSlim GetSessionLock(Guid sessionId) =>
-            _sessionLocks.GetOrAdd(sessionId, _ => new System.Threading.SemaphoreSlim(1, 1));
+        private static SemaphoreSlim GetSessionLock(Guid sessionId) =>
+            _sessionLocks.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
 
-        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo, Karamel.Backend.Repositories.ISongRepository songRepo, ILogger<PlaylistHub> logger)
+        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo, ISongRepository songRepo, ILogger<PlaylistHub> logger)
         {
             _playlistRepo = playlistRepo;
             _sessionRepo = sessionRepo;
@@ -699,5 +699,5 @@ namespace Karamel.Backend.Hubs
 
     // DTOs for hub payloads (shared with controller for now)
     public record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId, int Status);
-    public record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, System.Collections.Generic.List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong, int PlaybackMode);
+    public record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong, int PlaybackMode);
 }

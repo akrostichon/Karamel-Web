@@ -68,7 +68,7 @@ public abstract class IntegrationTestBase : TestContext
             .AsMainTab(asMainTab)
             .WithSessionId(TestSessionId)
             .Build();
-        Services.AddSingleton<ISessionService>(MockSessionService.Object);
+        Services.AddSingleton(MockSessionService.Object);
 
         // 4. THEN add Fluxor (which will scan and find ISessionService is available)
         Services.AddFluxor(options =>

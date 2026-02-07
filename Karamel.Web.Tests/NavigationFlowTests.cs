@@ -126,7 +126,7 @@ public class NavigationFlowTests : TestContext
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
         var libraryState = new LibraryState();
-        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
+        var mockSessionService = new Mock<Services.ISessionService>();
         Services.AddSingleton(mockSessionService.Object);
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/player");
 
@@ -171,7 +171,7 @@ public class NavigationFlowTests : TestContext
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
         var libraryState = new LibraryState();
-        var mockSessionService = new Mock<Karamel.Web.Services.ISessionService>();
+        var mockSessionService = new Mock<Services.ISessionService>();
         Services.AddSingleton(mockSessionService.Object);
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/");
 
