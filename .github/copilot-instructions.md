@@ -33,15 +33,10 @@ dotnet test Karamel.Web.Tests
 
 **C# Backend Tests** (xUnit + Integration Tests):
 ```powershell
-# MUST run MANUALLY - do not execute via run_in_terminal tool
-# Test time: ~35 seconds (SignalR WebSocket tests can cause VS Code freezes if run programmatically)
+dotnet test Karamel.Backend.Tests -v minimal
+# Test time: ~40 seconds 
 # Command: dotnet test .\Karamel.Backend.Tests\ -v minimal
 ```
-**CRITICAL FOR COPILOT**: 
-- **NEVER run backend tests using run_in_terminal tool** - they can freeze or crash VS Code due to SignalR WebSocket resource contention
-- Always ask the user to run `dotnet test .\Karamel.Backend.Tests\ -v minimal` manually
-- Wait for user to provide test output before proceeding
-- Do not use `dotnet test --no-build` - always run `dotnet test` to include the build step
 
 **JavaScript Tests** (Vitest):
 ```powershell
@@ -50,6 +45,7 @@ npm run test:run    # Single run (NOT: npm test:run)
 # Runs 163 tests in 12 test files
 # Test time: ~3-4 seconds
 # Watch mode: npm test
+Afterwards navigate back to solution root with `cd ..\..`
 ```
 
 **CRITICAL**: Always run both test suites before committing. C# tests must pass with maximum 3 allowed skips; JavaScript tests should have zero failures.

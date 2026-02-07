@@ -29,18 +29,35 @@ namespace Karamel.Backend.Controllers
                 {
                     Id = Guid.NewGuid(),
                     CreatedAt = DateTime.UtcNow,
-                    RequireSingerName = req.RequireSingerName,
-                    PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds
+                    Config = new SessionConfig
+                    {
+                        RequireSingerName = req.RequireSingerName,
+                        PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds,
+                        AllowSingersToReorder = req.AllowSingersToReorder
+                    }
                 };
 
-                session.LinkToken = _tokenService.GenerateLinkToken(session.Id);
+                // Generate dual tokens
+                session.AdminToken = _tokenService.GenerateLinkToken(session.Id, "admin");
+                session.SingerToken = _tokenService.GenerateLinkToken(session.Id, "singer");
+                session.LinkToken = session.AdminToken; // Backward compat
 
                 await _repo.AddAsync(session);
 
-                _logger.LogInformation("Created new session {SessionId} with RequireSingerName={RequireSingerName}", 
-                    session.Id, req.RequireSingerName);
+                _logger.LogInformation("Created new session {SessionId} with RequireSingerName={RequireSingerName}, AllowSingersToReorder={AllowSingersToReorder}", 
+                    session.Id, req.RequireSingerName, req.AllowSingersToReorder);
 
-                return CreatedAtAction(nameof(Get), new { id = session.Id }, new { session.Id, linkToken = session.LinkToken });
+                // Return flattened config (Option B - no frontend changes needed)
+                return CreatedAtAction(nameof(Get), new { id = session.Id }, new 
+                { 
+                    session.Id, 
+                    adminToken = session.AdminToken,
+                    singerToken = session.SingerToken,
+                    linkToken = session.AdminToken, // Deprecated
+                    requireSingerName = session.Config.RequireSingerName,
+                    pauseBetweenSongsSeconds = session.Config.PauseBetweenSongsSeconds,
+                    allowSingersToReorder = session.Config.AllowSingersToReorder
+                });
             }
             catch (Exception ex)
             {
@@ -54,7 +71,15 @@ namespace Karamel.Backend.Controllers
         {
             var s = await _repo.GetByIdAsync(id);
             if (s == null) return NotFound();
-            return Ok(s);
+            
+            // Return flattened config (Option B)
+            return Ok(new
+            {
+                s.Id,
+                requireSingerName = s.Config.RequireSingerName,
+                pauseBetweenSongsSeconds = s.Config.PauseBetweenSongsSeconds,
+                allowSingersToReorder = s.Config.AllowSingersToReorder
+            });
         }
 
         [HttpPost("{id:guid}/heartbeat")]
@@ -77,7 +102,7 @@ namespace Karamel.Backend.Controllers
         }
     }
 
-    public record CreateSessionRequest(bool RequireSingerName, int PauseBetweenSongsSeconds);
+    public record CreateSessionRequest(bool RequireSingerName, int PauseBetweenSongsSeconds, bool AllowSingersToReorder);
     public record HeartbeatRequest(int ExtendMinutes);
     public record EndSessionRequest(bool Force);
 }

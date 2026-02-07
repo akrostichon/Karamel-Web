@@ -22,6 +22,12 @@ namespace Karamel.Backend.Data
             {
                 b.HasKey(s => s.Id);
                 b.Property(s => s.LinkToken).IsRequired();
+                
+                // NEW: Configure SessionConfig as JSON column (EF Core 7.0+)
+                b.OwnsOne(s => s.Config, ownedNavigationBuilder =>
+                {
+                    ownedNavigationBuilder.ToJson();
+                });
             });
 
             modelBuilder.Entity<Playlist>(b =>

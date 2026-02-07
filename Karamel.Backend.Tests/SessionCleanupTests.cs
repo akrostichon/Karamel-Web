@@ -32,8 +32,14 @@ namespace Karamel.Backend.Tests
                 Id = Guid.NewGuid(),
                 CreatedAt = DateTime.UtcNow.AddHours(-2),
                 ExpiresAt = DateTime.UtcNow.AddMinutes(-5),
-                RequireSingerName = true,
-                PauseBetweenSongsSeconds = 5,
+                Config = new SessionConfig
+                {
+                    RequireSingerName = true,
+                    PauseBetweenSongsSeconds = 5,
+                    AllowSingersToReorder = false
+                },
+                AdminToken = "test-admin-token",
+                SingerToken = "test-singer-token",
                 LinkToken = "test-token"
             };
 

@@ -203,6 +203,7 @@ namespace Karamel.Backend.Hubs
         /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// Uses one-playlist-per-session architecture (playlistId = sessionId).
+        /// NOTE: Only reorders items with Status = Queued or UpNext (excludes NowPlaying and Completed).
         /// </summary>
         public async Task ReorderAsync(Guid sessionId, int from, int to)
         {
@@ -216,21 +217,39 @@ namespace Karamel.Backend.Hubs
                 // Get playlist for this session (one playlist per session)
                 var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
 
-                if (from < 0 || from >= playlist.Items.Count || to < 0 || to >= playlist.Items.Count)
+                // Filter to only active items (Queued and UpNext) - these are the items shown in the UI
+                var activeItems = playlist.Items
+                    .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
+                    .OrderBy(i => i.Position)
+                    .ToList();
+
+                if (from < 0 || from >= activeItems.Count || to < 0 || to >= activeItems.Count)
                 {
-                    _logger.LogWarning("Reorder failed: Invalid indices from={From} to={To} for playlist with {Count} items", 
-                        from, to, playlist.Items.Count);
+                    _logger.LogWarning("Reorder failed: Invalid indices from={From} to={To} for {Count} active items", 
+                        from, to, activeItems.Count);
                     throw new HubException("Invalid reorder indices");
                 }
 
-                var item = playlist.Items[from];
-                playlist.Items.RemoveAt(from);
-                playlist.Items.Insert(to, item);
+                // Reorder within the active items list
+                var item = activeItems[from];
+                activeItems.RemoveAt(from);
+                activeItems.Insert(to, item);
 
-                // Re-index all positions
-                for (int i = 0; i < playlist.Items.Count; i++)
+                // Update positions for all active items
+                for (int i = 0; i < activeItems.Count; i++)
                 {
-                    playlist.Items[i].Position = i;
+                    activeItems[i].Position = i;
+                }
+
+                // Update the full playlist items list (preserving NowPlaying and Completed items)
+                // Remove all active items from playlist and re-add them in new order
+                foreach (var activeItem in activeItems)
+                {
+                    playlist.Items.Remove(activeItem);
+                }
+                foreach (var activeItem in activeItems)
+                {
+                    playlist.Items.Add(activeItem);
                 }
 
                 await _playlistRepo.UpdateAsync(playlist);
@@ -359,6 +378,12 @@ namespace Karamel.Backend.Hubs
             {
                 _logger.LogInformation("Advancing to next song in session {SessionId}", sessionId);
 
+                var session = await _sessionRepo.GetByIdAsync(sessionId);
+                if (session == null)
+                {
+                    throw new HubException("Session not found");
+                }
+
                 var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
                 
                 // Mark current NowPlaying as Completed
@@ -370,21 +395,33 @@ namespace Karamel.Backend.Hubs
                     _logger.LogInformation("Marked item {ItemId} as Completed in session {SessionId}", nowPlaying.Id, sessionId);
                 }
 
-                // Mark first Queued (or UpNext) as NowPlaying
-                var nextSong = playlist.Items
-                    .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
-                    .OrderBy(i => i.Position)
-                    .FirstOrDefault();
-                
-                if (nextSong != null)
+                // Check PlaybackMode and handle transitions
+                if (session.Config.PlaybackMode == PlaybackMode.StopAfterCurrent)
                 {
-                    nextSong.Status = SongStatus.NowPlaying;
-                    _logger.LogInformation("Advanced item {ItemId} to NowPlaying in session {SessionId}", nextSong.Id, sessionId);
+                    // Transition to Stopped state - do not advance to next song
+                    session.Config.PlaybackMode = PlaybackMode.Stopped;
+                    await _sessionRepo.UpdateAsync(session);
+                    _logger.LogInformation("Session {SessionId} entered Stopped state after current song", sessionId);
                 }
-                else
+                else if (session.Config.PlaybackMode == PlaybackMode.Normal)
                 {
-                    _logger.LogInformation("No queued song found to advance in session {SessionId}", sessionId);
+                    // Normal playback - mark first Queued (or UpNext) as NowPlaying
+                    var nextSong = playlist.Items
+                        .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
+                        .OrderBy(i => i.Position)
+                        .FirstOrDefault();
+                    
+                    if (nextSong != null)
+                    {
+                        nextSong.Status = SongStatus.NowPlaying;
+                        _logger.LogInformation("Advanced item {ItemId} to NowPlaying in session {SessionId}", nextSong.Id, sessionId);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No queued song found to advance in session {SessionId}", sessionId);
+                    }
                 }
+                // If PlaybackMode.Stopped, do nothing (stay stopped)
 
                 await _playlistRepo.UpdateAsync(playlist);
 
@@ -396,6 +433,110 @@ namespace Karamel.Backend.Hubs
             {
                 _logger.LogError(ex, "Error advancing song in session {SessionId}", sessionId);
                 throw new HubException("Failed to advance to next song");
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        /// <summary>
+        /// Set the PlaybackMode to StopAfterCurrent, indicating playback should stop after the current song finishes.
+        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
+        /// </summary>
+        public async Task SetStopAfterCurrentAsync(Guid sessionId)
+        {
+            var sem = GetSessionLock(sessionId);
+            await sem.WaitAsync();
+            try
+            {
+                _logger.LogInformation("Setting StopAfterCurrent mode for session {SessionId}", sessionId);
+
+                var session = await _sessionRepo.GetByIdAsync(sessionId);
+                if (session == null)
+                {
+                    throw new HubException("Session not found");
+                }
+
+                session.Config.PlaybackMode = PlaybackMode.StopAfterCurrent;
+                await _sessionRepo.UpdateAsync(session);
+
+                _logger.LogInformation("Session {SessionId} set to StopAfterCurrent mode", sessionId);
+
+                // Broadcast update to notify all clients of mode change
+                var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
+                await BroadcastPlaylistUpdate(sessionId, playlist);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting StopAfterCurrent mode for session {SessionId}", sessionId);
+                throw new HubException("Failed to set stop after current mode");
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        /// <summary>
+        /// Proceed with playback from Stopped state, advancing to the next song and setting mode to Normal.
+        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
+        /// </summary>
+        public async Task ProceedPlaybackAsync(Guid sessionId)
+        {
+            var sem = GetSessionLock(sessionId);
+            await sem.WaitAsync();
+            try
+            {
+                _logger.LogInformation("Proceeding playback from Stopped state for session {SessionId}", sessionId);
+
+                var session = await _sessionRepo.GetByIdAsync(sessionId);
+                if (session == null)
+                {
+                    throw new HubException("Session not found");
+                }
+
+                if (session.Config.PlaybackMode != PlaybackMode.Stopped)
+                {
+                    _logger.LogWarning("ProceedPlayback called but session {SessionId} is not in Stopped state (current: {Mode})",
+                        sessionId, session.Config.PlaybackMode);
+                    throw new HubException("Session is not in stopped state");
+                }
+
+                var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
+
+                // Advance to next song
+                var nextSong = playlist.Items
+                    .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
+                    .OrderBy(i => i.Position)
+                    .FirstOrDefault();
+                
+                if (nextSong != null)
+                {
+                    nextSong.Status = SongStatus.NowPlaying;
+                    await _playlistRepo.UpdateAsync(playlist);
+                    _logger.LogInformation("Advanced item {ItemId} to NowPlaying in session {SessionId}", nextSong.Id, sessionId);
+                }
+                else
+                {
+                    _logger.LogWarning("No queued song found to proceed playback in session {SessionId}", sessionId);
+                    throw new HubException("No songs in queue to play");
+                }
+
+                // Set mode back to Normal
+                session.Config.PlaybackMode = PlaybackMode.Normal;
+                await _sessionRepo.UpdateAsync(session);
+
+                _logger.LogInformation("Session {SessionId} resumed playback to Normal mode", sessionId);
+
+                await BroadcastPlaylistUpdate(sessionId, playlist);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error proceeding playback for session {SessionId}", sessionId);
+                throw new HubException("Failed to proceed playback");
             }
             finally
             {
@@ -455,6 +596,14 @@ namespace Karamel.Backend.Hubs
         private async Task BroadcastPlaylistUpdate(Guid sessionId, Playlist playlist)
         {
             var groupName = GetSessionGroupName(sessionId.ToString());
+            
+            // Load session to get PlaybackMode
+            var session = await _sessionRepo.GetByIdAsync(sessionId);
+            if (session == null)
+            {
+                _logger.LogError("Session {SessionId} not found during BroadcastPlaylistUpdate", sessionId);
+                return;
+            }
             
             // Auto-promote first Queued to UpNext if needed
             // Promote whenever there's no UpNext (works during active playback and when idle)
@@ -516,7 +665,8 @@ namespace Karamel.Backend.Hubs
                     i.SongId,
                     (int)i.Status  // Include Status
                 )).ToList(),
-                currentSong  // Include CurrentSong
+                currentSong,  // Include CurrentSong
+                (int)session.Config.PlaybackMode  // Include PlaybackMode
             );
 
             await Clients.Group(groupName).SendAsync("ReceivePlaylistUpdated", dto);
@@ -549,5 +699,5 @@ namespace Karamel.Backend.Hubs
 
     // DTOs for hub payloads (shared with controller for now)
     public record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId, int Status);
-    public record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, System.Collections.Generic.List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong);
+    public record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, System.Collections.Generic.List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong, int PlaybackMode);
 }

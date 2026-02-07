@@ -49,32 +49,29 @@ Execute these steps in order for the target markdown file:
 2. **Create Test Plan**
    - Add "Tests" substep to the markdown
    - Specify all tests with file paths, types, and acceptance criteria
-   - Commit: "Plan tests for feature: <description>"
 
-3. **Implement Tests**
-   - Create test files in appropriate projects (`Karamel.Web.Tests`, `Karamel.Backend.Tests`, or `wwwroot/js/*.test.js`)
+3. **Test driven steps**
+   - Create test file in appropriate projects (`Karamel.Web.Tests`, `Karamel.Backend.Tests`, or `wwwroot/js/*.test.js`)
    - Use mocks and dependency injection appropriately
    - Keep tests focused and atomic
+   - Write single test and implement minimal code to pass it before moving to the next
+   - Follow existing project patterns and architecture while implementing
 
-4. **Implement Feature**
-   - Write minimal code to satisfy tests and acceptance criteria
-   - Follow existing project patterns and architecture
-
-5. **Validate Locally**
+4. **Validate Locally**
    - Run C# frontend tests: `dotnet test Karamel.Web.Tests`
    - Run JS tests: `cd Karamel.Web/wwwroot && npm run test:run`
    - For backend changes: Ask user to manually run `dotnet test Karamel.Backend.Tests`
    - Fix failures until acceptance criteria met
 
-6. **Update Documentation**
+5. **Update Documentation**
    - Mark Step(s) as completed in the target markdown
    - Report brief summary to user
 
-7. **Commit Implementation**
+6. **Commit Implementation**
    - Use descriptive, user-facing commit message
    - Do NOT push unless explicitly requested
 
-8. **Report Results**
+7. **Report Results**
    - List files changed (with paths)
    - List tests added/updated
    - Show commands run for validation

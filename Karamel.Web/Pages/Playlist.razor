@@ -88,19 +88,26 @@
                     </div>
 
                     <div class="song-list">
+                        @{
+                            var isDraggable = _isAdminTab || (SessionState.Value.CurrentSession?.AllowSingersToReorder ?? false);
+                        }
                         @for (int i = 0; i < upNextSongs.Count; i++)
                         {
                             var song = upNextSongs[i];
                             var position = i + 2; // +2 because position 1 is "Now Playing"
-                            var isDraggable = SessionState.Value.CurrentSession?.AllowSingersToReorder ?? false;
                             var index = i;
 
-                            <div class="song-item @(isDraggable ? "draggable" : "")" 
-                                 draggable="@isDraggable.ToString().ToLower()"
-                                 @ondragstart="@(() => HandleDragStart(index))"
+                            @* Drop zone before this item *@
+                            <div class="drop-zone @(dropTargetIndex == index ? "drop-zone-active" : "")"
                                  @ondragover="@(e => HandleDragOver(e, index))"
+                                 @ondragover:preventDefault="true"
                                  @ondrop="@(() => HandleDrop(index))"
                                  @ondragleave="HandleDragLeave">
+                            </div>
+
+                            <div class="song-item @(isDraggable ? "draggable" : "") @(draggedIndex == index ? "dragging" : "")" 
+                                 draggable="@isDraggable.ToString().ToLower()"
+                                 @ondragstart="@((args) => HandleDragStart(args, index))">
                                 <div class="song-position">
                                     #@position
                                 </div>
@@ -121,6 +128,13 @@
                                 </button>
                             </div>
                         }
+                        @* Drop zone after the last item *@
+                        <div class="drop-zone @(dropTargetIndex == upNextSongs.Count ? "drop-zone-active" : "")"
+                             @ondragover="@(e => HandleDragOver(e, upNextSongs.Count))"
+                             @ondragover:preventDefault="true"
+                             @ondrop="@(() => HandleDrop(upNextSongs.Count))"
+                             @ondragleave="HandleDragLeave">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -138,9 +152,10 @@
     public string? TokenParam { get; set; }
 
     private int? draggedIndex;
-    private string dragOverClass = "";
+    private int? dropTargetIndex;
     private bool isSessionValid = false;
     private bool isInitializing = true;
+    private bool _isAdminTab = false; // NEW: Track if current tab has admin privileges
     
 
     protected override void OnInitialized()
@@ -151,6 +166,27 @@
         PlaylistState.StateChanged += OnPlaylistStateChanged;
         // Subscribe to session state changes so we can re-evaluate session validity
         SessionState.StateChanged += OnSessionStateChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        // Check if this tab has admin privileges (role=admin in sessionStorage)
+        if (!string.IsNullOrWhiteSpace(SessionParam))
+        {
+            try
+            {
+                var role = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", $"karamel-session-{SessionParam}-role");
+                _isAdminTab = role == "admin";
+                Console.WriteLine($"Playlist.razor: Tab role = {role}, isAdminTab = {_isAdminTab}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Playlist.razor: Failed to check admin role: {ex.Message}");
+                _isAdminTab = false;
+            }
+        }
     }
 
     private void OnSessionStateChanged(object? sender, EventArgs e)
@@ -241,34 +277,104 @@
         }
     }
 
-    private void HandleDragStart(int index)
+    private void HandleDragStart(DragEventArgs e, int index)
     {
+        e.DataTransfer.EffectAllowed = "move";
+        // Firefox requires data to be set for drag to work
+        e.DataTransfer.Items = new[] { new DataTransferItem { Kind = "text", Type = "text/plain" } };
         draggedIndex = index;
-    }
 
-    private void HandleDragOver(DragEventArgs e, int index)
-    {
-        // Add visual feedback if dragging over a different item
-        if (draggedIndex.HasValue && draggedIndex.Value != index)
+        // Log the dragged item
+        var upNextSongs = PlaylistState.Value.Items
+            .Where(i => i.Status == (int)SongStatus.Queued || i.Status == (int)SongStatus.UpNext)
+            .OrderBy(i => i.Position)
+            .ToList();
+        
+        if (index >= 0 && index < upNextSongs.Count)
         {
-            dragOverClass = $"drag-over-{index}";
+            var draggedSong = upNextSongs[index];
+            Console.WriteLine($"[Drag & Drop] Started dragging: Index={index}, Song='{draggedSong.Artist} - {draggedSong.Title}' {(string.IsNullOrEmpty(draggedSong.SingerName) ? "" : $"(Singer: {draggedSong.SingerName})")}");
         }
     }
 
-    private void HandleDrop(int targetIndex)
+    private void HandleDragOver(DragEventArgs e, int dropIndex)
     {
-        if (draggedIndex.HasValue && draggedIndex.Value != targetIndex)
+        e.DataTransfer.DropEffect = "move";
+        
+        // Show drop indicator at the target insertion point
+        if (draggedIndex.HasValue && draggedIndex.Value != dropIndex)
         {
-            // Dispatch reorder action with adjusted indices (skip "Now Playing")
-            Dispatcher.Dispatch(new ReorderPlaylistAction(draggedIndex.Value + 1, targetIndex + 1));
+            dropTargetIndex = dropIndex;
+            
+            // Log the hover over drop target
+            Console.WriteLine($"[Drag & Drop] Hovering over drop position: {dropIndex}");
+        }
+    }
+
+    private void HandleDrop(int dropIndex)
+    {
+        if (draggedIndex.HasValue)
+        {
+            int fromIndex = draggedIndex.Value;
+            
+            // dropIndex is "insert before this position"
+            // If dropping after the dragged item, need to account for the item being removed first
+            int toIndex = dropIndex > fromIndex ? dropIndex - 1 : dropIndex;
+            
+            // Only dispatch if the position actually changes
+            if (fromIndex != toIndex)
+            {
+                // Get the current playlist order before reordering
+                var upNextSongs = PlaylistState.Value.Items
+                    .Where(i => i.Status == (int)SongStatus.Queued || i.Status == (int)SongStatus.UpNext)
+                    .OrderBy(i => i.Position)
+                    .ToList();
+
+                // Log the order before
+                Console.WriteLine("[Drag & Drop] === REORDER OPERATION ===");
+                Console.WriteLine($"[Drag & Drop] Dragged from index: {fromIndex}, Dropped at index: {toIndex}");
+                
+                var draggedSong = upNextSongs[fromIndex];
+                Console.WriteLine($"[Drag & Drop] Song moved: '{draggedSong.Artist} - {draggedSong.Title}'");
+                
+                Console.WriteLine("[Drag & Drop] Order BEFORE reorder:");
+                for (int i = 0; i < upNextSongs.Count; i++)
+                {
+                    var song = upNextSongs[i];
+                    var marker = i == fromIndex ? " <-- DRAGGED" : "";
+                    Console.WriteLine($"  [{i}] {song.Artist} - {song.Title}{marker}");
+                }
+
+                // Dispatch reorder action with 0-based indices (backend handles active items only)
+                Dispatcher.Dispatch(new ReorderPlaylistAction(fromIndex, toIndex));
+
+                // Log the expected order after (we simulate it here)
+                Console.WriteLine("[Drag & Drop] Order AFTER reorder (expected):");
+                var simulatedOrder = upNextSongs.ToList();
+                var item = simulatedOrder[fromIndex];
+                simulatedOrder.RemoveAt(fromIndex);
+                simulatedOrder.Insert(toIndex, item);
+                
+                for (int i = 0; i < simulatedOrder.Count; i++)
+                {
+                    var song = simulatedOrder[i];
+                    var marker = song.Id == draggedSong.Id ? " <-- MOVED HERE" : "";
+                    Console.WriteLine($"  [{i}] {song.Artist} - {song.Title}{marker}");
+                }
+                Console.WriteLine("[Drag & Drop] === END REORDER OPERATION ===");
+            }
+            else
+            {
+                Console.WriteLine("[Drag & Drop] Drop cancelled: Song dropped at the same position");
+            }
         }
         
         draggedIndex = null;
-        dragOverClass = "";
+        dropTargetIndex = null;
     }
 
     private void HandleDragLeave()
     {
-        dragOverClass = "";
+        dropTargetIndex = null;
     }
 }
