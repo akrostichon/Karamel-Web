@@ -1,7 +1,23 @@
 ﻿@inherits LayoutComponentBase
+@using Karamel.Web.Components
 
 <main>
     <article class="content">
         @Body
     </article>
+    
+    <footer class="global-footer">
+        <div class="global-footer-content">
+            <small class="mb-0">Karamel Karaoke System v1.0</small>
+            <div class="global-footer-links">
+                <a href="/impressum" class="link-secondary small">Impressum</a>
+                <span class="footer-separator">|</span>
+                <a href="/privacy" class="link-secondary small">Datenschutz</a>
+                <span class="footer-separator">|</span>
+                <a href="/about" class="link-secondary small">About <i class="bi bi-info-circle" aria-hidden="true"></i></a>
+            </div>
+        </div>
+    </footer>
 </main>
+
+<ConsentBanner />

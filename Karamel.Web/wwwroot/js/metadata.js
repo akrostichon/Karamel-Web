@@ -39,9 +39,9 @@ try {
 function loadJsMediaTagsFromCDN() {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/dist/jsmediatags.min.js';
+        script.src = '/lib/jsmediatags/jsmediatags.min.js';
         script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load jsmediatags from CDN'));
+        script.onerror = () => reject(new Error('Failed to load jsmediatags library'));
         document.head.appendChild(script);
     });
 }

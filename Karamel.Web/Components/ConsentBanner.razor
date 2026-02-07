@@ -1,0 +1,106 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+@if (_showBanner)
+{
+    <div class="consent-banner">
+        <div class="consent-banner-content">
+            <p class="consent-banner-text">
+                Wir nutzen Analytics zur Verbesserung der App. 
+                <a href="/privacy" class="consent-banner-link">Datenschutzerklärung</a>
+            </p>
+            <div class="consent-banner-actions">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="HandleRejectAsync">
+                    Ablehnen
+                </button>
+                <button class="btn btn-sm btn-primary" @onclick="HandleAcceptAsync">
+                    Akzeptieren
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _showBanner = false;
+    private IJSObjectReference? _module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        
+        try
+        {
+            _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/consentBanner.js");
+            var hasConsent = await _module.InvokeAsync<string?>("getConsentDecision");
+            
+            // Show banner if no decision has been made yet
+            if (string.IsNullOrEmpty(hasConsent))
+            {
+                _showBanner = true;
+                StateHasChanged();
+            }
+            else if (hasConsent == "true")
+            {
+                // User previously accepted, start telemetry
+                await JSRuntime.InvokeVoidAsync("karamel.startTelemetry");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConsentBanner] Error initializing: {ex.Message}");
+        }
+    }
+
+    private async Task HandleAcceptAsync()
+    {
+        try
+        {
+            if (_module != null)
+            {
+                await _module.InvokeVoidAsync("setConsentDecision", "true");
+            }
+            await JSRuntime.InvokeVoidAsync("karamel.startTelemetry");
+            _showBanner = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConsentBanner] Error accepting consent: {ex.Message}");
+        }
+    }
+
+    private async Task HandleRejectAsync()
+    {
+        try
+        {
+            if (_module != null)
+            {
+                await _module.InvokeVoidAsync("setConsentDecision", "false");
+            }
+            await JSRuntime.InvokeVoidAsync("karamel.disableTelemetry");
+            _showBanner = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConsentBanner] Error rejecting consent: {ex.Message}");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module != null)
+        {
+            try
+            {
+                await _module.DisposeAsync();
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+        }
+    }
+}
