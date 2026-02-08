@@ -214,14 +214,21 @@ Karamel-Web/                          # Solution root
 ### Key Architectural Patterns
 
 #### Multi-Session Architecture
-**CRITICAL**: The app supports **multiple independent karaoke sessions** in different browser tabs/windows simultaneously. Each session:
+**CRITICAL**: The app supports **multiple independent karaoke sessions** in different browser tabs/windows **AND across different physical devices** simultaneously. Each session:
 - Has a unique `SessionId` GUID (passed via `?session={guid}` query parameter)
 - **Session ID MUST come from the backend** - The backend creates the session and generates a link token (HMAC-SHA256 hash of the session ID). If the client uses a different session ID than the backend generated, all authenticated requests (library upload, heartbeat) will fail with 401 Unauthorized because the token validation will fail
-- Uses SignalR session groups (server-backed) for real-time synchronization
-- Uses session-specific sessionStorage keys (`karamel-session-{guid}`) for persisted snapshot exchange
+- Uses SignalR session groups (server-backed) for real-time synchronization **across devices**
+- Uses session-specific sessionStorage keys (`karamel-session-{guid}`) for same-device persisted snapshot exchange ONLY
 - Has its own directory handle (kept in JavaScript module scope in the main tab)
 
-**Main tab** (Home page with directory access) remains the authoritative source of local file handles; other tabs use SignalR to receive live updates and sessionStorage for initial snapshots when necessary.
+**Main tab** (Home page with directory access) remains the authoritative source of local file handles on the host device; other tabs/devices use SignalR to receive live updates and the backend REST API to fetch library data.
+
+**⚠️ MULTI-DEVICE REQUIREMENT**: 
+- **NEVER assume secondary tabs are on the same device** - SingerView and Playlist pages can be opened on phones, tablets, or other computers via QR code scan
+- **ALL secondary tab data MUST come from backend API or SignalR** - sessionStorage and BroadcastChannel are same-device only and will NOT work across devices
+- **Backend API is the source of truth** for library data, playlist state, and session configuration for all non-main tabs
+- **SessionStorage is an optimization only** - used for same-device tab restoration, NOT for primary data fetching
+- When implementing pagination, search, or any library feature: ensure the backend API provides all necessary metadata (totalCount, page numbers, etc.) in the response
 
 #### Privacy Architecture
 
@@ -231,9 +238,9 @@ Karamel-Web/                          # Solution root
 - `ConvertJsonToSong` always returns empty file paths when fetching from backend
 - MetadataJson reserved for legitimate metadata (duration, genre, album - NEVER paths)
 
-**Multi-Tab Behavior**:
-- **Main tab**: Full Song objects with paths (for playback via File System Access API)
-- **Secondary tabs**: Songs with Artist/Title only (display-only, NO file access)
+**Multi-Tab/Multi-Device Behavior**:
+- **Main tab** (host device): Full Song objects with paths (for playback via File System Access API)
+- **Secondary tabs/devices**: Songs with Artist/Title only (display-only, NO file access, fetched from backend API)
 
 #### File System Access API
 - **Main tab only** retains directory handle in JavaScript module scope (`fileAccess.js`)
@@ -349,6 +356,7 @@ public class ComponentTests : TestContext
     }
 }
 ```
+Use XUnit assertions.
 
 ### JavaScript Tests (Vitest)
 ```javascript

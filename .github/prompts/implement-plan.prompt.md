@@ -19,22 +19,18 @@ You are implementing plan provided within the markdown file from context. Follow
    - Never assume requirements
    - feed clarifications back into the markdown file
 
-3. **Test-First Approach (MANDATORY)**
-   - Do NOT write implementation code until tests are planned and committed
-   - Add a "Tests" substep to the target markdown file. Maybe, a "Tests" substep is required for each of the steps in the original plan.
-   - The substep MUST include:
-     - Test types: C# unit (xUnit/bUnit), C# integration (TestServer), or JS unit (Vitest)
-     - Target test file paths
-     - Required mocks/fixtures
-     - Acceptance criteria
-   - Commit the test plan: "Plan tests for feature: <description>"
+3. **Test-Driven Development (MANDATORY)**
+   - Follow `.github/instructions/tdd.instructions.md` as the primary source of truth for testing and TDD workflow.
+   - Before implementation, add a **lightweight "Tests" substep** to the target markdown that states:
+     - The **main behaviors that must be covered by tests** (what, not how)
+     - The **test category** (C# unit, bUnit, JS unit, or integration) — high level only
+   - Do **NOT** require:
+     - Exhaustive test lists upfront  
+     - Exact test file paths before code exists  
+     - Detailed mocks/fixtures before seeing the design  
+   - Then implement using **Red → Green → Refactor**, adding tests incrementally rather than as one big upfront plan.
 
-4. **Integration Test Restrictions**
-   - NEVER run backend SignalR/WebSocket tests automatically
-   - Always ask permission before running C# integration tests
-   - Default to running only unit tests
-
-5. **Commit Policy**
+4. **Commit Policy**
    - Use user-facing commit messages (e.g., "Add Azure deployment pipeline", not "Implement Phase 3")
    - Commit locally by default — only push if explicitly requested
 
@@ -46,11 +42,14 @@ Execute these steps in order for the target markdown file:
    - Read the markdown file and confirm the target exists
    - Identify all steps within it
 
-2. **Create Test Plan**
-   - Add "Tests" substep to the markdown
-   - Specify all tests with file paths, types, and acceptance criteria
+2. **Create Lightweight Test Intent**
+   - Add a brief "Tests" substep to the markdown that captures:
+     - Key behaviors that need test coverage
+     - Intended test level (unit / bUnit / JS / integration)
+   - Keep this concise — detailed test design will emerge through TDD.
 
 3. **Test Driven Development**
+   - Follow `.github/instructions/tdd.instructions.md` for how to apply TDD.
    - Create test file in appropriate projects (`Karamel.Web.Tests`, `Karamel.Backend.Tests`, or `wwwroot/js/*.test.js`)
    - Use mocks and dependency injection appropriately
    - Keep tests focused and atomic

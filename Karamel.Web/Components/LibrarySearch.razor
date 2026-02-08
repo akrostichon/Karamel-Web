@@ -31,7 +31,7 @@
         </div>
     </div>
 
-    @if (LibraryState.Value.IsLoading)
+    @if (LibraryState.Value.IsLoading && !LibraryState.Value.Songs.Any())
     {
         <div class="library-loading" aria-busy="true">
             <!-- simple spinner for unit tests that query .spinner-border -->
@@ -127,6 +127,16 @@
             </table>
         </div>
         
+        @if (LibraryState.Value.IsLoading)
+        {
+            <div class="pagination-loader text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading more songs...</span>
+                </div>
+                <p class="mt-2 text-muted mb-0">Loading more songs...</p>
+            </div>
+        }
+        
         <div class="form-text small muted-on-surface">
             Showing @FilteredAndSortedSongs.Count() of @LibraryState.Value.Songs.Count songs
         </div>
@@ -154,8 +164,6 @@
     public EventCallback<Song> OnAddToQueue { get; set; }
 
     private const int DebounceDelayMs = 300;
-    private const int SearchPageSize = 50;
-    private const int SearchPageNumber = 1;
 
     private bool showToast = false;
     private string toastMessage = string.Empty;
@@ -184,7 +192,14 @@
         try
         {
             await Task.Delay(DebounceDelayMs, _debounceCts.Token);
-            await FetchAndUpdateLibraryAsync(searchText, _debounceCts.Token);
+            
+            // Dispatch LoadPageAction for server-side search/pagination
+            var searchQuery = string.IsNullOrWhiteSpace(searchText) ? null : searchText;
+            Dispatcher.Dispatch(new LoadPageAction(
+                Page: 1, 
+                SearchQuery: searchQuery, 
+                Append: false
+            ));
         }
         catch (TaskCanceledException)
         {
@@ -195,67 +210,6 @@
             Console.WriteLine($"LibrarySearch: Search failed: {ex.Message}");
             await FallbackToLocalFilteringAsync(searchText);
         }
-    }
-
-    private async Task FetchAndUpdateLibraryAsync(string searchText, System.Threading.CancellationToken cancellationToken)
-    {
-        var session = SessionState.Value.CurrentSession;
-        if (session == null)
-        {
-            await FallbackToLocalFilteringAsync(searchText);
-            return;
-        }
-
-        try
-        {
-            var pageResult = await SessionService.FetchLibraryPageAsync(
-                session.SessionId, 
-                SearchPageNumber, 
-                SearchPageSize, 
-                searchText, 
-                null);
-
-            if (TryParseSongsFromResult(pageResult, out var songs))
-            {
-                await InvokeAsync(() =>
-                {
-                    Dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
-                    StateHasChanged();
-                });
-            }
-            else
-            {
-                await FallbackToLocalFilteringAsync(searchText);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"LibrarySearch: FetchLibraryPageAsync failed: {ex.Message}");
-            await FallbackToLocalFilteringAsync(searchText);
-        }
-    }
-
-    private bool TryParseSongsFromResult(System.Text.Json.JsonElement result, out List<Song> songs)
-    {
-        songs = new List<Song>();
-
-        if (result.ValueKind == System.Text.Json.JsonValueKind.Undefined || 
-            result.ValueKind == System.Text.Json.JsonValueKind.Null)
-        {
-            return false;
-        }
-
-        if (!result.TryGetProperty("items", out var itemsArr) || 
-            itemsArr.ValueKind != System.Text.Json.JsonValueKind.Array)
-        {
-            return false;
-        }
-
-        songs = itemsArr.EnumerateArray()
-            .Select(Karamel.Web.Contracts.SongConverters.ConvertJsonToSong)
-            .ToList();
-
-        return songs.Any();
     }
 
     private async Task FallbackToLocalFilteringAsync(string searchText)

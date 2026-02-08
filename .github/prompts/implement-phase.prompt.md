@@ -13,27 +13,23 @@ You are implementing the specified Phase or Step from `DEVELOPMENT_PLAN.md`. Fol
    - If on `main`, create feature branch: `feature/implement-phase-<phase>-step-<step>`
    - If on another branch, stay on that branch
 
-2. **Test-First Approach (MANDATORY)**
-   - Do NOT write implementation code until tests are planned and committed
-   - Add a "Tests" substep to the target Step in `DEVELOPMENT_PLAN.md`
-   - The substep MUST include:
-     - Test types: C# unit (xUnit/bUnit), C# integration (TestServer), or JS unit (Vitest)
-     - Target test file paths
-     - Required mocks/fixtures
-     - Acceptance criteria
-   - Commit the test plan: "Plan tests for Phase X — Step Y: <description>"
-
-3. **Clarification First**
+2. **Clarification First**
    - If requirements are ambiguous, ask for clarification before implementing
    - If multiple valid approaches exist, present options and wait for user choice
    - Never assume requirements
 
-4. **Integration Test Restrictions**
-   - NEVER run backend SignalR/WebSocket tests automatically
-   - Always ask permission before running C# integration tests
-   - Default to running only unit tests
+3. **Test-Driven Development (MANDATORY)**
+   - Follow `.github/instructions/tdd.instructions.md` as the primary source of truth for testing and TDD workflow.
+   - Before implementation, add a **lightweight "Tests" substep** to the target markdown that states:
+     - The **main behaviors that must be covered by tests** (what, not how)
+     - The **test category** (C# unit, bUnit, JS unit, or integration) — high level only
+   - Do **NOT** require:
+     - Exhaustive test lists upfront  
+     - Exact test file paths before code exists  
+     - Detailed mocks/fixtures before seeing the design  
+   - Then implement using **Red → Green → Refactor**, adding tests incrementally rather than as one big upfront plan.
 
-5. **Commit Policy**
+4. **Commit Policy**
    - Use user-facing commit messages (e.g., "Add Azure deployment pipeline", not "Implement Phase 3")
    - Commit locally by default — only push if explicitly requested
 
@@ -45,12 +41,14 @@ Execute these steps in order for the target Phase/Step:
    - Read `DEVELOPMENT_PLAN.md` and confirm the target exists
    - If implementing a full Phase, identify all steps within it
 
-2. **Create Test Plan**
-   - Add "Tests" substep to `DEVELOPMENT_PLAN.md` under target Step(s)
-   - Specify all tests with file paths, types, and acceptance criteria
-   - Commit: "Plan tests for Phase X — Step Y: <description>"
+2. **Create Lightweight Test Intent**
+   - Add a brief "Tests" substep to the markdown that captures:
+     - Key behaviors that need test coverage
+     - Intended test level (unit / bUnit / JS / integration)
+   - Keep this concise — detailed test design will emerge through TDD.
 
-3. **Implement Tests**
+3. **Test Driven Development**
+   - Follow `.github/instructions/tdd.instructions.md` for how to apply TDD.
    - Create test files in appropriate projects (`Karamel.Web.Tests`, `Karamel.Backend.Tests`, or `wwwroot/js/*.test.js`)
    - Use mocks and dependency injection appropriately
    - Keep tests focused and atomic

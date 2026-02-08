@@ -91,6 +91,21 @@
     }
 }
 
+/* Pagination loader styles */
+.library-search .pagination-loader {
+    padding: 24px 0;
+}
+
+.library-search .pagination-loader .spinner-border {
+    color: var(--color-accent-primary, #FFA733);
+    width: 2rem;
+    height: 2rem;
+}
+
+.library-search .pagination-loader p {
+    font-size: 0.9rem;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
     .library-search .table {
