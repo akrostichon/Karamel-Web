@@ -8,3 +8,8 @@ public record LoadLibrarySuccessAction(IReadOnlyList<Song> Songs);
 public record LoadLibraryFailureAction(string ErrorMessage);
 public record FilterSongsAction(string SearchFilter);
 public record ScanProgressAction(int Scanned, bool Complete = false);
+
+// Server-side pagination actions
+public record LoadPageAction(int Page, string? SearchQuery, bool Append);
+public record LoadPageSuccessAction(IReadOnlyList<Song> Songs, int Page, long TotalCount, string? SearchQuery, bool Append);
+public record ResetPaginationAction();

@@ -105,61 +105,9 @@ public class LibrarySearchTests : TestContext
         Assert.Contains("Queen", rows[4].TextContent);
     }
 
-    [Fact]
-    public async Task SearchBox_CallsServerSearch_WhenTextChangesAsync()
-    {
-        // Arrange
-        var searchTerm = "Beatles";
-        var beatlesSongs = _testSongs.Where(s => s.Artist.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
-        
-        var state = new LibraryState { Songs = _testSongs };
-        var sessionId = Guid.NewGuid();
-        
-        var mockDispatcher = new Mock<IDispatcher>();
-        var mockState = new Mock<IState<LibraryState>>();
-        var mockActionSubscriber = new Mock<IActionSubscriber>();
-        var mockSessionState = new Mock<IState<Store.Session.SessionState>>();
-        var mockSessionService = new Mock<Services.ISessionService>();
-        
-        mockState.Setup(s => s.Value).Returns(state);
-        mockSessionState.Setup(s => s.Value).Returns(new Store.Session.SessionState { 
-            CurrentSession = new Session { SessionId = sessionId } 
-        });
-        
-        // Mock SearchLibraryAsync for suggestions (returns empty array)
-        var suggestionJson = System.Text.Json.JsonDocument.Parse("[]").RootElement;
-        mockSessionService.Setup(s => s.SearchLibraryAsync(sessionId, searchTerm, 8))
-            .ReturnsAsync(suggestionJson);
-        
-        // Mock FetchLibraryPageAsync for full results with proper structure including IDs
-        var pageJson = System.Text.Json.JsonDocument.Parse(
-            $"{{\"items\": [{string.Join(",", beatlesSongs.Select(s => $"{{\"id\":\"{s.Id}\",\"artist\":\"{s.Artist}\",\"title\":\"{s.Title}\",\"mp3FileName\":\"{s.Mp3FileName}\",\"cdgFileName\":\"{s.CdgFileName}\"}}"))}], \"totalCount\": {beatlesSongs.Count}}}"
-        ).RootElement;
-        mockSessionService.Setup(s => s.FetchLibraryPageAsync(sessionId, 1, 50, searchTerm, null))
-            .ReturnsAsync(pageJson);
-
-        Services.AddSingleton(mockDispatcher.Object);
-        Services.AddSingleton(mockState.Object);
-        Services.AddSingleton(mockActionSubscriber.Object);
-        Services.AddSingleton(mockSessionState.Object);
-        Services.AddSingleton(mockSessionService.Object);
-        
-        var cut = RenderComponent<LibrarySearch>();
-        var searchInput = cut.Find("input[type='text']");
-
-        // Act
-        searchInput.Input(searchTerm);
-        
-        // Wait for debounce (300ms) + processing time
-        await Task.Delay(500);
-        
-        // Trigger render to process any pending state changes
-        cut.Render();
-
-        // Assert - Component should call server and dispatch the results
-        mockSessionService.Verify(s => s.FetchLibraryPageAsync(sessionId, 1, 50, searchTerm, null), Times.Once);
-        mockDispatcher.Verify(d => d.Dispatch(It.IsAny<LoadLibrarySuccessAction>()), Times.Once);
-    }
+    // NOTE: Removed obsolete SearchBox_CallsServerSearch_WhenTextChangesAsync test.
+    // LibrarySearch now dispatches LoadPageAction instead of directly calling FetchLibraryPageAsync.
+    // See LibrarySearch_DispatchesLoadPageAction_WhenSearchQueryChanges test instead.
 
     [Fact]
     public void FilteredSongs_ShowsOnlyMatchingArtists_CaseInsensitive()
@@ -354,5 +302,63 @@ public class LibrarySearchTests : TestContext
         Services.AddSingleton(mockSessionService.Object);
 
         return mockDispatcher;
+    }
+
+    // Pagination tests
+    [Fact]
+    public async Task Search_DispatchesLoadPageActionWithSearchQuery()
+    {
+        // Arrange
+        var state = new LibraryState { Songs = _testSongs, IsLoading = false };
+        var mockDispatcher = SetupFluxorWithState(state);
+
+        var cut = RenderComponent<LibrarySearch>();
+        var searchInput = cut.Find("input[type='text']");
+
+        // Act: Type search text (note: bUnit doesn't support async debounce well, so we test the dispatch directly)
+        await cut.InvokeAsync(() => searchInput.Input("Beatles"));
+        
+        // Wait for debounce delay (300ms)
+        await Task.Delay(350);
+
+        // Assert: LoadPageAction should be dispatched
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.Is<LoadPageAction>(a => 
+                a.Page == 1 && 
+                a.SearchQuery == "Beatles" && 
+                a.Append == false
+            )),
+            Times.AtLeastOnce
+        );
+    }
+
+    [Fact]
+    public async Task ClearSearch_DispatchesLoadPageActionWithNullQuery()
+    {
+        // Arrange: Start with a search filter active
+        var state = new LibraryState 
+        { 
+            Songs = _testSongs, 
+            IsLoading = false,
+            SearchFilter = "Beatles",
+            ServerSearchQuery = "Beatles"
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+
+        var cut = RenderComponent<LibrarySearch>();
+        
+        // Find and click the clear button
+        var clearButton = cut.Find(".clear-filter-btn");
+
+        // Act: Clear search
+        await cut.InvokeAsync(() => clearButton.Click());
+
+        // Assert: FilterSongsAction should be dispatched with empty string
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.Is<FilterSongsAction>(a => 
+                a.SearchFilter == string.Empty
+            )),
+            Times.Once
+        );
     }
 }

@@ -15,6 +15,15 @@ public record LibraryState
     // Whether the scan completed
     public bool ScanComplete { get; init; }
     
+    // Server-side pagination properties
+    public int CurrentPage { get; init; } = 1;
+    public int PageSize { get; init; } = 50;
+    public long TotalCount { get; init; } = 0;
+    public string? ServerSearchQuery { get; init; } = null;
+    
+    // Computed property: whether more pages are available from server
+    public bool HasMorePages => (CurrentPage * PageSize) < TotalCount;
+    
     public IReadOnlyList<Song> FilteredSongs
     {
         get

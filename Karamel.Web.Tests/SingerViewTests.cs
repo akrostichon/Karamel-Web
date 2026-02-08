@@ -694,6 +694,191 @@ public class SingerViewTests : SessionTestBase
         Assert.Contains("5 / 10 songs in queue", songCount.TextContent);
     }
 
-}
+    // Pagination tests
+    [Fact]
+    public void LoadMoreButton_ShowsWhenMorePagesAvailable()
+    {
+        // Arrange: Setup state with more pages available
+        var sessionGuid = Guid.NewGuid();
+        var sessionState = new SessionState 
+        { 
+            CurrentSession = new Session { SessionId = sessionGuid, RequireSingerName = false },
+            IsInitialized = true
+        };
+        
+        var songs = Enumerable.Range(1, 50)
+            .Select(i => new Song 
+            { 
+                Id = Guid.NewGuid(), 
+                Artist = $"Artist {i}", 
+                Title = $"Song {i}",
+                Mp3FileName = $"song{i}.mp3",
+                CdgFileName = $"song{i}.cdg"
+            })
+            .ToList();
 
+        var libraryState = new LibraryState
+        {
+            Songs = songs,
+            CurrentPage = 1,
+            PageSize = 50,
+            TotalCount = 100,
+            IsLoading = false
+        };
+        
+        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
+        
+        SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
+
+        // Act
+        var cut = RenderComponent<SingerView>();
+
+        // Assert: Load more button should be visible
+        var loadMoreButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Load more"));
+        Assert.NotNull(loadMoreButton);
+        Assert.False(loadMoreButton.HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void LoadMoreButton_HidesWhenAllPagesLoaded()
+    {
+        // Arrange: Setup state with all pages loaded
+        var sessionGuid = Guid.NewGuid();
+        var sessionState = new SessionState 
+        { 
+            CurrentSession = new Session { SessionId = sessionGuid, RequireSingerName = false },
+            IsInitialized = true
+        };
+        
+        var songs = Enumerable.Range(1, 30)
+            .Select(i => new Song 
+            { 
+                Id = Guid.NewGuid(), 
+                Artist = $"Artist {i}", 
+                Title = $"Song {i}",
+                Mp3FileName = $"song{i}.mp3",
+                CdgFileName = $"song{i}.cdg"
+            })
+            .ToList();
+
+        var libraryState = new LibraryState
+        {
+            Songs = songs,
+            CurrentPage = 1,
+            PageSize = 50,
+            TotalCount = 30,
+            IsLoading = false
+        };
+        
+        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
+        
+        SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
+
+        // Act
+        var cut = RenderComponent<SingerView>();
+
+        // Assert: Load more button should NOT exist
+        var loadMoreButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Load more"));
+        Assert.Null(loadMoreButton);
+    }
+
+    [Fact]
+    public void LoadMoreButton_ShowsLoadingStateWhenFetching()
+    {
+        // Arrange: Setup state with loading = true
+        var sessionGuid = Guid.NewGuid();
+        var sessionState = new SessionState 
+        { 
+            CurrentSession = new Session { SessionId = sessionGuid, RequireSingerName = false },
+            IsInitialized = true
+        };
+        
+        var songs = Enumerable.Range(1, 50)
+            .Select(i => new Song 
+            { 
+                Id = Guid.NewGuid(), 
+                Artist = $"Artist {i}", 
+                Title = $"Song {i}",
+                Mp3FileName = $"song{i}.mp3",
+                CdgFileName = $"song{i}.cdg"
+            })
+            .ToList();
+
+        var libraryState = new LibraryState
+        {
+            Songs = songs,
+            CurrentPage = 1,
+            PageSize = 50,
+            TotalCount = 100,
+            IsLoading = true
+        };
+        
+        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
+        
+        SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
+
+        // Act
+        var cut = RenderComponent<SingerView>();
+
+        // Assert: Button should exist and be disabled with loading text
+        var loadingButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Loading"));
+        Assert.NotNull(loadingButton);
+        Assert.True(loadingButton.HasAttribute("disabled"));
+        Assert.Contains("spinner-border", cut.Markup);
+    }
+
+    [Fact]
+    public void LoadMorePage_DispatchesLoadPageActionWithSearchQuery()
+    {
+        // Arrange: Setup state with search query active
+        var sessionGuid = Guid.NewGuid();
+        var sessionState = new SessionState 
+        { 
+            CurrentSession = new Session { SessionId = sessionGuid, RequireSingerName = false },
+            IsInitialized = true
+        };
+        
+        var songs = Enumerable.Range(1, 50)
+            .Select(i => new Song 
+            { 
+                Id = Guid.NewGuid(), 
+                Artist = $"Beatles {i}", 
+                Title = $"Song {i}",
+                Mp3FileName = $"song{i}.mp3",
+                CdgFileName = $"song{i}.cdg"
+            })
+            .ToList();
+
+        var libraryState = new LibraryState
+        {
+            Songs = songs,
+            CurrentPage = 2,
+            PageSize = 50,
+            TotalCount = 150,
+            ServerSearchQuery = "Beatles",
+            IsLoading = false
+        };
+        
+        var playlistState = new PlaylistState { Items = new List<Karamel.Web.Contracts.PlaylistItemDto>() };
+        
+        var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
+
+        // Act
+        var cut = RenderComponent<SingerView>();
+
+        var loadMoreButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Load more"));
+        Assert.NotNull(loadMoreButton);
+        loadMoreButton.Click();
+
+        // Assert: LoadPageAction should be dispatched with correct params
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.Is<LoadPageAction>(a => 
+                a.Page == 3 && 
+                a.SearchQuery == "Beatles" && 
+                a.Append == true
+            )),
+            Times.Once
+        );
+    }
+}
 
