@@ -295,9 +295,6 @@ public class SessionService : ISessionService
                 Console.WriteLine($"SessionService: No session data found in sessionStorage");
             }
 
-            // Library will be loaded by component dispatching LoadPageAction (proper Fluxor flow)
-            // This ensures pagination metadata (totalCount, currentPage) is captured correctly
-
             // Restore playlist if present in sessionStorage (for same-device tab reopening)
             // SignalR will also send initial state (for new devices), providing redundancy
             if (stateJson.TryGetProperty("playlist", out var playlistData) &&

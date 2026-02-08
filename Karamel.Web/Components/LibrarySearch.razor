@@ -31,7 +31,7 @@
         </div>
     </div>
 
-    @if (LibraryState.Value.IsLoading)
+    @if (LibraryState.Value.IsLoading && !LibraryState.Value.Songs.Any())
     {
         <div class="library-loading" aria-busy="true">
             <!-- simple spinner for unit tests that query .spinner-border -->
@@ -126,6 +126,16 @@
                 </tbody>
             </table>
         </div>
+        
+        @if (LibraryState.Value.IsLoading)
+        {
+            <div class="pagination-loader text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading more songs...</span>
+                </div>
+                <p class="mt-2 text-muted mb-0">Loading more songs...</p>
+            </div>
+        }
         
         <div class="form-text small muted-on-surface">
             Showing @FilteredAndSortedSongs.Count() of @LibraryState.Value.Songs.Count songs
