@@ -10,20 +10,20 @@ export async function ensureZipModule() {
         if (typeof window !== 'undefined') {
             if (window.JSZip) { zipModule = window.JSZip; return zipModule; }
 
-            // Try to dynamically inject CDN script and wait for it to load
+            // Try to dynamically load from local library
             return new Promise((resolve, reject) => {
                 const existing = document.querySelector('script[data-jszip]');
                 if (existing) {
                     existing.addEventListener('load', () => { zipModule = window.JSZip; resolve(window.JSZip); });
-                    existing.addEventListener('error', () => reject(new Error('Failed to load JSZip from CDN')));
+                    existing.addEventListener('error', () => reject(new Error('Failed to load JSZip from local library')));
                     return;
                 }
 
                 const script = document.createElement('script');
                 script.setAttribute('data-jszip', '1');
-                script.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+                script.src = '/lib/jszip/jszip.min.js';
                 script.onload = () => { zipModule = window.JSZip; resolve(window.JSZip); };
-                script.onerror = () => reject(new Error('Failed to load JSZip from CDN'));
+                script.onerror = () => reject(new Error('Failed to load JSZip from local library'));
                 document.head.appendChild(script);
             });
         }

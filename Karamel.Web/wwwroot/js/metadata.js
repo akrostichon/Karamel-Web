@@ -12,7 +12,7 @@ try {
     id3Enabled = true;
     console.log('Using jsmediatags from npm package');
 } catch {
-    // In browser, load UMD build from CDN
+    // In browser, load UMD build from local library
     try {
         // Check if already loaded via script tag
         if (window.jsmediatags) {
@@ -21,10 +21,10 @@ try {
             console.log('Using jsmediatags from window (pre-loaded)');
         } else {
             // Dynamically load the browser UMD build
-            await loadJsMediaTagsFromCDN();
+            await loadJsMediaTagsFromLocalLibrary();
             jsmediatags = window.jsmediatags;
             id3Enabled = true;
-            console.log('Using jsmediatags from CDN');
+            console.log('Loading jsmediatags from local library');
         }
     } catch (error) {
         console.warn('Failed to load jsmediatags, using filename parsing only:', error);
@@ -33,10 +33,10 @@ try {
 }
 
 /**
- * Load jsmediatags browser UMD build from CDN
+ * Load jsmediatags browser UMD build from local library
  * @returns {Promise<void>}
  */
-function loadJsMediaTagsFromCDN() {
+function loadJsMediaTagsFromLocalLibrary() {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = '/lib/jsmediatags/jsmediatags.min.js';
