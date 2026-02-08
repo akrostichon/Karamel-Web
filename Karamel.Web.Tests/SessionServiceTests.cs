@@ -3,7 +3,6 @@ using Fluxor;
 using Karamel.Web.Models;
 using Karamel.Web.Services;
 using Karamel.Web.Store.Library;
-using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
 using Microsoft.JSInterop;
 using Moq;
@@ -18,9 +17,7 @@ namespace Karamel.Web.Tests;
 public class SessionServiceTests : TestContext
 {
     private readonly Mock<IJSRuntime> _mockJsRuntime;
-    private readonly Mock<IState<SessionState>> _mockSessionState;
     private readonly Mock<IState<LibraryState>> _mockLibraryState;
-    private readonly Mock<IState<PlaylistState>> _mockPlaylistState;
     private readonly Mock<IDispatcher> _mockDispatcher;
     private readonly Mock<HttpMessageHandler> _mockHttpHandler;
     private readonly HttpClient _httpClient;
@@ -29,9 +26,7 @@ public class SessionServiceTests : TestContext
     public SessionServiceTests()
     {
         _mockJsRuntime = new Mock<IJSRuntime>();
-        _mockSessionState = new Mock<IState<SessionState>>();
         _mockLibraryState = new Mock<IState<LibraryState>>();
-        _mockPlaylistState = new Mock<IState<PlaylistState>>();
         _mockDispatcher = new Mock<IDispatcher>();
         _mockHttpHandler = new Mock<HttpMessageHandler>();
         
@@ -42,9 +37,7 @@ public class SessionServiceTests : TestContext
 
         _sessionService = new SessionService(
             jsRuntime: _mockJsRuntime.Object,
-            sessionState: _mockSessionState.Object,
             libraryState: _mockLibraryState.Object,
-            playlistState: _mockPlaylistState.Object,
             dispatcher: _mockDispatcher.Object,
             httpClient: _httpClient
         );
@@ -99,11 +92,6 @@ public class SessionServiceTests : TestContext
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(responseMessage);
 
-        _mockSessionState.Setup(s => s.Value).Returns(new SessionState
-        {
-            CurrentSession = null
-        });
-
         // Act
         await _sessionService.InitializeAsync(sessionId, asMainTab: false);
 
@@ -150,11 +138,6 @@ public class SessionServiceTests : TestContext
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(responseMessage);
 
-        _mockSessionState.Setup(s => s.Value).Returns(new SessionState
-        {
-            CurrentSession = null
-        });
-
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _sessionService.InitializeAsync(sessionId, asMainTab: false));
@@ -194,11 +177,6 @@ public class SessionServiceTests : TestContext
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
             .ThrowsAsync(new HttpRequestException("Network error"));
-
-        _mockSessionState.Setup(s => s.Value).Returns(new SessionState
-        {
-            CurrentSession = null
-        });
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -245,10 +223,6 @@ public class SessionServiceTests : TestContext
             It.Is<object[]>(args => args[0].ToString() == "./js/signalRBridge.js")))
             .ReturnsAsync(mockJsModule.Object);
 
-        _mockSessionState.Setup(s => s.Value).Returns(new SessionState
-        {
-            CurrentSession = null
-        });
 
         // Act
         await _sessionService.InitializeAsync(sessionId, asMainTab: false);

@@ -17,9 +17,7 @@ namespace Karamel.Web.Services;
 public class SessionService : ISessionService
 {
     private readonly IJSRuntime _jsRuntime;
-    private readonly IState<SessionState> _sessionState;
     private readonly IState<LibraryState> _libraryState;
-    private readonly IState<PlaylistState> _playlistState;
     private readonly IDispatcher _dispatcher;
     private readonly HttpClient _httpClient;
     private IJSObjectReference? _sessionBridgeModule;
@@ -36,16 +34,12 @@ public class SessionService : ISessionService
 
     public SessionService(
         IJSRuntime jsRuntime,
-        IState<SessionState> sessionState,
         IState<LibraryState> libraryState,
-        IState<PlaylistState> playlistState,
         IDispatcher dispatcher,
         HttpClient httpClient)
     {
         _jsRuntime = jsRuntime;
-        _sessionState = sessionState;
         _libraryState = libraryState;
-        _playlistState = playlistState;
         _dispatcher = dispatcher;
         _httpClient = httpClient;
     }
@@ -235,136 +229,11 @@ public class SessionService : ISessionService
         {
             Console.WriteLine($"SessionService: Starting to restore session {sessionId}");
             
-            // Wait for state sync response (with timeout)
-            var syncCompletionSource = new TaskCompletionSource<bool>();
-            var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            dotNetRef = await WaitForStateSyncAsync();
+            var stateJson = await ReadSessionStorageAsync(sessionId);
             
-            // Set up event listener for state sync
-            dotNetRef = DotNetObjectReference.Create(new StateSync(syncCompletionSource));
-            await _sessionBridgeModule.InvokeVoidAsync("setupStateSyncListener", dotNetRef);
-            
-            // Wait for sync or timeout
-            var syncTask = syncCompletionSource.Task;
-            var timeoutTask = Task.Delay(5000, timeoutCts.Token);
-            var completedTask = await Task.WhenAny(syncTask, timeoutTask);
-            
-            if (completedTask == syncTask)
-            {
-                Console.WriteLine($"SessionService: State sync completed");
-            }
-            else
-            {
-                Console.WriteLine($"SessionService: State sync timed out, using current sessionStorage");
-            }
-            
-            // Now read from sessionStorage (which should have been updated by the sync)
-            var stateJson = await _sessionBridgeModule.InvokeAsync<JsonElement>("getSessionStateForSession", sessionId.ToString());
-
-            // If SignalR is active, skip restoring the full library from sessionStorage
-            var signalRActive = false;
-            try
-            {
-                signalRActive = await _sessionBridgeModule.InvokeAsync<bool>("isUsingSignalR");
-            }
-            catch
-            {
-                // ignore
-            }
-
-            Console.WriteLine($"SessionService: Got state from sessionStorage: {stateJson}");
-
-            // Restore session settings
-            if (stateJson.TryGetProperty("session", out var sessionData) && 
-                sessionData.ValueKind != JsonValueKind.Null)
-            {
-                Console.WriteLine($"SessionService: Found session data in sessionStorage");
-                var session = new Session
-                {
-                    SessionId = sessionId,
-                    RequireSingerName = sessionData.GetProperty("requireSingerName").GetBoolean(),
-                    AllowSingersToReorder = sessionData.TryGetProperty("allowSingerReorder", out var allowReorder) ? allowReorder.GetBoolean() : false,
-                    PauseBetweenSongs = sessionData.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) ? pauseEnabled.GetBoolean() : true,
-                    PauseBetweenSongsSeconds = sessionData.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
-                    FilenamePattern = sessionData.GetProperty("filenamePattern").GetString() ?? "%artist - %title"
-                };
-                
-                Console.WriteLine($"SessionService: Dispatching InitializeSessionAction");
-                _dispatcher.Dispatch(new InitializeSessionAction(session));
-            }
-            else
-            {
-                Console.WriteLine($"SessionService: No session data found in sessionStorage - multi-device scenario detected");
-                
-                // Multi-device scenario: fetch session config from backend API
-                try
-                {
-                    Console.WriteLine($"SessionService: Fetching session config from backend API");
-                    var response = await _httpClient.GetAsync($"/api/sessions/{sessionId}");
-                    
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var sessionDto = await response.Content.ReadFromJsonAsync<JsonElement>();
-                        Console.WriteLine($"SessionService: Retrieved session config from backend: {sessionDto}");
-                        
-                        var session = new Session
-                        {
-                            SessionId = sessionId,
-                            RequireSingerName = sessionDto.GetProperty("requireSingerName").GetBoolean(),
-                            AllowSingersToReorder = sessionDto.TryGetProperty("allowSingersToReorder", out var allowReorder) 
-                                ? allowReorder.GetBoolean() 
-                                : false,
-                            PauseBetweenSongs = sessionDto.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) 
-                                ? pauseEnabled.GetBoolean() 
-                                : true,
-                            PauseBetweenSongsSeconds = sessionDto.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
-                            FilenamePattern = "%artist - %title" // Default pattern
-                        };
-                        
-                        Console.WriteLine($"SessionService: Dispatching InitializeSessionAction from backend data");
-                        _dispatcher.Dispatch(new InitializeSessionAction(session));
-                    }
-                    else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        Console.WriteLine($"SessionService: Session {sessionId} not found on backend (expired or invalid)");
-                        throw new InvalidOperationException("Session has expired or does not exist. Please start a new session.");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"SessionService: Failed to fetch session config: {response.StatusCode}");
-                        throw new InvalidOperationException($"Failed to retrieve session configuration: {response.StatusCode}");
-                    }
-                }
-                catch (InvalidOperationException)
-                {
-                    // Re-throw InvalidOperationException (our own exceptions)
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SessionService: Error fetching session from backend: {ex.Message}");
-                    throw new InvalidOperationException("Unable to connect to session. Please check your network connection and try again.", ex);
-                }
-            }
-
-            // Restore playlist if present in sessionStorage (for same-device tab reopening)
-            // SignalR will also send initial state (for new devices), providing redundancy
-            if (stateJson.TryGetProperty("playlist", out var playlistData) &&
-                playlistData.ValueKind != JsonValueKind.Null)
-            {
-                Console.WriteLine($"SessionService: Found playlist data in sessionStorage - initializing state");
-                try
-                {
-                    HandlePlaylistUpdate(playlistData);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SessionService: Failed to restore playlist from sessionStorage: {ex.Message}");
-                }
-            }
-            else
-            {
-                Console.WriteLine($"SessionService: No playlist data in sessionStorage - will receive initial state from SignalR");
-            }
+            await RestoreSessionConfigAsync(sessionId, stateJson);
+            await RestorePlaylistStateAsync(stateJson);
         }
         catch (InvalidOperationException)
         {
@@ -385,67 +254,166 @@ public class SessionService : ISessionService
             catch { }
         }
     }
-    
+
     /// <summary>
-    /// Initialize library by fetching from server with retry logic
+    /// Wait for state synchronization from main tab (with timeout)
     /// </summary>
-    private async Task InitializeLibraryAsync(Guid sessionId)
+    private async Task<DotNetObjectReference<StateSync>> WaitForStateSyncAsync()
     {
-        if (_sessionBridgeModule == null)
-            return;
-
-        const int maxRetries = 3;
-        var delays = new[] { 2000, 4000, 8000 }; // Exponential backoff: 2s, 4s, 8s
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        var syncCompletionSource = new TaskCompletionSource<bool>();
+        var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        
+        // Set up event listener for state sync
+        var dotNetRef = DotNetObjectReference.Create(new StateSync(syncCompletionSource));
+        await _sessionBridgeModule!.InvokeVoidAsync("setupStateSyncListener", dotNetRef);
+        
+        // Wait for sync or timeout
+        var syncTask = syncCompletionSource.Task;
+        var timeoutTask = Task.Delay(5000, timeoutCts.Token);
+        var completedTask = await Task.WhenAny(syncTask, timeoutTask);
+        
+        if (completedTask == syncTask)
         {
+            Console.WriteLine($"SessionService: State sync completed");
+        }
+        else
+        {
+            Console.WriteLine($"SessionService: State sync timed out, using current sessionStorage");
+        }
+
+        return dotNetRef;
+    }
+
+    /// <summary>
+    /// Read session state from browser sessionStorage
+    /// </summary>
+    private async Task<JsonElement> ReadSessionStorageAsync(Guid sessionId)
+    {
+        var stateJson = await _sessionBridgeModule!.InvokeAsync<JsonElement>("getSessionStateForSession", sessionId.ToString());
+        Console.WriteLine($"SessionService: Got state from sessionStorage: {stateJson}");
+        return stateJson;
+    }
+
+    /// <summary>
+    /// Restore session configuration from sessionStorage or backend API
+    /// </summary>
+    private async Task RestoreSessionConfigAsync(Guid sessionId, JsonElement stateJson)
+    {
+        if (stateJson.TryGetProperty("session", out var sessionData) && 
+            sessionData.ValueKind != JsonValueKind.Null)
+        {
+            Console.WriteLine($"SessionService: Found session data in sessionStorage");
+            var session = ParseSessionFromJson(sessionId, sessionData);
+            
+            Console.WriteLine($"SessionService: Dispatching InitializeSessionAction");
+            _dispatcher.Dispatch(new InitializeSessionAction(session));
+        }
+        else
+        {
+            Console.WriteLine($"SessionService: No session data found in sessionStorage - multi-device scenario detected");
+            await FetchSessionConfigFromBackendAsync(sessionId);
+        }
+    }
+
+    /// <summary>
+    /// Parse session configuration from JSON
+    /// </summary>
+    private Session ParseSessionFromJson(Guid sessionId, JsonElement sessionData)
+    {
+        return new Session
+        {
+            SessionId = sessionId,
+            RequireSingerName = sessionData.GetProperty("requireSingerName").GetBoolean(),
+            AllowSingersToReorder = sessionData.TryGetProperty("allowSingerReorder", out var allowReorder) 
+                ? allowReorder.GetBoolean() 
+                : false,
+            PauseBetweenSongs = sessionData.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) 
+                ? pauseEnabled.GetBoolean() 
+                : true,
+            PauseBetweenSongsSeconds = sessionData.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
+            FilenamePattern = sessionData.GetProperty("filenamePattern").GetString() ?? "%artist - %title"
+        };
+    }
+
+    /// <summary>
+    /// Fetch session configuration from backend API (multi-device scenario)
+    /// </summary>
+    private async Task FetchSessionConfigFromBackendAsync(Guid sessionId)
+    {
+        try
+        {
+            Console.WriteLine($"SessionService: Fetching session config from backend API");
+            var response = await _httpClient.GetAsync($"/api/sessions/{sessionId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var sessionDto = await response.Content.ReadFromJsonAsync<JsonElement>();
+                Console.WriteLine($"SessionService: Retrieved session config from backend: {sessionDto}");
+                
+                var session = new Session
+                {
+                    SessionId = sessionId,
+                    RequireSingerName = sessionDto.GetProperty("requireSingerName").GetBoolean(),
+                    AllowSingersToReorder = sessionDto.TryGetProperty("allowSingersToReorder", out var allowReorder) 
+                        ? allowReorder.GetBoolean() 
+                        : false,
+                    PauseBetweenSongs = sessionDto.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) 
+                        ? pauseEnabled.GetBoolean() 
+                        : true,
+                    PauseBetweenSongsSeconds = sessionDto.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
+                    FilenamePattern = "%artist - %title" // Default pattern
+                };
+                
+                Console.WriteLine($"SessionService: Dispatching InitializeSessionAction from backend data");
+                _dispatcher.Dispatch(new InitializeSessionAction(session));
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                Console.WriteLine($"SessionService: Session {sessionId} not found on backend (expired or invalid)");
+                throw new InvalidOperationException("Session has expired or does not exist. Please start a new session.");
+            }
+            else
+            {
+                Console.WriteLine($"SessionService: Failed to fetch session config: {response.StatusCode}");
+                throw new InvalidOperationException($"Failed to retrieve session configuration: {response.StatusCode}");
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Re-throw our own exceptions
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SessionService: Error fetching session from backend: {ex.Message}");
+            throw new InvalidOperationException("Unable to connect to session. Please check your network connection and try again.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Restore playlist state from sessionStorage if available
+    /// </summary>
+    private async Task RestorePlaylistStateAsync(JsonElement stateJson)
+    {
+        if (stateJson.TryGetProperty("playlist", out var playlistData) &&
+            playlistData.ValueKind != JsonValueKind.Null)
+        {
+            Console.WriteLine($"SessionService: Found playlist data in sessionStorage - initializing state");
             try
             {
-                Console.WriteLine($"SessionService: Fetching library from server (attempt {attempt + 1}/{maxRetries + 1})");
-                
-                var pageResult = await _sessionBridgeModule.InvokeAsync<JsonElement>(
-                    "fetchLibraryPage", 
-                    sessionId.ToString(), 
-                    1, // page
-                    50, // pageSize
-                    null, // searchQuery
-                    null // sortBy
-                );
-                
-                if (pageResult.ValueKind != JsonValueKind.Undefined && pageResult.ValueKind != JsonValueKind.Null)
-                {
-                    if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
-                    {
-                        // IMPORTANT: This is a fallback for legacy code paths only
-                        // New code should dispatch LoadPageAction and let LibraryEffects handle fetching
-                        // Songs fetched from server have NO file paths (privacy protection)
-                        var songs = itemsArr.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
-                        _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
-                        Console.WriteLine($"SessionService: Successfully loaded {songs.Count} songs from server (legacy path)");
-                        return; // Success, exit retry loop
-                    }
-                }
-                
-                Console.WriteLine("SessionService: Empty or invalid response from server");
+                HandlePlaylistUpdate(playlistData);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SessionService: Failed to fetch library (attempt {attempt + 1}): {ex.Message}");
-                
-                if (attempt < maxRetries)
-                {
-                    var delay = delays[attempt];
-                    Console.WriteLine($"SessionService: Retrying in {delay}ms...");
-                    await Task.Delay(delay);
-                }
+                Console.WriteLine($"SessionService: Failed to restore playlist from sessionStorage: {ex.Message}");
             }
         }
-
-        // All retries failed
-        Console.WriteLine("SessionService: All retry attempts failed");
-        _dispatcher.Dispatch(new LoadLibraryFailureAction(
-            "Karaoke Session ended. Connect to new session via shown link."
-        ));
+        else
+        {
+            Console.WriteLine($"SessionService: No playlist data in sessionStorage - will receive initial state from SignalR");
+        }
+        
+        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -658,7 +626,7 @@ public class SessionService : ISessionService
                 Title: s.Title,
                 SingerName: s.AddedBySinger,
                 Position: index,
-                Status: 0 // Queued
+                Status: (int)SongStatus.Queued
             )).ToList();
 
             var currentSongDto = currentSong != null ? new PlaylistItemDto(
@@ -668,7 +636,7 @@ public class SessionService : ISessionService
                 Title: currentSong.Title,
                 SingerName: currentSong.AddedBySinger,
                 Position: 0,
-                Status: 2 // NowPlaying
+                Status: (int)SongStatus.NowPlaying
             ) : null;
 
             _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));
