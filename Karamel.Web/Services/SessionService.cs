@@ -4,6 +4,7 @@ using Karamel.Web.Store.Library;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
 using Microsoft.JSInterop;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Karamel.Web.Contracts;
 
@@ -292,7 +293,57 @@ public class SessionService : ISessionService
             }
             else
             {
-                Console.WriteLine($"SessionService: No session data found in sessionStorage");
+                Console.WriteLine($"SessionService: No session data found in sessionStorage - multi-device scenario detected");
+                
+                // Multi-device scenario: fetch session config from backend API
+                try
+                {
+                    Console.WriteLine($"SessionService: Fetching session config from backend API");
+                    var response = await _httpClient.GetAsync($"/api/sessions/{sessionId}");
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var sessionDto = await response.Content.ReadFromJsonAsync<JsonElement>();
+                        Console.WriteLine($"SessionService: Retrieved session config from backend: {sessionDto}");
+                        
+                        var session = new Session
+                        {
+                            SessionId = sessionId,
+                            RequireSingerName = sessionDto.GetProperty("requireSingerName").GetBoolean(),
+                            AllowSingersToReorder = sessionDto.TryGetProperty("allowSingersToReorder", out var allowReorder) 
+                                ? allowReorder.GetBoolean() 
+                                : false,
+                            PauseBetweenSongs = sessionDto.TryGetProperty("pauseBetweenSongs", out var pauseEnabled) 
+                                ? pauseEnabled.GetBoolean() 
+                                : true,
+                            PauseBetweenSongsSeconds = sessionDto.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
+                            FilenamePattern = "%artist - %title" // Default pattern
+                        };
+                        
+                        Console.WriteLine($"SessionService: Dispatching InitializeSessionAction from backend data");
+                        _dispatcher.Dispatch(new InitializeSessionAction(session));
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        Console.WriteLine($"SessionService: Session {sessionId} not found on backend (expired or invalid)");
+                        throw new InvalidOperationException("Session has expired or does not exist. Please start a new session.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"SessionService: Failed to fetch session config: {response.StatusCode}");
+                        throw new InvalidOperationException($"Failed to retrieve session configuration: {response.StatusCode}");
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Re-throw InvalidOperationException (our own exceptions)
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SessionService: Error fetching session from backend: {ex.Message}");
+                    throw new InvalidOperationException("Unable to connect to session. Please check your network connection and try again.", ex);
+                }
             }
 
             // Restore playlist if present in sessionStorage (for same-device tab reopening)
@@ -314,6 +365,11 @@ public class SessionService : ISessionService
             {
                 Console.WriteLine($"SessionService: No playlist data in sessionStorage - will receive initial state from SignalR");
             }
+        }
+        catch (InvalidOperationException)
+        {
+            // Re-throw session-specific exceptions (session expired, network errors, etc.)
+            throw;
         }
         catch (Exception ex)
         {

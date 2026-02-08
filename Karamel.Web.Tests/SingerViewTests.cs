@@ -56,8 +56,8 @@ public class SingerViewTests : SessionTestBase
 
         // Assert
         var alert = cut.Find(".alert-danger");
-        Assert.Contains("Invalid Session", alert.TextContent);
-        Assert.Contains("No active karaoke session found", alert.TextContent);
+        Assert.Contains("Session Loading Failed", alert.TextContent);
+        Assert.Contains("Unable to load the karaoke session", alert.TextContent);
     }
 
     [Fact]
