@@ -69,7 +69,11 @@ export async function extractMetadata(fileOrBuffer, relativePath, filenamePatter
                 };
             }
         } catch (error) {
-            console.warn('ID3 tag extraction failed, falling back to filename parsing:', error);
+            console.warn('ID3 tag extraction failed, falling back to filename parsing:', {
+                errorType: error.type || 'unknown',
+                errorMessage: error.info || error.message || String(error),
+                filePath: relativePath
+            });
         }
     }
 
