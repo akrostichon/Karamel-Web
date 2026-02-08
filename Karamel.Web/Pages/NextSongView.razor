@@ -68,17 +68,21 @@
                 @if (isTimerActive && remainingSeconds > 0)
                 {
                     <div class="countdown-progress">
-                        <div class="progress-bar" style="width: @(progressPercentage)%"></div>
+                        <div class="progress-bar" style="width: @(progressPercentage.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
                         <span class="countdown-text">@Math.Ceiling(remainingSeconds) s</span>
                     </div>
                 }
 
-                <!-- Lower-left area for microphone icon + QR code when there is a next song -->
+                <!-- Lower-left area for QR code when there is a next song -->
                 <div class="qrcode-area qrcode-section">
-                    <div class="qrcode-content">
-                        <div class="microphone-icon small">
+                    @if (isTimerActive && remainingSeconds > 0)
+                    {
+                        <!-- Karamel icon above QR/link pane during countdown -->
+                        <div class="microphone-icon-above-qr">
                             <img src="/Karamel-icon.jpeg" alt="Karamel" class="karamel-icon" />
                         </div>
+                    }
+                    <div class="qrcode-content">
                         <p class="qrcode-label">Sing a song</p>
                         @if (isLocalhost)
                         {

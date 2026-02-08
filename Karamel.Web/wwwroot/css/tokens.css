@@ -106,6 +106,7 @@
   --color-primary-dark: #8B5A2B;
   --color-accent: #FF93CE;
   --color-surface: var(--color-surface-dark);
+  --color-surface-contrast: #2e231d;
   --color-bg: var(--gradient-dark);
   --color-text: #F5E1C0;
   --color-text-border: var(--color-text);
