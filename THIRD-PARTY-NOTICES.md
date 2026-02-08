@@ -5,33 +5,43 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
 ## Dependencies
 
 - CDGraphics.js
-  - Version: referenced via CDN (cdgraphics.js v7.x)
+ - CDGraphics.js
+  - Version: included locally under `wwwroot/lib/cdgraphics` (cdgraphics v7.0.0)
   - License: ISC
   - Source: https://github.com/adrienjoly/cdgraphics
   - Notes: Used client-side for CDG rendering. ISC is permissive and compatible with MIT.
 
 - jsmediatags
-  - Version: referenced via CDN (jsmediatags 3.9.5+esm)
+ - jsmediatags
+  - Version: included locally under `wwwroot/lib/jsmediatags` (jsmediatags v3.9.7 as listed in `wwwroot/package.json`)
   - License: LGPL-3.0
   - Source: https://github.com/aadsm/jsmediatags
-  - Notes: LGPL-3.0 is a copyleft license; usage here is client-side only. If you redistribute modified versions of the library, ensure compliance with LGPL-3.0 terms. Consider replacing with an MIT-licensed alternative if redistribution concerns arise.
+  - Notes: LGPL-3.0 is a copyleft license; the repository includes a local copy for client-side use. If you redistribute a packaged artifact that bundles this library, ensure compliance with LGPL-3.0 (provide source or follow LGPL requirements). Consider an MIT alternative if redistribution constraints are undesirable.
 
 - QRCode.js
-  - Version: referenced via CDN (qrcodejs 1.0.0)
+ - QRCode.js
+  - Version: included locally under `wwwroot/lib/qrcodejs` (qrcodejs v1.0.0)
   - License: MIT
   - Source: https://github.com/davidshimjs/qrcodejs
   - Notes: Used for generating QR codes linking to singer pages.
 
 - JSZip
-  - Version: referenced via CDN for runtime; devDependency pinned in `wwwroot/package.json` (jszip ^4.0.0)
+ - JSZip
+  - Version: included locally under `wwwroot/lib/jszip` (jszip v3.10.1, devDependency in `wwwroot/package.json`)
   - License: MIT
   - Source: https://github.com/Stuk/jszip
-  - Notes: Used client-side to enumerate and extract entries from ZIP archives lazily. Runtime usage will import from CDN (for example: https://cdn.jsdelivr.net/npm/jszip@4.0.0/dist/jszip.min.js). Include the MIT license text when redistributing the package.
+  - Notes: Used client-side to enumerate and extract entries from ZIP archives lazily. The project contains a local copy (`wwwroot/lib/jszip/jszip.min.js`); it is not loaded from CDN at runtime. Include the MIT license text when redistributing the package.
 
 - Fluxor
   - Version: added as a NuGet dependency for Blazor state management
   - License: MIT
   - Source: https://github.com/mrpmorris/Fluxor
+
+- @microsoft/signalr
+  - Version: included locally under `wwwroot/lib/signalr` and listed in `wwwroot/package.json` (signalr / @microsoft/signalr v10.0.0)
+  - License: MIT
+  - Source: https://github.com/dotnet/aspnetcore/tree/main/src/SignalR/clients/ts/signalr
+  - Notes: Used for client-side SignalR communication with the backend; local copy lives in `wwwroot/lib/signalr`.
 
 ## Additional Dependencies Found in Repository
 
@@ -63,6 +73,12 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
   - License: MIT (verify upstream)
   - Source: https://github.com/capricorn86/happy-dom
   - Notes: Test environment for Vitest in Node; development-only dependency.
+
+- Awesome GitHub Copilot Instructions
+  - Version: adapted from github/awesome-copilot repository
+  - License: MIT
+  - Source: https://github.com/github/awesome-copilot
+  - Notes: Several instruction files in `.github/instructions/` directory were adapted from the Awesome GitHub Copilot community collection (code-review-generic.instructions.md, agents.instructions.md, agent-skills.instructions.md, instructions.instructions.md). These are development-time configuration files for GitHub Copilot customization.
 
 ## Redistribution notes
 

@@ -86,9 +86,14 @@
             <section class="mb-5">
                 <h2>5. Externe Bibliotheken (lokal gehostet)</h2>
                 <p>
-                    Alle JavaScript-Bibliotheken (Bootstrap Icons, SignalR, jsmediatags, QRCode.js, CDGraphics) werden 
-                    <strong>lokal auf unseren Servern</strong> gehostet. Es erfolgt <strong>keine Übermittlung Ihrer IP-Adresse 
-                    an Drittanbieter</strong> (wie jsdelivr.net oder cdnjs.cloudflare.com) beim Laden der Website.
+                    Alle JavaScript-Bibliotheken (z. B. Bootstrap Icons, SignalR, jsmediatags, QRCode.js, CDGraphics, JSZip) werden
+                    <strong>lokal in diesem Projekt</strong> unter <code>wwwroot/lib/</code> gehostet. Es erfolgt <strong>keine
+                    Übermittlung Ihrer IP-Adresse an Drittanbieter</strong> (z. B. jsdelivr.net oder cdnjs.cloudflare.com) beim Laden
+                    der Website.
+                </p>
+                <p>
+                    Die Anwendung verwendet keine externen CDN-Fallbacks. Alle benötigten Bibliotheken liegen als versionierte
+                    Dateien in <code>wwwroot/lib/</code>, sodass beim Laden keine Anfragen an Drittanbieter-Domains ausgeführt werden.
                 </p>
             </section>
 

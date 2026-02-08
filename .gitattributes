@@ -1,0 +1,3 @@
+# Prevent Git from converting line endings in minified JavaScript files
+# These files should maintain their original line endings (LF) as distributed by npm
+*.min.js -text

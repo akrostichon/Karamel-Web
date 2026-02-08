@@ -57,7 +57,8 @@ Execute these steps in order for the target Phase/Step:
    - Write minimal code to satisfy tests and acceptance criteria
    - Follow existing project patterns and architecture
 
-5. **Validate Locally**
+5. **Validate Locally** 
+   - Only run tests relevant to the changes made (do not run the entire suite unless necessary)
    - Run C# frontend tests: `dotnet test Karamel.Web.Tests`
    - Run JS tests: `cd Karamel.Web/wwwroot && npm run test:run`
    - For backend changes: Ask user to manually run `dotnet test Karamel.Backend.Tests`
