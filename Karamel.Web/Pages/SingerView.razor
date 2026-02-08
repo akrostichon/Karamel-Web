@@ -182,8 +182,11 @@
             isInitializing = true;
             await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
 
-            // Dispatch LoadPageAction to prefetch first page from server
+            // Dispatch LoadPageAction to fetch first page from backend API with pagination metadata
+            // This works for both same-device and multi-device scenarios (backend API is device-agnostic)
+            Console.WriteLine($"SingerView: About to dispatch LoadPageAction(Page: 1, SearchQuery: null, Append: false)");
             Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false));
+            Console.WriteLine($"SingerView: LoadPageAction dispatched");
             
             Console.WriteLine($"SingerView: Current session state after init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
             if (SessionState.Value.CurrentSession != null)

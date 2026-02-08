@@ -124,6 +124,7 @@ namespace Karamel.Backend.Repositories
             };
 
             var total = await query.LongCountAsync();
+            
             var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
                 .ToListAsync();

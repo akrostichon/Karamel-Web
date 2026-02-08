@@ -295,8 +295,8 @@ public class SessionService : ISessionService
                 Console.WriteLine($"SessionService: No session data found in sessionStorage");
             }
 
-            // Initialize library from server (no longer using sessionStorage)
-            await InitializeLibraryAsync(sessionId);
+            // Library will be loaded by component dispatching LoadPageAction (proper Fluxor flow)
+            // This ensures pagination metadata (totalCount, currentPage) is captured correctly
 
             // Restore playlist if present in sessionStorage (for same-device tab reopening)
             // SignalR will also send initial state (for new devices), providing redundancy
@@ -363,11 +363,12 @@ public class SessionService : ISessionService
                 {
                     if (pageResult.TryGetProperty("items", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
                     {
-                        // IMPORTANT: Songs fetched from server have NO file paths (privacy protection)
-                        // Secondary tabs can browse/search library but cannot play songs (no file access)
+                        // IMPORTANT: This is a fallback for legacy code paths only
+                        // New code should dispatch LoadPageAction and let LibraryEffects handle fetching
+                        // Songs fetched from server have NO file paths (privacy protection)
                         var songs = itemsArr.EnumerateArray().Select(SongConverters.ConvertJsonToSong).ToList();
                         _dispatcher.Dispatch(new LoadLibrarySuccessAction(songs));
-                        Console.WriteLine($"SessionService: Successfully loaded {songs.Count} songs from server");
+                        Console.WriteLine($"SessionService: Successfully loaded {songs.Count} songs from server (legacy path)");
                         return; // Success, exit retry loop
                     }
                 }

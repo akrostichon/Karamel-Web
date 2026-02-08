@@ -99,6 +99,7 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()
+              .WithExposedHeaders("X-Total-Count")
               .SetIsOriginAllowedToAllowWildcardSubdomains();
     });
     
@@ -112,7 +113,8 @@ builder.Services.AddCors(options =>
         })
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials();
+        .AllowCredentials()
+        .WithExposedHeaders("X-Total-Count");
     });
     
     // Production CORS policy for Azure Static Web App
@@ -123,7 +125,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowCredentials()
+              .WithExposedHeaders("X-Total-Count");
     });
 });
 // Register controllers for API endpoints
