@@ -99,7 +99,7 @@ public class NavigationFlowTests : TestContext
 
         // Assert
         var alert = cut.Find(".alert-danger");
-        Assert.Contains("Invalid Session", alert.TextContent);
+        Assert.Contains("Session Loading Failed", alert.TextContent);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class NavigationFlowTests : TestContext
 
         // Assert
         var alert = cut.Find(".alert-danger");
-        Assert.Contains("Invalid Session", alert.TextContent);
+        Assert.Contains("Session Loading Failed", alert.TextContent);
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public class NavigationFlowTests : TestContext
 
         // Assert
         var alert = cut.Find(".alert-danger");
-        Assert.Contains("Invalid Session", alert.TextContent);
+        Assert.Contains("Session Loading Failed", alert.TextContent);
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class NavigationFlowTests : TestContext
 
         // Assert - Should show invalid session because IDs don't match
         var alert = cut.Find(".alert-danger");
-        Assert.Contains("Invalid Session", alert.TextContent);
+        Assert.Contains("Session Loading Failed", alert.TextContent);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public class NavigationFlowTests : TestContext
         // Assert - Should show error because session IDs don't match
         var alerts1 = cut1.FindAll(".alert-danger");
         Assert.NotEmpty(alerts1);
-        Assert.Contains("Invalid Session", alerts1[0].TextContent);
+        Assert.Contains("Session Loading Failed", alerts1[0].TextContent);
     }
 
     #endregion
