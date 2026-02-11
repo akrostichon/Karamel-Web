@@ -248,35 +248,25 @@ async function processZipFiles(zipFiles, relativePath, filenamePattern, songsAcc
  * @returns {Promise<Array>} Array of song metadata objects
  */
 export async function pickLibraryDirectory(filenamePattern = '%artist - %title', progressStep = 10) {
-    performance.mark('library-scan-start');
-    
     // Clear any previous ID3 tag failures from prior scans
     clearID3FailureLog();
     
     try {
         libraryDirectoryHandle = await window.showDirectoryPicker({ mode: 'read' });
-        performance.mark('directory-picker-complete');
-        
         const validPattern = validatePattern(filenamePattern);
         
         const songs = [];
         const matchedCountRef = { count: 0 };
 
         async function scanDirectory(directoryHandle, songsAcc, relativePath = '') {
-            performance.mark('categorize-start');
             const { mp3Files, cdgFiles, zipFiles, subdirectories } = 
                 await categorizeDirectoryEntries(directoryHandle);
-            performance.mark('categorize-complete');
 
             // Process ZIP files first (they're already complete songs)
-            performance.mark('zip-processing-start');
             await processZipFiles(zipFiles, relativePath, validPattern, songsAcc, matchedCountRef);
-            performance.mark('zip-processing-complete');
 
             // Process MP3/CDG pairs
-            performance.mark('pairs-processing-start');
             await processMp3CdgPairs(mp3Files, cdgFiles, relativePath, validPattern, songsAcc, progressStep, matchedCountRef);
-            performance.mark('pairs-processing-complete');
 
             // Recursively scan subdirectories
             for (const subdir of subdirectories) {
@@ -285,47 +275,13 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
             }
         }
 
-        performance.mark('scan-start');
         await scanDirectory(libraryDirectoryHandle, songs);
-        performance.mark('scan-complete');
-        
         // Flush batched ID3 tag failures to console (after scan completes)
         flushID3FailureLog();
         
         reportScanProgress(songs.length, progressStep, true);
-        performance.mark('library-scan-complete');
 
-        // Create performance measures
-        performance.measure('directory-selection', 'library-scan-start', 'directory-picker-complete');
-        performance.measure('file-scanning', 'scan-start', 'scan-complete');
-        performance.measure('total-library-load', 'library-scan-start', 'library-scan-complete');
-        
-        // Try to measure sub-phases (may not exist if no files processed)
-        try {
-            performance.measure('file-categorization', 'categorize-start', 'categorize-complete');
-            performance.measure('zip-file-processing', 'zip-processing-start', 'zip-processing-complete');
-            performance.measure('mp3-cdg-pair-processing', 'pairs-processing-start', 'pairs-processing-complete');
-        } catch (e) {
-            // Marks may not exist if no files were found
-        }
-
-        // Log performance results
-        const measures = performance.getEntriesByType('measure')
-            .filter(m => m.name.includes('library') || m.name.includes('directory') || 
-                        m.name.includes('scanning') || m.name.includes('categorization') || 
-                        m.name.includes('processing'));
-        
-        console.log('📊 Library Scan Performance:');
-        measures.forEach(m => {
-            console.log(`  ${m.name}: ${Math.round(m.duration)}ms`);
-        });
-        
-        const totalMeasure = measures.find(m => m.name === 'total-library-load');
-        const totalDuration = totalMeasure ? totalMeasure.duration : 0;
-        
-        console.log(`Library scan complete: ${songs.length} songs found in ${(totalDuration / 1000).toFixed(2)}s`);
-        console.log(`  Performance: ${(songs.length / (totalDuration / 1000)).toFixed(2)} songs/second`);
-        
+        console.log(`Library scan complete: ${songs.length} songs found`);
         return songs;
     } catch (error) {
         console.error('Error picking library directory:', error);
