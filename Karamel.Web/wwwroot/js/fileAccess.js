@@ -1,7 +1,7 @@
 // File System Access API wrapper for loading MP3 and CDG files
 // Store file data in module-level variables to avoid JSON serialization issues
 
-import { extractMetadata, validatePattern } from './metadata.js';
+import { extractMetadata, validatePattern, flushID3FailureLog, clearID3FailureLog } from './metadata.js';
 import * as byteStore from './byteStore.js';
 import * as zipHelper from './zipHelper.js';
 import * as dirHelper from './dirHelper.js';
@@ -183,15 +183,42 @@ async function categorizeDirectoryEntries(directoryHandle) {
  * @private
  */
 async function processMp3CdgPairs(mp3Files, cdgFiles, relativePath, filenamePattern, songsAcc, progressStep, matchedCountRef) {
+    const BATCH_SIZE = 20;
+    
+    // Filter to only matching pairs
+    const matchingPairs = [];
     for (const [baseName, mp3Data] of mp3Files) {
-        if (!cdgFiles.has(baseName)) continue;
-
-        const song = await buildDirectorySong(mp3Data, relativePath, filenamePattern);
-        songsAcc.push(song);
-        matchedCountRef.count++;
-
-        if (matchedCountRef.count % progressStep === 0) {
-            reportScanProgress(matchedCountRef.count, progressStep);
+        if (cdgFiles.has(baseName)) {
+            matchingPairs.push({ baseName, mp3Data });
+        }
+    }
+    
+    // Process pairs in parallel batches
+    for (let i = 0; i < matchingPairs.length; i += BATCH_SIZE) {
+        const batch = matchingPairs.slice(i, i + BATCH_SIZE);
+        
+        const batchPromises = batch.map(async ({ baseName, mp3Data }) => {
+            try {
+                const song = await buildDirectorySong(mp3Data, relativePath, filenamePattern);
+                return song;
+            } catch (error) {
+                console.warn(`Failed to process MP3/CDG pair: ${baseName}`, error);
+                return null;
+            }
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        
+        // Add successful songs to collection and update progress
+        for (const song of batchResults) {
+            if (song) {
+                songsAcc.push(song);
+                matchedCountRef.count++;
+                
+                if (matchedCountRef.count % progressStep === 0) {
+                    reportScanProgress(matchedCountRef.count, progressStep);
+                }
+            }
         }
     }
 }
@@ -221,6 +248,9 @@ async function processZipFiles(zipFiles, relativePath, filenamePattern, songsAcc
  * @returns {Promise<Array>} Array of song metadata objects
  */
 export async function pickLibraryDirectory(filenamePattern = '%artist - %title', progressStep = 10) {
+    // Clear any previous ID3 tag failures from prior scans
+    clearID3FailureLog();
+    
     try {
         libraryDirectoryHandle = await window.showDirectoryPicker({ mode: 'read' });
         const validPattern = validatePattern(filenamePattern);
@@ -246,6 +276,9 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
         }
 
         await scanDirectory(libraryDirectoryHandle, songs);
+        // Flush batched ID3 tag failures to console (after scan completes)
+        flushID3FailureLog();
+        
         reportScanProgress(songs.length, progressStep, true);
 
         console.log(`Library scan complete: ${songs.length} songs found`);

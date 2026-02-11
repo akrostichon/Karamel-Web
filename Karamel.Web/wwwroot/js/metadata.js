@@ -5,6 +5,10 @@
 let jsmediatags;
 let id3Enabled = false;
 
+// Module-level array to batch ID3 tag failures for performance
+// (avoid expensive console.warn calls during large library scans)
+let id3Failures = [];
+
 try {
     // Try npm package first (for tests with Node.js environment)
     const module = await import('jsmediatags');
@@ -69,7 +73,8 @@ export async function extractMetadata(fileOrBuffer, relativePath, filenamePatter
                 };
             }
         } catch (error) {
-            console.warn('ID3 tag extraction failed, falling back to filename parsing:', {
+            // Batch ID3 failures for later logging (performance optimization)
+            id3Failures.push({
                 errorType: error.type || 'unknown',
                 errorMessage: error.info || error.message || String(error),
                 filePath: relativePath
@@ -197,4 +202,33 @@ export function validatePattern(pattern) {
     }
 
     return pattern.trim();
+}
+
+/**
+ * Flush all batched ID3 tag failures to console
+ * Call this after library scan completes to report all issues at once
+ * @returns {void}
+ */
+export function flushID3FailureLog() {
+    if (id3Failures.length === 0) {
+        return;
+    }
+
+    console.groupCollapsed(`⚠️ ${id3Failures.length} file(s) had ID3 tag issues (fell back to filename parsing)`);
+    id3Failures.forEach((failure, index) => {
+        console.warn(`[${index + 1}/${id3Failures.length}] ${failure.filePath}`, {
+            errorType: failure.errorType,
+            errorMessage: failure.errorMessage
+        });
+    });
+    console.groupEnd();
+}
+
+/**
+ * Clear the batched ID3 tag failure log
+ * Call this at the start of a new library scan
+ * @returns {void}
+ */
+export function clearID3FailureLog() {
+    id3Failures = [];
 }

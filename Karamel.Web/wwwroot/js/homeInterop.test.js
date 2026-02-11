@@ -27,7 +27,9 @@ vi.mock('./metadata.js', () => ({
             return '%artist - %title'; // Default pattern
         }
         return pattern;
-    })
+    }),
+    clearID3FailureLog: vi.fn(),
+    flushID3FailureLog: vi.fn()
 }));
 
 // Import mocked modules

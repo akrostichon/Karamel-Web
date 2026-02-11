@@ -11,7 +11,9 @@ vi.mock('../js/metadata.js', () => ({
     }
     return { artist: 'Unknown Artist', title: nameOnly || 'Unknown Title' };
   }),
-  validatePattern: vi.fn((pattern) => pattern || '%artist - %title')
+  validatePattern: vi.fn((pattern) => pattern || '%artist - %title'),
+  clearID3FailureLog: vi.fn(),
+  flushID3FailureLog: vi.fn()
 }));
 
 class MockFileSystemFileHandle { constructor(name, contentBuffer) { this.kind = 'file'; this.name = name; this._content = contentBuffer; } async getFile() { const buf = this._content instanceof Uint8Array ? this._content.buffer : this._content; return { name: this.name, async arrayBuffer() { return buf; } }; } }
