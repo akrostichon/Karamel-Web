@@ -14,7 +14,9 @@ vi.mock('../js/metadata.js', () => ({
     
     return { artist: 'Unknown Artist', title: nameOnly || 'Unknown Title' };
   }),
-  validatePattern: vi.fn((pattern) => pattern || '%artist - %title')
+  validatePattern: vi.fn((pattern) => pattern || '%artist - %title'),
+  clearID3FailureLog: vi.fn(),
+  flushID3FailureLog: vi.fn()
 }));
 
 // Mock File System Access API
