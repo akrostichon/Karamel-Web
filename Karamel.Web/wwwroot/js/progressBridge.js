@@ -1,3 +1,7 @@
+import { createLogger } from './logger.js';
+
+const logger = createLogger('ProgressBridge');
+
 export function registerScanProgressCallback(dotNetRef) {
     if (!dotNetRef) return;
 
@@ -11,9 +15,9 @@ export function registerScanProgressCallback(dotNetRef) {
         try {
             const detail = e && e.detail ? e.detail : { scanned: 0 };
             // Call .NET method
-            dotNetRef.invokeMethodAsync('OnScanProgress', detail.scanned, !!detail.complete).catch(console.error);
+            dotNetRef.invokeMethodAsync('OnScanProgress', detail.scanned, !!detail.complete).catch(err => logger.error('Failed to invoke OnScanProgress', { error: err.message }));
         } catch (err) {
-            console.error('Failed to invoke dotnet scan progress callback', err);
+            logger.error('Failed to invoke dotnet scan progress callback', { error: err.message });
         }
     };
 

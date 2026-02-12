@@ -2,6 +2,9 @@
  * Session protection module - prevents accidental main tab closure
  */
 
+import { createLogger } from './logger.js';
+
+const logger = createLogger('SessionProtection');
 let beforeUnloadHandler = null;
 let originalTitle = null;
 
@@ -29,7 +32,7 @@ export function setMainTabProtection(message) {
         document.title = '🎤 [MAIN] ' + document.title;
     }
 
-    console.log('Main tab protection enabled');
+    logger.debug('Main tab protection enabled');
 }
 
 /**
@@ -47,5 +50,5 @@ export function removeMainTabProtection() {
         originalTitle = null;
     }
 
-    console.log('Main tab protection disabled');
+    logger.debug('Main tab protection disabled');
 }

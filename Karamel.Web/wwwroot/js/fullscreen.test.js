@@ -176,9 +176,11 @@ describe('fullscreen.js', () => {
             
             await new Promise(resolve => setTimeout(resolve, 10));
             
+            // Logger format: [timestamp] [ModuleName] [LEVEL] Message { properties } { metadata }
             expect(consoleError).toHaveBeenCalledWith(
-                'Error calling OnFullscreenChanged:',
-                expect.any(Error)
+                expect.stringContaining('[Fullscreen] [ERROR] Error calling OnFullscreenChanged'),
+                expect.objectContaining({ error: 'DotNet error' }),
+                expect.objectContaining({ moduleName: 'Fullscreen' })
             );
             
             consoleError.mockRestore();
