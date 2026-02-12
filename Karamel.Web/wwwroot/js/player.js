@@ -2,6 +2,9 @@
 
 import CDGraphics from '/lib/cdgraphics/cdgraphics.esm.js';
 import * as byteStore from './byteStore.js';
+import { createLogger } from './logger.js';
+
+const logger = createLogger('Player');
 
 let cdgPlayer = null;
 let audioElement = null;
@@ -22,7 +25,10 @@ export function initializePlayerWithCallback(dotNetReference) {
         canvasElement = document.getElementById('cdgCanvas');
         
         if (!audioElement || !canvasElement) {
-            console.error('Audio or canvas element not found');
+            logger.error('Audio or canvas element not found', {
+                hasAudio: !!audioElement,
+                hasCanvas: !!canvasElement
+            });
             return;
         }
 
@@ -32,7 +38,10 @@ export function initializePlayerWithCallback(dotNetReference) {
 
         if (!mp3Data || !cdgData) {
             const error = new Error('Song files not loaded - loadSongFiles must be called before initializePlayerWithCallback');
-            console.error(error.message);
+            logger.error(error.message, {
+                hasMp3Data: !!mp3Data,
+                hasCdgData: !!cdgData
+            });
             throw error;
         }
 
@@ -57,16 +66,16 @@ export function initializePlayerWithCallback(dotNetReference) {
         audioElement.addEventListener('ended', onEnded);
         audioElement.addEventListener('seeked', onSeeked);
 
-        console.log('Player initialized successfully');
+        logger.debug('Player initialized successfully');
         
         // Draw initial frame
         renderFrame();
         
         // Auto-play
-        audioElement.play().catch(err => console.error('Auto-play failed:', err));
+        audioElement.play().catch(err => logger.error('Auto-play failed', { error: err.message }));
 
     } catch (error) {
-        console.error('Error initializing player:', error);
+        logger.error('Error initializing player', { error: error.message, stack: error.stack });
         throw error;
     }
 }
@@ -79,28 +88,28 @@ function onTimeUpdate() {
 }
 
 function onPlay() {
-    console.log('Playback started');
+    logger.debug('Playback started');
     startAnimation();
 }
 
 function onPause() {
-    console.log('Playback paused');
+    logger.debug('Playback paused');
     stopAnimation();
 }
 
 function onEnded() {
-    console.log('Playback ended');
+    logger.debug('Playback ended');
     stopAnimation();
     
     // Call .NET callback if available
     if (dotNetRef) {
         dotNetRef.invokeMethodAsync('OnSongEnded')
-            .catch(err => console.error('Error calling OnSongEnded:', err));
+            .catch(err => logger.error('Error calling OnSongEnded', { error: err.message }));
     }
 }
 
 function onSeeked() {
-    console.log('Seeked to:', audioElement.currentTime);
+    logger.debug('Seeked to', { currentTime: audioElement.currentTime });
     renderFrame();
 }
 
@@ -142,7 +151,7 @@ function renderFrame() {
             context.putImageData(frame.imageData, 0, 0);
         }
     } catch (error) {
-        console.error('Error rendering frame:', error);
+        logger.error('Error rendering frame', { error: error.message, stack: error.stack });
     }
 }
 
@@ -173,7 +182,7 @@ export function pausePlayback() {
 
 export function resumePlayback() {
     if (audioElement) {
-        audioElement.play().catch(err => console.error('Resume failed:', err));
+        audioElement.play().catch(err => logger.error('Resume failed', { error: err.message }));
     }
 }
 
