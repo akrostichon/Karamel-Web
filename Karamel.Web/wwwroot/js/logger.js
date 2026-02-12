@@ -66,7 +66,15 @@ function getAppInsights() {
  * @returns {string}
  */
 function formatMessage(moduleName, level, message) {
-    const timestamp = new Date().toISOString();
+    // Handle cases where Date might be mocked (e.g., in tests)
+    let timestamp;
+    try {
+        const date = new Date();
+        timestamp = date.toISOString();
+    } catch (e) {
+        // Fallback: use Date.now() if available, otherwise use placeholder
+        timestamp = Date.now ? String(Date.now()) : 'unknown';
+    }
     return `[${timestamp}] [${moduleName}] [${level}] ${message}`;
 }
 
@@ -78,9 +86,17 @@ function formatMessage(moduleName, level, message) {
  */
 function buildProperties(moduleName, properties = {}) {
     const sessionId = getCurrentSessionId();
+    // Handle cases where Date might be mocked (e.g., in tests)
+    let timestamp;
+    try {
+        const date = new Date();
+        timestamp = date.toISOString();
+    } catch (e) {
+        timestamp = Date.now ? String(Date.now()) : 'unknown';
+    }
     return {
         moduleName,
-        timestamp: new Date().toISOString(),
+        timestamp,
         ...(sessionId && { sessionId }),
         ...properties
     };
