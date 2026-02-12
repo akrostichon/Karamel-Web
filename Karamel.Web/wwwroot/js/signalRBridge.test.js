@@ -481,13 +481,15 @@ describe('signalRBridge', () => {
 
     describe('edge cases', () => {
         it('should handle unknown state types gracefully', () => {
-            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-            
             initializeSession(TEST_SESSION_ID, true);
-            broadcastStateUpdate('unknown-type', { data: 'test' });
-
-            expect(consoleSpy).toHaveBeenCalledWith('Unknown state type:', 'unknown-type');
-            consoleSpy.mockRestore();
+            
+            // Should not throw error when encountering unknown state type
+            expect(() => broadcastStateUpdate('unknown-type', { data: 'test' })).not.toThrow();
+            
+            // State should not be persisted for unknown types
+            const state = getSessionState();
+            expect(state.playlist).toBeNull();
+            expect(state.session).toBeNull();
         });
 
         it('should handle multiple initializations safely', () => {

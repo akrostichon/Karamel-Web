@@ -2,6 +2,10 @@
 // Real SignalR client with graceful fallback to BroadcastChannel + sessionStorage.
 // Exposes the same API used by `SessionService.cs` so Blazor interop keeps working.
 
+import { createLogger } from './logger.js';
+
+const logger = createLogger('SignalRBridge');
+
 let broadcastChannel = null;
 let isMainTab = false;
 let currentSessionId = null;
@@ -123,7 +127,7 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 				const event = new CustomEvent('session-state-updated', { detail: { type: 'playlist-updated', data } });
 				window.dispatchEvent(event);
 			} catch (e) {
-				console.warn('Error handling ReceivePlaylistUpdated:', e);
+				logger.warn('Error handling ReceivePlaylistUpdated', { error: e.message, sessionId });
 			}
 		});
 
@@ -133,7 +137,7 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 		usingSignalR = true;
 		return true;
 	} catch (e) {
-		console.warn('SignalR connection failed, falling back to BroadcastChannel:', e);
+		logger.warn('SignalR connection failed, falling back to BroadcastChannel', { error: e.message, sessionId });
 		usingSignalR = false;
 		hubConnection = null;
 		return false;
@@ -146,14 +150,19 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 export function initializeSession(sessionId, asMainTab, linkToken, backendUrl) {
 	if (!sessionId) throw new Error('sessionId is required');
 
-	console.log(`signalRBridge.initializeSession called: sessionId=${sessionId}, linkToken=${linkToken ? '(present)' : '(null)'}, backendUrl=${backendUrl}`);
+	logger.debug('initializeSession called', { 
+		sessionId, 
+		asMainTab, 
+		hasLinkToken: !!linkToken, 
+		backendUrl 
+	});
 
 	currentSessionId = sessionId;
 	isMainTab = !!asMainTab;
 	backendBaseUrl = backendUrl || null;
 	currentLinkToken = linkToken || null;
 
-	console.log(`signalRBridge: Stored currentLinkToken=${currentLinkToken ? '(present)' : '(null)'}`);
+	logger.debug('Stored currentLinkToken', { hasToken: !!currentLinkToken, sessionId });
 	try {
 		tabId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('tab-' + Math.random().toString(36).slice(2));
 	} catch (e) {
@@ -186,7 +195,7 @@ export function initializeSession(sessionId, asMainTab, linkToken, backendUrl) {
 					// Fallback to normal handling for other message types
 					handleBroadcastMessage(event.data);
 				} catch (e) {
-					console.error('Error handling broadcast message on main tab:', e);
+					logger.error('Error handling broadcast message on main tab', e, { sessionId });
 				}
 			};
 		} else {
@@ -209,7 +218,11 @@ export function initializeSession(sessionId, asMainTab, linkToken, backendUrl) {
 	// Attempt SignalR connection in background; do not block initialization
 	tryConnectSignalR(sessionId, linkToken, backendUrl).catch(() => {});
 
-	console.log(`Session bridge initialized as ${isMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId} (signalR=${usingSignalR})`);
+	logger.info('Session bridge initialized', { 
+		role: isMainTab ? 'MAIN' : 'SECONDARY', 
+		sessionId, 
+		usingSignalR 
+	});
 }
 
 function handleBroadcastMessage(message) {
@@ -218,7 +231,7 @@ function handleBroadcastMessage(message) {
 		const event = new CustomEvent('session-state-updated', { detail: message });
 		window.dispatchEvent(event);
 	} catch (e) {
-		console.warn('Error in handleBroadcastMessage', e);
+		logger.warn('Error in handleBroadcastMessage', { error: e.message, messageType: message?.type });
 	}
 }
 
@@ -237,12 +250,12 @@ function saveToSessionStorage(type, data) {
 				sessionState.currentSong = data;
 				break;
 			default:
-				console.warn('Unknown state type:', type);
-				return;
-		}
-		sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(sessionState));
+			logger.warn('Unknown state type', { type });
+			return;
+	}
+	sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(sessionState));
 	} catch (e) {
-		console.error('Failed to save to sessionStorage:', e);
+		logger.error('Failed to save to sessionStorage', e, { type });
 	}
 }
 
@@ -269,7 +282,7 @@ export function broadcastStateUpdate(type, data) {
 // Uses one-playlist-per-session architecture (no playlistId parameter needed)
 export async function addItemToPlaylist(songId, singerName) {
 	if (!currentSessionId) {
-		console.error('addItemToPlaylist: No current session ID');
+		logger.error('addItemToPlaylist: No current session ID', null, { operation: 'addItemToPlaylist', songId });
 		return false;
 	}
 
@@ -280,7 +293,12 @@ export async function addItemToPlaylist(songId, singerName) {
 			await hubConnection.invoke('AddItemAsync', currentSessionId, songId, singerName || null);
 			return true;
 		} catch (e) {
-			console.warn('AddItemAsync via SignalR failed, falling back to local broadcast:', e);
+			logger.warn('AddItemAsync via SignalR failed, falling back to local broadcast', { 
+				error: e.message, 
+				sessionId: currentSessionId, 
+				songId, 
+				singerName 
+			});
 		}
 	}
 
@@ -299,7 +317,7 @@ export async function addItemToPlaylist(songId, singerName) {
 
 export async function removeItemFromPlaylist(itemId) {
 	if (!currentSessionId) {
-		console.error('removeItemFromPlaylist: No current session ID');
+		logger.error('removeItemFromPlaylist: No current session ID', null, { operation: 'removeItemFromPlaylist', itemId });
 		return false;
 	}
 
@@ -309,7 +327,11 @@ export async function removeItemFromPlaylist(itemId) {
 			await hubConnection.invoke('RemoveItemAsync', currentSessionId, itemId);
 			return true;
 		} catch (e) {
-			console.warn('RemoveItemAsync via SignalR failed, falling back to local broadcast:', e);
+			logger.warn('RemoveItemAsync via SignalR failed, falling back to local broadcast', { 
+				error: e.message, 
+				sessionId: currentSessionId, 
+				itemId 
+			});
 		}
 	}
 
@@ -325,7 +347,7 @@ export async function removeItemFromPlaylist(itemId) {
 
 export async function reorderPlaylist(from, to) {
 	if (!currentSessionId) {
-		console.error('reorderPlaylist: No current session ID');
+		logger.error('reorderPlaylist: No current session ID', null, { operation: 'reorderPlaylist', from, to });
 		return false;
 	}
 
@@ -335,7 +357,12 @@ export async function reorderPlaylist(from, to) {
 			await hubConnection.invoke('ReorderAsync', currentSessionId, from, to);
 			return true;
 		} catch (e) {
-			console.warn('ReorderAsync via SignalR failed, falling back to local broadcast:', e);
+			logger.warn('ReorderAsync via SignalR failed, falling back to local broadcast', { 
+				error: e.message, 
+				sessionId: currentSessionId, 
+				from, 
+				to 
+			});
 		}
 	}
 
@@ -358,7 +385,7 @@ export async function reorderPlaylist(from, to) {
  */
 export async function setSongStatus(itemId, status) {
 	if (!currentSessionId) {
-		console.error('setSongStatus: No current session ID');
+		logger.error('setSongStatus: No current session ID', null, { operation: 'setSongStatus', itemId, status });
 		return false;
 	}
 
@@ -368,12 +395,17 @@ export async function setSongStatus(itemId, status) {
 			await hubConnection.invoke('SetSongStatusAsync', currentSessionId, itemId, status);
 			return true;
 		} catch (e) {
-			console.warn('SetSongStatusAsync via SignalR failed:', e);
+			logger.warn('SetSongStatusAsync via SignalR failed', { 
+				error: e.message, 
+				sessionId: currentSessionId, 
+				itemId, 
+				status 
+			});
 			return false;
 		}
 	}
 
-	console.warn('setSongStatus: SignalR not connected, cannot update status');
+	logger.warn('setSongStatus: SignalR not connected, cannot update status', { itemId, status });
 	return false;
 }
 
@@ -383,7 +415,7 @@ export async function setSongStatus(itemId, status) {
  */
 export async function advanceToNextSong() {
 	if (!currentSessionId) {
-		console.error('advanceToNextSong: No current session ID');
+		logger.error('advanceToNextSong: No current session ID', null, { operation: 'advanceToNextSong' });
 		return false;
 	}
 
@@ -393,12 +425,15 @@ export async function advanceToNextSong() {
 			await hubConnection.invoke('AdvanceToNextSongAsync', currentSessionId);
 			return true;
 		} catch (e) {
-			console.warn('AdvanceToNextSongAsync via SignalR failed:', e);
+			logger.warn('AdvanceToNextSongAsync via SignalR failed', { 
+				error: e.message, 
+				sessionId: currentSessionId 
+			});
 			return false;
 		}
 	}
 
-	console.warn('advanceToNextSong: SignalR not connected, cannot advance song');
+	logger.warn('advanceToNextSong: SignalR not connected, cannot advance song', { sessionId: currentSessionId });
 	return false;
 }
 
@@ -409,7 +444,7 @@ export async function advanceToNextSong() {
  */
 export async function completeCurrentSong() {
 	if (!currentSessionId) {
-		console.error('completeCurrentSong: No current session ID');
+		logger.error('completeCurrentSong: No current session ID', null, { operation: 'completeCurrentSong' });
 		return false;
 	}
 
@@ -419,12 +454,15 @@ export async function completeCurrentSong() {
 			await hubConnection.invoke('CompleteCurrentSongAsync', currentSessionId);
 			return true;
 		} catch (e) {
-			console.warn('CompleteCurrentSongAsync via SignalR failed:', e);
+			logger.warn('CompleteCurrentSongAsync via SignalR failed', { 
+				error: e.message, 
+				sessionId: currentSessionId 
+			});
 			return false;
 		}
 	}
 
-	console.warn('completeCurrentSong: SignalR not connected, cannot complete song');
+	logger.warn('completeCurrentSong: SignalR not connected, cannot complete song', { sessionId: currentSessionId });
 	return false;
 }
 
@@ -434,7 +472,7 @@ export async function completeCurrentSong() {
  */
 export async function clearQueue() {
 	if (!currentSessionId) {
-		console.error('clearQueue: No current session ID');
+		logger.error('clearQueue: No current session ID', null, { operation: 'clearQueue' });
 		return false;
 	}
 
@@ -444,12 +482,15 @@ export async function clearQueue() {
 			await hubConnection.invoke('ClearQueueAsync', currentSessionId);
 			return true;
 		} catch (e) {
-			console.warn('ClearQueueAsync via SignalR failed:', e);
+			logger.warn('ClearQueueAsync via SignalR failed', { 
+				error: e.message, 
+				sessionId: currentSessionId 
+			});
 			return false;
 		}
 	}
 
-	console.warn('clearQueue: SignalR not connected, cannot clear queue');
+	logger.warn('clearQueue: SignalR not connected, cannot clear queue', { sessionId: currentSessionId });
 	return false;
 }
 
@@ -467,13 +508,18 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 			// Expect shape: { items, page, pageSize, totalCount }
 			return res;
 		} catch (e) {
-			console.warn('fetchLibraryPage via SignalR failed, falling back to REST:', e);
+			logger.warn('fetchLibraryPage via SignalR failed, falling back to REST', { 
+				error: e.message, 
+				sessionId, 
+				page, 
+				pageSize 
+			});
 		}
 	}
 
 	// REST fallback
 	try {
-		console.log(`fetchLibraryPage REST fallback: currentLinkToken=${currentLinkToken ? '(present)' : '(null)'}`);
+		logger.debug('fetchLibraryPage REST fallback', { hasToken: !!currentLinkToken, sessionId, page, pageSize });
 		const params = new URLSearchParams();
 		params.set('page', String(page));
 		params.set('pageSize', String(pageSize));
@@ -488,20 +534,26 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		// Always use stored currentLinkToken for library fetches
 		if (currentLinkToken) {
 			headers['X-Link-Token'] = currentLinkToken;
-			console.log(`fetchLibraryPage: Added X-Link-Token header`);
+			logger.debug('fetchLibraryPage: Added X-Link-Token header', { sessionId });
 		} else {
-			console.warn(`fetchLibraryPage: No currentLinkToken available!`);
+			logger.warn('fetchLibraryPage: No currentLinkToken available', { sessionId });
 		}
 		const resp = await fetch(url, { method: 'GET', headers });
 		if (!resp.ok) {
-			console.warn('fetchLibraryPage REST failed', resp.status, await resp.text());
+			const errorText = await resp.text();
+			logger.warn('fetchLibraryPage REST failed', { 
+				status: resp.status, 
+				errorText, 
+				sessionId, 
+				page 
+			});
 			return { items: [], page, pageSize, totalCount: 0 };
 		}
 		const items = await resp.json();
 		const total = parseInt(resp.headers.get('X-Total-Count') || '0');
 		return { items, page, pageSize, totalCount: total };
 	} catch (e) {
-		console.warn('fetchLibraryPage exception', e);
+		logger.warn('fetchLibraryPage exception', { error: e.message, sessionId, page });
 		return { items: [], page, pageSize, totalCount: 0 };
 	}
 }
@@ -516,7 +568,11 @@ export async function searchLibrary(sessionId, query, maxResults = 10) {
 			const res = await hubConnection.invoke('SearchLibrary', sessionId, query, maxResults);
 			return res;
 		} catch (e) {
-			console.warn('searchLibrary via SignalR failed, falling back to REST:', e);
+			logger.warn('searchLibrary via SignalR failed, falling back to REST', { 
+				error: e.message, 
+				sessionId, 
+				query 
+			});
 		}
 	}
 
@@ -537,7 +593,7 @@ export async function searchLibrary(sessionId, query, maxResults = 10) {
 		const items = await resp.json();
 		return items;
 	} catch (e) {
-		console.warn('searchLibrary REST failed', e);
+		logger.warn('searchLibrary REST failed', { error: e.message, sessionId, query });
 		return [];
 	}
 }
@@ -552,12 +608,17 @@ export async function uploadLibraryToServer(sessionId, libraryData, options = {}
 		
 		// Use provided token or fall back to stored currentLinkToken
 		const tokenToUse = options.linkToken || currentLinkToken;
-		console.log(`uploadLibraryToServer: options.linkToken=${options.linkToken ? '(present)' : '(null)'}, currentLinkToken=${currentLinkToken ? '(present)' : '(null)'}, using=${tokenToUse ? '(present)' : '(null)'}`);
+		logger.debug('uploadLibraryToServer token resolution', { 
+			hasOptionsToken: !!options.linkToken, 
+			hasCurrentToken: !!currentLinkToken, 
+			usingToken: !!tokenToUse, 
+			sessionId 
+		});
 		if (tokenToUse) {
 			headers['X-Link-Token'] = tokenToUse;
-			console.log(`uploadLibraryToServer: X-Link-Token header set`);
+			logger.debug('uploadLibraryToServer: X-Link-Token header set', { sessionId });
 		} else {
-			console.warn('uploadLibraryToServer: No link token available - request will likely fail');
+			logger.warn('uploadLibraryToServer: No link token available - request will likely fail', { sessionId });
 		}
 
 		// PRIVACY: Sanitize payload - only send id, artist, title, metadataJson (never file paths)
@@ -572,12 +633,18 @@ export async function uploadLibraryToServer(sessionId, libraryData, options = {}
 
 		const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(songs) });
 		if (!resp.ok) {
-			console.warn('uploadLibraryToServer failed', resp.status, await resp.text());
+			const errorText = await resp.text();
+			logger.warn('uploadLibraryToServer failed', { 
+				status: resp.status, 
+				errorText, 
+				sessionId, 
+				songCount: songs.length 
+			});
 			return false;
 		}
 		return true;
 	} catch (e) {
-		console.warn('uploadLibraryToServer exception', e);
+		logger.warn('uploadLibraryToServer exception', { error: e.message, sessionId });
 		return false;
 	}
 }
@@ -588,7 +655,7 @@ export function getSessionStateForSession(sessionId) {
 		const stored = sessionStorage.getItem(getSessionKey(sessionId));
 		return stored ? JSON.parse(stored) : { session: null, library: null, playlist: null, currentSong: null };
 	} catch (error) {
-		console.error('Failed to read from sessionStorage:', error);
+		logger.error('Failed to read from sessionStorage', error, { sessionId });
 		return { session: null, library: null, playlist: null, currentSong: null };
 	}
 }
@@ -616,10 +683,10 @@ export function clearSessionState() {
 			hubConnection = null;
 			usingSignalR = false;
 		}
-		console.log('Session state cleared for session', currentSessionId);
+		logger.info('Session state cleared', { sessionId: currentSessionId });
 		currentSessionId = null;
 	} catch (error) {
-		console.error('Failed to clear session state:', error);
+		logger.error('Failed to clear session state', error);
 	}
 }
 

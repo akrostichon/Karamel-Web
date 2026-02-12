@@ -227,7 +227,9 @@ public class SessionService : ISessionService
         DotNetObjectReference<StateSync>? dotNetRef = null;
         try
         {
+#if DEBUG
             Console.WriteLine($"SessionService: Starting to restore session {sessionId}");
+#endif
             
             dotNetRef = await WaitForStateSyncAsync();
             var stateJson = await ReadSessionStorageAsync(sessionId);
@@ -243,7 +245,9 @@ public class SessionService : ISessionService
         catch (Exception ex)
         {
             Console.WriteLine($"Failed to restore session state: {ex.Message}");
+#if DEBUG
             Console.WriteLine($"Exception details: {ex}");
+#endif
         }
         finally
         {
@@ -274,11 +278,15 @@ public class SessionService : ISessionService
         
         if (completedTask == syncTask)
         {
+#if DEBUG
             Console.WriteLine($"SessionService: State sync completed");
+#endif
         }
         else
         {
+#if DEBUG
             Console.WriteLine($"SessionService: State sync timed out, using current sessionStorage");
+#endif
         }
 
         return dotNetRef;
@@ -290,7 +298,9 @@ public class SessionService : ISessionService
     private async Task<JsonElement> ReadSessionStorageAsync(Guid sessionId)
     {
         var stateJson = await _sessionBridgeModule!.InvokeAsync<JsonElement>("getSessionStateForSession", sessionId.ToString());
+#if DEBUG
         Console.WriteLine($"SessionService: Got state from sessionStorage: {stateJson}");
+#endif
         return stateJson;
     }
 
@@ -302,15 +312,21 @@ public class SessionService : ISessionService
         if (stateJson.TryGetProperty("session", out var sessionData) && 
             sessionData.ValueKind != JsonValueKind.Null)
         {
+#if DEBUG
             Console.WriteLine($"SessionService: Found session data in sessionStorage");
+#endif
             var session = ParseSessionFromJson(sessionId, sessionData);
             
+#if DEBUG
             Console.WriteLine($"SessionService: Dispatching InitializeSessionAction");
+#endif
             _dispatcher.Dispatch(new InitializeSessionAction(session));
         }
         else
         {
+#if DEBUG
             Console.WriteLine($"SessionService: No session data found in sessionStorage - multi-device scenario detected");
+#endif
             await FetchSessionConfigFromBackendAsync(sessionId);
         }
     }
@@ -342,13 +358,17 @@ public class SessionService : ISessionService
     {
         try
         {
+#if DEBUG
             Console.WriteLine($"SessionService: Fetching session config from backend API");
+#endif
             var response = await _httpClient.GetAsync($"/api/sessions/{sessionId}");
             
             if (response.IsSuccessStatusCode)
             {
                 var sessionDto = await response.Content.ReadFromJsonAsync<JsonElement>();
+#if DEBUG
                 Console.WriteLine($"SessionService: Retrieved session config from backend: {sessionDto}");
+#endif
                 
                 var session = new Session
                 {
@@ -364,7 +384,9 @@ public class SessionService : ISessionService
                     FilenamePattern = "%artist - %title" // Default pattern
                 };
                 
+#if DEBUG
                 Console.WriteLine($"SessionService: Dispatching InitializeSessionAction from backend data");
+#endif
                 _dispatcher.Dispatch(new InitializeSessionAction(session));
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -398,7 +420,9 @@ public class SessionService : ISessionService
         if (stateJson.TryGetProperty("playlist", out var playlistData) &&
             playlistData.ValueKind != JsonValueKind.Null)
         {
+#if DEBUG
             Console.WriteLine($"SessionService: Found playlist data in sessionStorage - initializing state");
+#endif
             try
             {
                 HandlePlaylistUpdate(playlistData);
@@ -410,7 +434,9 @@ public class SessionService : ISessionService
         }
         else
         {
+#if DEBUG
             Console.WriteLine($"SessionService: No playlist data in sessionStorage - will receive initial state from SignalR");
+#endif
         }
         
         await Task.CompletedTask;
@@ -429,7 +455,9 @@ public class SessionService : ISessionService
             _stateUpdateDotNetRef = DotNetObjectReference.Create(this);
         }
 
+#if DEBUG
         Console.WriteLine($"SessionService: Registering state update listener (isMainTab={_isMainTab})");
+#endif
         await _sessionBridgeModule.InvokeVoidAsync("setupStateUpdateListener", _stateUpdateDotNetRef);
     }
 
@@ -441,7 +469,9 @@ public class SessionService : ISessionService
     {
         try
         {
+#if DEBUG
             Console.WriteLine($"SessionService: Received state update: {type}. PayloadKind={data.ValueKind}");
+#endif
             
             switch (type)
             {
@@ -499,7 +529,9 @@ public class SessionService : ISessionService
             {
                 // Replace with enriched song (preserving AddedBySinger from playlist)
                 songs[i] = libraryMatch with { AddedBySinger = song.AddedBySinger };
+#if DEBUG
                 Console.WriteLine($"SessionService: Enriched '{song.Artist} - {song.Title}' (ID: {song.Id}) with files: {libraryMatch.Mp3FileName}");
+#endif
             }
             else
             {
@@ -556,7 +588,9 @@ public class SessionService : ISessionService
                     if (libraryLookup.TryGetValue(currentSong.Id, out var libraryMatch))
                     {
                         currentSong = libraryMatch with { AddedBySinger = currentSong.AddedBySinger };
+#if DEBUG
                         Console.WriteLine($"SessionService: Enriched currentSong '{currentSong.Artist} - {currentSong.Title}'");
+#endif
                     }
                 }
                 
@@ -576,11 +610,13 @@ public class SessionService : ISessionService
     /// </summary>
     private void LogFirstQueueItem(List<Song> queue)
     {
+#if DEBUG
         if (queue.Count > 0)
         {
             var first = queue[0];
             Console.WriteLine($"SessionService: First queued song: id={first.Id} artist={first.Artist} title={first.Title} addedBy={first.AddedBySinger}");
         }
+#endif
     }
 
     /// <summary>
@@ -594,7 +630,9 @@ public class SessionService : ISessionService
             if (!data.TryGetProperty("queue", out var queueArray))
                 return;
 
+#if DEBUG
             Console.WriteLine($"SessionService: Playlist update contains queue with {queueArray.GetArrayLength()} items");
+#endif
 
             // 1. Extract and convert queue
             var queue = ExtractQueueFromJson(queueArray);
@@ -603,7 +641,9 @@ public class SessionService : ISessionService
             Dictionary<Guid, Song>? libraryLookup = null;
             if (_isMainTab && _libraryState.Value.Songs.Count > 0)
             {
+#if DEBUG
                 Console.WriteLine($"SessionService: Enriching {queue.Count} songs with file information from local library ({_libraryState.Value.Songs.Count} songs available)");
+#endif
                 libraryLookup = BuildLibraryLookup();
                 EnrichSongsWithLibraryFiles(queue, libraryLookup);
             }
@@ -653,8 +693,10 @@ public class SessionService : ISessionService
     /// </summary>
     private void HandleSessionSettingsUpdate(JsonElement data)
     {
+#if DEBUG
         // Not currently needed for this issue, but included for completeness
         Console.WriteLine($"SessionService: Session settings update received");
+#endif
     }
 
     /// <summary>
@@ -662,8 +704,10 @@ public class SessionService : ISessionService
     /// </summary>
     private void HandleCurrentSongUpdate(JsonElement data)
     {
+#if DEBUG
         // Not currently needed for this issue, but included for completeness
         Console.WriteLine($"SessionService: Current song update received");
+#endif
     }
     
     private class StateSync

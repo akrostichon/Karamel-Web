@@ -1,6 +1,10 @@
 // Song metadata extraction module
 // Uses jsmediatags for ID3 tag extraction with filename fallback
 
+import { createLogger } from './logger.js';
+
+const logger = createLogger('Metadata');
+
 // Import jsmediatags - use npm package in tests, browser UMD build in browser
 let jsmediatags;
 let id3Enabled = false;
@@ -14,7 +18,7 @@ try {
     const module = await import('jsmediatags');
     jsmediatags = module.default || module;
     id3Enabled = true;
-    console.log('Using jsmediatags from npm package');
+    logger.debug('Using jsmediatags from npm package');
 } catch {
     // In browser, load UMD build from local library
     try {
@@ -22,16 +26,16 @@ try {
         if (window.jsmediatags) {
             jsmediatags = window.jsmediatags;
             id3Enabled = true;
-            console.log('Using jsmediatags from window (pre-loaded)');
+            logger.debug('Using jsmediatags from window (pre-loaded)');
         } else {
             // Dynamically load the browser UMD build
             await loadJsMediaTagsFromLocalLibrary();
             jsmediatags = window.jsmediatags;
             id3Enabled = true;
-            console.log('Loading jsmediatags from local library');
+            logger.debug('Loading jsmediatags from local library');
         }
     } catch (error) {
-        console.warn('Failed to load jsmediatags, using filename parsing only:', error);
+        logger.warn('Failed to load jsmediatags, using filename parsing only', { error: error.message });
         id3Enabled = false;
     }
 }
@@ -197,7 +201,7 @@ export function validatePattern(pattern) {
     const hasTitle = pattern.includes('%title');
 
     if (!hasArtist || !hasTitle) {
-        console.warn('Invalid pattern: must contain both %artist and %title. Using default.');
+        logger.warn('Invalid pattern: must contain both %artist and %title. Using default.');
         return '%artist - %title';
     }
 
@@ -214,14 +218,10 @@ export function flushID3FailureLog() {
         return;
     }
 
-    console.groupCollapsed(`⚠️ ${id3Failures.length} file(s) had ID3 tag issues (fell back to filename parsing)`);
-    id3Failures.forEach((failure, index) => {
-        console.warn(`[${index + 1}/${id3Failures.length}] ${failure.filePath}`, {
-            errorType: failure.errorType,
-            errorMessage: failure.errorMessage
-        });
+    logger.warn(`${id3Failures.length} file(s) had ID3 tag issues (fell back to filename parsing)`, {
+        failureCount: id3Failures.length,
+        failures: id3Failures
     });
-    console.groupEnd();
 }
 
 /**

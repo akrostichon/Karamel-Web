@@ -3,6 +3,9 @@
  * Handles browser fullscreen toggle and syncs state on F11 press
  */
 
+import { createLogger } from './logger.js';
+
+const logger = createLogger('Fullscreen');
 let dotNetRef = null;
 
 /**
@@ -32,7 +35,7 @@ export async function toggleFullscreen() {
             return false;
         }
     } catch (error) {
-        console.error('Fullscreen toggle failed:', error);
+        logger.error('Fullscreen toggle failed', { error: error.message });
         throw error;
     }
 }
@@ -55,7 +58,7 @@ export async function exitFullscreen() {
             await document.exitFullscreen();
         }
     } catch (error) {
-        console.error('Exit fullscreen failed:', error);
+        logger.error('Exit fullscreen failed', { error: error.message });
         throw error;
     }
 }
@@ -70,7 +73,7 @@ function handleFullscreenChange() {
     // Notify DotNet component if reference is set
     if (dotNetRef) {
         dotNetRef.invokeMethodAsync('OnFullscreenChanged', isNowFullscreen)
-            .catch(err => console.error('Error calling OnFullscreenChanged:', err));
+            .catch(err => logger.error('Error calling OnFullscreenChanged', { error: err.message }));
     }
 }
 

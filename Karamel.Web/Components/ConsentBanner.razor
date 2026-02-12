@@ -50,7 +50,9 @@
         }
         catch (Exception ex)
         {
+#if DEBUG
             Console.WriteLine($"[ConsentBanner] Error initializing: {ex.Message}");
+#endif
         }
     }
 
@@ -76,7 +78,9 @@
         }
         catch (Exception ex)
         {
+#if DEBUG
             Console.WriteLine($"[ConsentBanner] Error accepting consent: {ex.Message}");
+#endif
         }
         finally
         {
@@ -106,7 +110,9 @@
         }
         catch (Exception ex)
         {
+#if DEBUG
             Console.WriteLine($"[ConsentBanner] Error rejecting consent: {ex.Message}");
+#endif
         }
         finally
         {

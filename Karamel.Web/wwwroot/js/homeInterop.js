@@ -6,6 +6,9 @@
 import { pickLibraryDirectory } from './fileAccess.js';
 import { broadcastStateUpdate } from './signalRBridge.js';
 import { validatePattern } from './metadata.js';
+import { createLogger } from './logger.js';
+
+const logger = createLogger('HomeInterop');
 
 /**
  * Check if File System Access API is supported
@@ -123,7 +126,7 @@ export async function selectLibrary(filenamePattern) {
             success: true
         };
     } catch (error) {
-        console.error('Error selecting library:', error);
+        logger.error('Error selecting library', error);
         return {
             songs: [],
             songCount: 0,
@@ -176,7 +179,7 @@ export async function initializeKaraokeSession(config, songs) {
 
     broadcastStateUpdate('session-settings', sessionSettings);
     
-    console.log('Karaoke session initialized:', config.sessionId);
+    logger.info('Karaoke session initialized', { sessionId: config.sessionId });
 }
 
 /**

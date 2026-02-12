@@ -29,10 +29,107 @@ applyTo: "**"
 
 ## Frontend Logging (Karamel.Web)
 
+### JavaScript Logging Infrastructure
+
+**Centralized Logger** (`wwwroot/js/logger.js`):
+- All JavaScript modules use a shared logging abstraction
+- Automatic Application Insights integration (warnings → `trackEvent`, errors → `trackException`)
+- Log level filtering based on environment (development vs production)
+- Structured properties: `moduleName`, `timestamp`, `sessionId`
+
+**Log Levels**:
+- **Debug (0)**: Development-time diagnostics, state changes, message passing
+- **Info (1)**: User actions, session initialization, important state transitions
+- **Warn (2)**: Fallback scenarios, recoverable errors, validation failures
+- **Error (3)**: Exceptions, critical failures, network errors
+
+**Environment Configuration** (`wwwroot/index.html`):
+```javascript
+// Production: only warnings and errors in console and Application Insights
+window.logLevel = 2; // 0=Debug, 1=Info, 2=Warn, 3=Error
+
+// Development (localhost): all logs visible in console
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.logLevel = 0;
+}
+```
+
+### Usage Examples
+
+**Create a logger instance**:
+```javascript
+import { createLogger } from './logger.js';
+
+const logger = createLogger('ModuleName'); // e.g., 'SignalRBridge', 'Player', 'FileAccess'
+```
+
+**Log with structured properties**:
+```javascript
+// Debug: development-only diagnostics (filtered out in production)
+logger.debug('Processing message', { messageType, sessionId });
+
+// Info: user actions worth tracking
+logger.info('Library scan started', { folderName, expectedFiles: 150 });
+
+// Warn: recoverable errors (tracked in Application Insights)
+logger.warn('Falling back to BroadcastChannel', { reason: 'SignalR connection failed' });
+
+// Error: critical failures (tracked as exceptions in Application Insights)
+logger.error('Failed to load song file', { mp3FileName, error: ex.message });
+```
+
+**When to use each log level**:
+- **Debug**: Message passing, state updates, broadcast events, SignalR messages
+- **Info**: Session creation, library upload, consent decisions, playback start/stop
+- **Warn**: SignalR fallback, large file skipping, validation warnings, network issues
+- **Error**: File load failures, playback errors, API failures, unhandled exceptions
+
+### Production Observability
+
+**What gets tracked in Application Insights**:
+- ✅ **Warnings**: Custom events with `name` = module + message, `customDimensions` = properties
+- ✅ **Errors**: Exceptions with stack trace, module context, structured properties
+- ❌ **Debug/Info**: Filtered out in production (visible only in development console)
+
+**Example telemetry**:
+```javascript
+// This line in production:
+logger.warn('SignalR disconnected, using BroadcastChannel fallback', { sessionId, attempt: 3 });
+
+// Creates this Application Insights event:
+{
+  name: "SignalRBridge: SignalR disconnected, using BroadcastChannel fallback",
+  timestamp: "2026-02-12T14:30:00.000Z",
+  customDimensions: {
+    moduleName: "SignalRBridge",
+    sessionId: "abc-123-def",
+    attempt: 3
+  }
+}
+```
+
+### C# Blazor Components
+
+**Development Logging**:
+- Use `#if DEBUG` preprocessor directives for console output
+- Avoid `Console.WriteLine` in production builds (logs are invisible in Blazor WASM)
+
+**Example**:
+```csharp
+#if DEBUG
+Console.WriteLine($"[SessionService] Restoring state for session {sessionId}");
+#endif
+```
+
+**Production Logging**:
+- Rely on JavaScript logger for frontend telemetry
+- Backend API calls are already logged via `ILogger<T>` on the server
+- Use ErrorBoundary component in App.razor for unhandled Blazor exceptions
+
 ### Client-Side Telemetry
-- Application Insights JavaScript SDK in index.html (client-side telemetry)
+- Application Insights JavaScript SDK in index.html (consent-aware via consentBanner.js)
 - ErrorBoundary component in App.razor catches unhandled Blazor exceptions
-- Console.WriteLine used in development environments
+- JavaScript logger automatically integrates with Application Insights for Warn/Error levels
 
 ## Viewing Logs
 
@@ -100,6 +197,53 @@ dependencies
 | project timestamp, name, type, target, duration, resultCode
 ```
 
+#### Frontend JavaScript Events (Warnings)
+```kusto
+customEvents
+| where timestamp > ago(30m)
+| where name contains "SignalRBridge" or name contains "Player" or name contains "FileAccess"
+| project timestamp, name, customDimensions
+| order by timestamp desc
+```
+
+#### Frontend JavaScript Errors
+```kusto
+exceptions
+| where timestamp > ago(30m)
+| where outerMessage contains "SignalRBridge" or outerMessage contains "Player"
+| project timestamp, type, outerMessage, customDimensions
+| order by timestamp desc
+```
+
+#### Frontend Errors by Module
+```kusto
+exceptions
+| where timestamp > ago(30m)
+| extend moduleName = tostring(customDimensions.moduleName)
+| where isnotempty(moduleName)
+| summarize errorCount = count() by moduleName
+| order by errorCount desc
+```
+
+#### SignalR Fallback Events
+```kusto
+customEvents
+| where timestamp > ago(30m)
+| where name contains "Falling back to BroadcastChannel" or name contains "SignalR"
+| project timestamp, name, customDimensions.sessionId, customDimensions
+| order by timestamp desc
+```
+
+#### File Load Errors
+```kusto
+exceptions
+| where timestamp > ago(30m)
+| where customDimensions.moduleName == "FileAccess" or customDimensions.moduleName == "Player"
+| extend fileName = tostring(customDimensions.mp3FileName)
+| project timestamp, outerMessage, fileName, customDimensions
+| order by timestamp desc
+```
+
 ### Karamel-Web Specific Queries
 
 #### Session Creation Activity
@@ -146,6 +290,8 @@ union requests, exceptions
 
 Follow these practices when adding logging to new code:
 
+### Backend (C#)
+
 1. **Inject Logger**
    ```csharp
    private readonly ILogger<YourClass> _logger;
@@ -181,6 +327,52 @@ Follow these practices when adding logging to new code:
 5. **Never Log Sensitive Data**
    - Avoid: passwords, tokens, API keys, credit cards, personal identifiable information
    - Redact or hash if logging is required for debugging
+
+### Frontend (JavaScript)
+
+1. **Import and Create Logger**
+   ```javascript
+   import { createLogger } from './logger.js';
+   
+   const logger = createLogger('YourModuleName');
+   ```
+
+2. **Log Key Operations with Structured Properties**
+   ```javascript
+   // User action
+   logger.info('Feature activated', { featureId, userId });
+   
+   // Recoverable error
+   logger.warn('API call failed, retrying', { endpoint, attempt: 2 });
+   
+   // Critical error
+   logger.error('Failed to load resource', { resourceId, error: ex.message });
+   ```
+
+3. **Choose Appropriate Log Level**
+   - Use `debug()` for development diagnostics (filtered in production)
+   - Use `info()` for important user actions
+   - Use `warn()` for recoverable errors (tracked in Application Insights)
+   - Use `error()` for critical failures (tracked as exceptions)
+
+4. **Test Log Filtering**
+   - In development (localhost): verify all logs appear in console
+   - In production simulation: set `window.logLevel = 2`, confirm only warnings/errors appear
+   - Check browser console shows `[ModuleName]` prefix for easy filtering
+
+### C# Blazor Components
+
+1. **Wrap Debug Logs in Preprocessor Directives**
+   ```csharp
+   #if DEBUG
+   Console.WriteLine($"[ComponentName] Debug information: {value}");
+   #endif
+   ```
+
+2. **Use JavaScript Logger for Production Telemetry**
+   - Prefer JavaScript logger for client-side observability
+   - Backend API calls are logged via `ILogger<T>` on server
+   - Use ErrorBoundary for unhandled Blazor exceptions
 
 ## Performance Considerations
 

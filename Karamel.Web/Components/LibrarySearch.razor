@@ -207,7 +207,9 @@
         }
         catch (Exception ex)
         {
+#if DEBUG
             Console.WriteLine($"LibrarySearch: Search failed: {ex.Message}");
+#endif
             await FallbackToLocalFilteringAsync(searchText);
         }
     }

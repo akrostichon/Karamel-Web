@@ -1,10 +1,13 @@
 // File System Access API wrapper for loading MP3 and CDG files
 // Store file data in module-level variables to avoid JSON serialization issues
 
+import { createLogger } from './logger.js';
 import { extractMetadata, validatePattern, flushID3FailureLog, clearID3FailureLog } from './metadata.js';
 import * as byteStore from './byteStore.js';
 import * as zipHelper from './zipHelper.js';
 import * as dirHelper from './dirHelper.js';
+
+const logger = createLogger('FileAccess');
 
 let libraryDirectoryHandle = null; // Keep directory handle for session-long access
 const MAX_ZIP_SIZE = 20 * 1024 * 1024; // 20 MB limit for in-memory unzip (kept for local checks)
@@ -77,7 +80,7 @@ export async function pickMp3File() {
 
         return { name: file.name, size: file.size };
     } catch (error) {
-        console.error('Error picking MP3 file:', error);
+        logger.error('Error picking MP3 file', { error: error.message || String(error) });
         return null;
     }
 }
@@ -98,7 +101,7 @@ export async function pickCdgFile() {
         byteStore.setBytes('cdg', bytes);
         return { name: file.name, size: file.size };
     } catch (error) {
-        console.error('Error picking CDG file:', error);
+        logger.error('Error picking CDG file', { error: error.message || String(error) });
         return null;
     }
 }
@@ -116,7 +119,7 @@ function reportScanProgress(matchedCount, progressStep, isComplete = false) {
             : { scanned: matchedCount };
         window.dispatchEvent(new CustomEvent('library-scan-progress', { detail }));
     } catch (e) {
-        console.warn('Failed to dispatch library-scan-progress event', e);
+        logger.warn('Failed to dispatch library-scan-progress event', { error: e.message || String(e) });
     }
 }
 
@@ -128,7 +131,7 @@ async function processZipEntry(entry, relativePath, filenamePattern) {
     const zipFileObj = await entry.getFile();
     
     if (typeof zipFileObj.size === 'number' && zipHelper.isZipTooLarge(zipFileObj.size, MAX_ZIP_SIZE)) {
-        console.warn('Skipping large ZIP file during scan:', entry.name, `(${zipFileObj.size} bytes)`);
+        logger.warn('Skipping large ZIP file during scan', { fileName: entry.name, size: zipFileObj.size });
         return null;
     }
 
@@ -202,7 +205,7 @@ async function processMp3CdgPairs(mp3Files, cdgFiles, relativePath, filenamePatt
                 const song = await buildDirectorySong(mp3Data, relativePath, filenamePattern);
                 return song;
             } catch (error) {
-                console.warn(`Failed to process MP3/CDG pair: ${baseName}`, error);
+                logger.warn('Failed to process MP3/CDG pair', { baseName, error: error.message || String(error) });
                 return null;
             }
         });
@@ -236,7 +239,7 @@ async function processZipFiles(zipFiles, relativePath, filenamePattern, songsAcc
                 matchedCountRef.count++;
             }
         } catch (e) {
-            console.warn('Failed to read ZIP file during scan:', zipEntry.name, e);
+            logger.warn('Failed to read ZIP file during scan', { fileName: zipEntry.name, error: e.message || String(e) });
         }
     }
 }
@@ -281,10 +284,10 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
         
         reportScanProgress(songs.length, progressStep, true);
 
-        console.log(`Library scan complete: ${songs.length} songs found`);
+        logger.debug('Library scan complete', { songsFound: songs.length });
         return songs;
     } catch (error) {
-        console.error('Error picking library directory:', error);
+        logger.error('Error picking library directory', { error: error.message || String(error) });
         return null;
     }
 }
@@ -389,7 +392,7 @@ async function trySessionStorageFallback(mp3FileName, cdgFileName) {
     try {
         return await loadFromZip(zipInfo, mp3FileName, cdgFileName);
     } catch (err) {
-        console.warn('SessionStorage fallback failed:', err);
+        logger.warn('SessionStorage fallback failed', { error: err.message || String(err) });
         return null;
     }
 }
@@ -493,7 +496,13 @@ export async function loadSongFiles(path, mp3FileName, cdgFileName, zipInfo = nu
             errorMessage: error instanceof Error ? error.message : String(error)
         });
         
-        console.error('Error loading song files:', error);
+        logger.error('Error loading song files', { 
+            mp3FileName, 
+            cdgFileName, 
+            path: path || '<root>',
+            origin,
+            error: error.message || String(error) 
+        });
         throw error instanceof Error ? error : new Error(String(error));
     }
 }
