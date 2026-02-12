@@ -104,10 +104,17 @@ namespace Karamel.Backend.Repositories
 
         public async Task<PagedResult<SongListItemDto>> GetPageAsync(Guid sessionId, int page, int pageSize, string? search, string? sort)
         {
+            _logger.LogInformation("[DIAG] SongRepository.GetPageAsync: sessionId={SessionId}, page={Page}, pageSize={PageSize}, search={Search}",
+                sessionId, page, pageSize, search ?? "null");
+            
             if (page < 1) page = 1;
             if (pageSize <= 0) pageSize = 50;
 
             var query = _db.Songs.AsNoTracking().Where(s => s.SessionId == sessionId);
+            
+            // Log total songs for this session BEFORE filtering
+            var totalForSession = await _db.Songs.CountAsync(s => s.SessionId == sessionId);
+            _logger.LogInformation("[DIAG] SongRepository: Total songs in DB for sessionId {SessionId}: {TotalCount}", sessionId, totalForSession);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -128,6 +135,9 @@ namespace Karamel.Backend.Repositories
             var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
                 .ToListAsync();
+
+            _logger.LogInformation("[DIAG] SongRepository.GetPageAsync: Returning {ItemCount} items (total={TotalCount}) for session {SessionId}",
+                items.Count, total, sessionId);
 
             return new PagedResult<SongListItemDto>(items, page, pageSize, total);
         }

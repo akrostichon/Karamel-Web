@@ -501,59 +501,111 @@ export function isUsingSignalR() {
 export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, search = null, sort = null) {
 	if (!sessionId) throw new Error('sessionId is required');
 
+	const correlationId = Math.random().toString(36).substring(2, 10);
+	
+	// Enhanced debug logging with correlation ID and structured data
+	logger.debug(`[DIAG:${correlationId}] fetchLibraryPage START`, { 
+		sessionId, 
+		page, 
+		pageSize, 
+		search: search || 'null', 
+		sort: sort || 'null',
+		usingSignalR,
+		hubConnectionState: hubConnection?.state,
+		hasLinkToken: !!currentLinkToken,
+		linkTokenLength: currentLinkToken?.length
+	});
+
 	// Prefer SignalR RPC when connected
 	if (usingSignalR && hubConnection) {
 		try {
+			logger.debug(`[DIAG:${correlationId}] Attempting SignalR RPC`, { sessionId, operation: 'GetLibraryPage' });
+			const startTime = Date.now();
 			const res = await hubConnection.invoke('GetLibraryPage', sessionId, page, pageSize, search, sort);
-			// Expect shape: { items, page, pageSize, totalCount }
+			const duration = Date.now() - startTime;
+			logger.debug(`[DIAG:${correlationId}] SignalR RPC SUCCESS`, { 
+				duration, 
+				itemCount: res.items?.length ?? 0, 
+				totalCount: res.totalCount ?? 0 
+			});
 			return res;
 		} catch (e) {
-			logger.warn('fetchLibraryPage via SignalR failed, falling back to REST', { 
-				error: e.message, 
-				sessionId, 
-				page, 
-				pageSize 
-			});
+			logger.warn(`[WARN:${correlationId}] SignalR RPC failed, falling back to REST`, { error: e.message });
 		}
+	} else {
+		logger.debug(`[DIAG:${correlationId}] SignalR not available, using REST fallback`, { 
+			usingSignalR, 
+			hasHubConnection: !!hubConnection 
+		});
 	}
 
 	// REST fallback
 	try {
-		logger.debug('fetchLibraryPage REST fallback', { hasToken: !!currentLinkToken, sessionId, page, pageSize });
 		const params = new URLSearchParams();
 		params.set('page', String(page));
 		params.set('pageSize', String(pageSize));
 		if (search) params.set('search', search);
 		if (sort) params.set('sort', sort);
 
-		// Use backend URL if available, otherwise use relative path
 		const baseUrl = backendBaseUrl || '';
 		const url = `${baseUrl}/api/sessions/${sessionId}/library?${params.toString()}`;
+		
 		const headers = { 'Accept': 'application/json' };
 		
-		// Always use stored currentLinkToken for library fetches
 		if (currentLinkToken) {
 			headers['X-Link-Token'] = currentLinkToken;
-			logger.debug('fetchLibraryPage: Added X-Link-Token header', { sessionId });
+			logger.debug(`[DIAG:${correlationId}] REST request with X-Link-Token`, { 
+				url, 
+				tokenLength: currentLinkToken.length 
+			});
 		} else {
-			logger.warn('fetchLibraryPage: No currentLinkToken available', { sessionId });
-		}
-		const resp = await fetch(url, { method: 'GET', headers });
-		if (!resp.ok) {
-			const errorText = await resp.text();
-			logger.warn('fetchLibraryPage REST failed', { 
-				status: resp.status, 
-				errorText, 
+			// CRITICAL: This will track in Application Insights as an error
+			logger.error(`[ERROR:${correlationId}] NO currentLinkToken available - request will likely fail`, { 
 				sessionId, 
-				page 
+				url,
+				operation: 'fetchLibraryPage'
+			});
+		}
+		
+		const startTime = Date.now();
+		const resp = await fetch(url, { method: 'GET', headers });
+		const duration = Date.now() - startTime;
+		
+		logger.debug(`[DIAG:${correlationId}] REST response received`, { 
+			duration, 
+			status: resp.status, 
+			statusText: resp.statusText 
+		});
+		
+		if (!resp.ok) {
+			const errorBody = await resp.text();
+			// CRITICAL: This will track in Application Insights as an error
+			logger.error(`[ERROR:${correlationId}] REST request failed`, { 
+				status: resp.status, 
+				errorBody: errorBody.substring(0, 200), // Truncate long error messages
+				sessionId,
+				url
 			});
 			return { items: [], page, pageSize, totalCount: 0 };
 		}
+		
 		const items = await resp.json();
 		const total = parseInt(resp.headers.get('X-Total-Count') || '0');
+		
+		logger.debug(`[DIAG:${correlationId}] fetchLibraryPage SUCCESS`, { 
+			itemCount: items.length, 
+			totalCount: total,
+			sessionId
+		});
+		
 		return { items, page, pageSize, totalCount: total };
 	} catch (e) {
-		logger.warn('fetchLibraryPage exception', { error: e.message, sessionId, page });
+		// CRITICAL: This will track in Application Insights as an exception
+		logger.error(`[ERROR:${correlationId}] fetchLibraryPage exception`, { 
+			error: e.message, 
+			stack: e.stack?.substring(0, 500),
+			sessionId
+		});
 		return { items: [], page, pageSize, totalCount: 0 };
 	}
 }

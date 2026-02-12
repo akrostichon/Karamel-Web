@@ -309,26 +309,30 @@ public class SessionService : ISessionService
     /// </summary>
     private async Task RestoreSessionConfigAsync(Guid sessionId, JsonElement stateJson)
     {
+        Console.WriteLine($"[DIAG] SessionService.RestoreSessionConfigAsync: START for sessionId={sessionId}");
+        Console.WriteLine($"[DIAG] SessionService: stateJson.ValueKind={stateJson.ValueKind}");
+        
         if (stateJson.TryGetProperty("session", out var sessionData) && 
             sessionData.ValueKind != JsonValueKind.Null)
         {
-#if DEBUG
-            Console.WriteLine($"SessionService: Found session data in sessionStorage");
-#endif
+            Console.WriteLine($"[DIAG] SessionService: Found session data in sessionStorage");
+            Console.WriteLine($"[DIAG] SessionService: sessionData={sessionData}");
+            
             var session = ParseSessionFromJson(sessionId, sessionData);
             
-#if DEBUG
-            Console.WriteLine($"SessionService: Dispatching InitializeSessionAction");
-#endif
+            Console.WriteLine($"[DIAG] SessionService: Parsed session - SessionId={session.SessionId}, RequireSingerName={session.RequireSingerName}");
+            Console.WriteLine($"[DIAG] SessionService: Dispatching InitializeSessionAction FROM SESSIONSTORAGE");
             _dispatcher.Dispatch(new InitializeSessionAction(session));
+            Console.WriteLine($"[DIAG] SessionService: InitializeSessionAction dispatched successfully");
         }
         else
         {
-#if DEBUG
-            Console.WriteLine($"SessionService: No session data found in sessionStorage - multi-device scenario detected");
-#endif
+            Console.WriteLine($"[DIAG] SessionService: No session data found in sessionStorage - MULTI-DEVICE scenario");
+            Console.WriteLine($"[DIAG] SessionService: Will fetch from backend API...");
             await FetchSessionConfigFromBackendAsync(sessionId);
         }
+        
+        Console.WriteLine($"[DIAG] SessionService.RestoreSessionConfigAsync: END");
     }
 
     /// <summary>
@@ -358,17 +362,19 @@ public class SessionService : ISessionService
     {
         try
         {
-#if DEBUG
-            Console.WriteLine($"SessionService: Fetching session config from backend API");
-#endif
+            Console.WriteLine($"[DIAG] SessionService.FetchSessionConfigFromBackendAsync: START for sessionId={sessionId}");
+            Console.WriteLine($"[DIAG] SessionService: Making HTTP GET to /api/sessions/{sessionId}");
+            
             var response = await _httpClient.GetAsync($"/api/sessions/{sessionId}");
+            
+            Console.WriteLine($"[DIAG] SessionService: Response StatusCode={response.StatusCode}");
             
             if (response.IsSuccessStatusCode)
             {
+                var responseBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[DIAG] SessionService: Response body={responseBody}");
+                
                 var sessionDto = await response.Content.ReadFromJsonAsync<JsonElement>();
-#if DEBUG
-                Console.WriteLine($"SessionService: Retrieved session config from backend: {sessionDto}");
-#endif
                 
                 var session = new Session
                 {
@@ -381,22 +387,23 @@ public class SessionService : ISessionService
                         ? pauseEnabled.GetBoolean() 
                         : true,
                     PauseBetweenSongsSeconds = sessionDto.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
-                    FilenamePattern = "%artist - %title" // Default pattern
+                    FilenamePattern = "%artist - %title"
                 };
                 
-#if DEBUG
-                Console.WriteLine($"SessionService: Dispatching InitializeSessionAction from backend data");
-#endif
+                Console.WriteLine($"[DIAG] SessionService: Parsed session from backend - SessionId={session.SessionId}");
+                Console.WriteLine($"[DIAG] SessionService: Dispatching InitializeSessionAction FROM BACKEND");
                 _dispatcher.Dispatch(new InitializeSessionAction(session));
+                Console.WriteLine($"[DIAG] SessionService: InitializeSessionAction dispatched successfully");
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                Console.WriteLine($"SessionService: Session {sessionId} not found on backend (expired or invalid)");
+                Console.WriteLine($"[ERROR] SessionService: Session {sessionId} NOT FOUND on backend (404)");
                 throw new InvalidOperationException("Session has expired or does not exist. Please start a new session.");
             }
             else
             {
-                Console.WriteLine($"SessionService: Failed to fetch session config: {response.StatusCode}");
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[ERROR] SessionService: Failed to fetch session - StatusCode={response.StatusCode}, Body={errorBody}");
                 throw new InvalidOperationException($"Failed to retrieve session configuration: {response.StatusCode}");
             }
         }
@@ -407,7 +414,8 @@ public class SessionService : ISessionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"SessionService: Error fetching session from backend: {ex.Message}");
+            Console.WriteLine($"[ERROR] SessionService: Exception in FetchSessionConfigFromBackendAsync: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[ERROR] SessionService: Stack trace: {ex.StackTrace}");
             throw new InvalidOperationException("Unable to connect to session. Please check your network connection and try again.", ex);
         }
     }

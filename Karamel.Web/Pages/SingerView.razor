@@ -186,30 +186,52 @@
         
         if (firstRender && !string.IsNullOrWhiteSpace(SessionParam) && Guid.TryParse(SessionParam, out var sessionGuid))
         {
-            Console.WriteLine($"SingerView: Initializing session for GUID: {sessionGuid}");
-            Console.WriteLine($"SingerView: TokenParam from URL: '{TokenParam}'");
-            Console.WriteLine($"SingerView: Current session state before init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
+            Console.WriteLine($"[DIAG] SingerView: === INITIALIZATION START ===");
+            Console.WriteLine($"[DIAG] SingerView: SessionGuid={sessionGuid}");
+            Console.WriteLine($"[DIAG] SingerView: TokenParam={(TokenParam != null ? $"Length={TokenParam.Length}, First20={TokenParam.Substring(0, Math.Min(20, TokenParam.Length))}" : "NULL")}");
+            Console.WriteLine($"[DIAG] SingerView: SessionState.CurrentSession={(SessionState.Value.CurrentSession != null ? $"EXISTS (Id={SessionState.Value.CurrentSession.SessionId})" : "NULL")}");
             
-            // Initialize session as secondary tab and load state from sessionStorage
             isInitializing = true;
-            await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
-
-            // Dispatch LoadPageAction to fetch first page from backend API with pagination metadata
-            // This works for both same-device and multi-device scenarios (backend API is device-agnostic)
-            Console.WriteLine($"SingerView: About to dispatch LoadPageAction(Page: 1, SearchQuery: null, Append: false)");
-            Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false));
-            Console.WriteLine($"SingerView: LoadPageAction dispatched");
             
-            Console.WriteLine($"SingerView: Current session state after init: {(SessionState.Value.CurrentSession != null ? "HAS SESSION" : "NO SESSION")} ");
-            if (SessionState.Value.CurrentSession != null)
+            try
             {
-                Console.WriteLine($"SingerView: Session ID in state: {SessionState.Value.CurrentSession.SessionId}");
-                Console.WriteLine($"SingerView: Library count: {LibraryState.Value.Songs.Count}");
+                Console.WriteLine($"[DIAG] SingerView: Calling SessionService.InitializeAsync...");
+                var startTime = DateTime.Now;
+                await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
+                var duration = (DateTime.Now - startTime).TotalMilliseconds;
+                Console.WriteLine($"[DIAG] SingerView: InitializeAsync completed in {duration}ms");
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] SingerView: InitializeAsync threw exception: {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($"[ERROR] SingerView: Stack trace: {ex.StackTrace}");
+                isInitializing = false;
+                isSessionValid = false;
+                StateHasChanged();
+                return;
+            }
+            
+            Console.WriteLine($"[DIAG] SingerView: After InitializeAsync - SessionState.CurrentSession={(SessionState.Value.CurrentSession != null ? $"EXISTS (Id={SessionState.Value.CurrentSession.SessionId})" : "NULL")}");
+            Console.WriteLine($"[DIAG] SingerView: LibraryState.Songs.Count={LibraryState.Value.Songs.Count}");
+            Console.WriteLine($"[DIAG] SingerView: LibraryState.IsLoading={LibraryState.Value.IsLoading}");
+            Console.WriteLine($"[DIAG] SingerView: LibraryState.ErrorMessage={LibraryState.Value.ErrorMessage ?? "NULL"}");
+            
+            Console.WriteLine($"[DIAG] SingerView: Dispatching LoadPageAction(Page=1, SearchQuery=null, Append=false)");
+            Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false));
+            
+            // Wait a moment for effect to process
+            await Task.Delay(100);
+            
+            Console.WriteLine($"[DIAG] SingerView: After LoadPageAction dispatch:");
+            Console.WriteLine($"[DIAG] SingerView: LibraryState.Songs.Count={LibraryState.Value.Songs.Count}");
+            Console.WriteLine($"[DIAG] SingerView: LibraryState.IsLoading={LibraryState.Value.IsLoading}");
+            Console.WriteLine($"[DIAG] SingerView: LibraryState.TotalCount={LibraryState.Value.TotalCount}");
+            Console.WriteLine($"[DIAG] SingerView: LibraryState.ErrorMessage={LibraryState.Value.ErrorMessage ?? "NULL"}");
             
             isInitializing = false;
             isSessionValid = ValidateSession();
-            Console.WriteLine($"SingerView: Session valid: {isSessionValid}");
+            Console.WriteLine($"[DIAG] SingerView: isSessionValid={isSessionValid}");
+            Console.WriteLine($"[DIAG] SingerView: === INITIALIZATION END ===");
             StateHasChanged();
         }
         else if (firstRender)
