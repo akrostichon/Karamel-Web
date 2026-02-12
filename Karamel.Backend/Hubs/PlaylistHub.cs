@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
+using System.Diagnostics;
 
 namespace Karamel.Backend.Hubs
 {
@@ -118,6 +119,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Adding item to session {SessionId}: SongId={SongId} (Singer: {SingerName})", 
                     sessionId, songId, singerName ?? "None");
 
@@ -159,6 +162,13 @@ namespace Karamel.Backend.Hubs
 
                 _logger.LogInformation("Successfully added item {ItemId} to session {SessionId} playlist", item.Id, sessionId);
 
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: AddItemAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
+
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
             }
@@ -189,6 +199,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Removing item {ItemId} from session {SessionId} playlist", 
                     itemId, sessionId);
 
@@ -213,6 +225,13 @@ namespace Karamel.Backend.Hubs
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully removed item {ItemId} from session {SessionId} playlist", itemId, sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: RemoveItemAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
@@ -246,6 +265,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Reordering session {SessionId} playlist: from {From} to {To}", 
                     sessionId, from, to);
 
@@ -290,6 +311,13 @@ namespace Karamel.Backend.Hubs
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully reordered session {SessionId} playlist", sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: ReorderAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
@@ -411,6 +439,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Advancing to next song in session {SessionId}", sessionId);
 
                 var session = await _sessionRepo.GetByIdAsync(sessionId);
@@ -461,6 +491,13 @@ namespace Karamel.Backend.Hubs
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully advanced song in session {SessionId}", sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: AdvanceToNextSongAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 await BroadcastPlaylistUpdate(sessionId, playlist);
             }
@@ -590,6 +627,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Clearing queue (Queued and UpNext songs) in session {SessionId}", sessionId);
 
                 var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
@@ -609,6 +648,13 @@ namespace Karamel.Backend.Hubs
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully cleared {Count} queued songs from session {SessionId}", itemsToRemove.Count, sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: ClearQueueAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 await BroadcastPlaylistUpdate(sessionId, playlist);
             }
