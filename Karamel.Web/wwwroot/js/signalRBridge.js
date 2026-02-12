@@ -75,9 +75,13 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 		// Use backend URL if provided, otherwise use relative path
 		const hubUrl = backendUrl ? `${backendUrl}/hubs/playlist` : '/hubs/playlist';
 
+		// Configure timeouts to match backend settings in Program.cs (ClientTimeoutInterval: 60s, KeepAliveInterval: 15s)
+		// These must be aligned to prevent premature client disconnects during long operations (e.g., large playlist updates)
 		hubConnection = new signalR.HubConnectionBuilder()
 			.withUrl(hubUrl, urlOptions)
 			.withAutomaticReconnect()
+			.withServerTimeout(60000)      // Must match backend ClientTimeoutInterval (60 seconds)
+			.withKeepAliveInterval(15000)  // Must match backend KeepAliveInterval (15 seconds)
 			.build();
 
 		// Wire receive handler

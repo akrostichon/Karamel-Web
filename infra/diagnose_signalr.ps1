@@ -59,7 +59,7 @@ if ($planDetails.sku.tier -eq "Free") {
     Write-Host "  ⚠️  Free tier has limitations (no AlwaysOn, cold starts) - consider upgrading to B1/S1 for production" -ForegroundColor Yellow
 }
 if ($webSocketsEnabled -eq "true" -and $arrAffinity -eq "true") {
-    Write-Host "  ✅ Configuration looks good!" -ForegroundColor Green
+    Write-Host "  Configuration looks good" -ForegroundColor Green
 }
 
 Write-Host ""

@@ -638,12 +638,11 @@ namespace Karamel.Backend.Hubs
                     .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
                     .ToList();
                 
-                foreach (var item in itemsToRemove)
-                {
-                    playlist.Items.Remove(item);
-                    _logger.LogInformation("Removed {Status} item {ItemId} ({Artist} - {Title}) from session {SessionId}", 
-                        item.Status, item.Id, item.Artist, item.Title, sessionId);
-                }
+                // Log items before batch removal for audit trail
+                LogPlaylistItemsRemoval(itemsToRemove, sessionId);
+
+                // Use RemoveAll for efficient batch deletion instead of removing one by one
+                playlist.Items.RemoveAll(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext);
 
                 await _playlistRepo.UpdateAsync(playlist);
 
@@ -756,6 +755,30 @@ namespace Karamel.Backend.Hubs
                 dto.CurrentSong != null ? $"{dto.CurrentSong.Artist} - {dto.CurrentSong.Title}" : "None");
 
             await Clients.Group(groupName).SendAsync("ReceivePlaylistUpdated", dto);
+        }
+
+        /// <summary>
+        /// Logs the removal of playlist items in a single efficient log entry.
+        /// </summary>
+        private void LogPlaylistItemsRemoval(List<PlaylistItem> items, Guid sessionId)
+        {
+            if (items.Count == 0)
+            {
+                _logger.LogInformation("No items to remove from session {SessionId}", sessionId);
+                return;
+            }
+
+            // Log first 5 items as examples for audit trail
+            var sampleItems = items.Take(5)
+                .Select(i => $"{i.Status}:{i.Artist}-{i.Title}")
+                .ToList();
+            
+            var summary = items.Count <= 5 
+                ? string.Join(", ", sampleItems)
+                : $"{string.Join(", ", sampleItems)} and {items.Count - 5} more";
+
+            _logger.LogInformation("Removing {Count} items from session {SessionId}: {Summary}",
+                items.Count, sessionId, summary);
         }
 
         /// <summary>
