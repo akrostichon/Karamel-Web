@@ -26,6 +26,10 @@ export const LogLevel = {
  * @returns {boolean}
  */
 function isDevelopment() {
+    // Check if window.location is available (may not be in test environments)
+    if (!window.location || !window.location.hostname) {
+        return false;
+    }
     const hostname = window.location.hostname;
     return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
 }
