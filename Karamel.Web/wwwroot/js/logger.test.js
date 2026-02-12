@@ -10,6 +10,7 @@ describe('logger', () => {
         // Reset window globals
         delete window.logLevel;
         delete window.appInsights;
+        delete window.karamel;
         
         // Mock location
         Object.defineProperty(window, 'location', {
@@ -147,6 +148,7 @@ describe('logger', () => {
 
             it('should track info as custom event in Application Insights', () => {
                 window.appInsights = mockAppInsights;
+                window.karamel = { telemetryStarted: true }; // User has given consent
                 window.logLevel = LogLevel.Info;
                 const logger = createLogger('TestModule');
                 
@@ -162,6 +164,7 @@ describe('logger', () => {
 
             it('should track info even when console log level blocks it', () => {
                 window.appInsights = mockAppInsights;
+                window.karamel = { telemetryStarted: true }; // User has given consent
                 window.logLevel = LogLevel.Warn; // Blocks console output
                 const logger = createLogger('TestModule');
                 
@@ -189,6 +192,7 @@ describe('logger', () => {
 
             it('should track warn as custom event in Application Insights', () => {
                 window.appInsights = mockAppInsights;
+                window.karamel = { telemetryStarted: true }; // User has given consent
                 window.logLevel = LogLevel.Warn;
                 const logger = createLogger('TestModule');
                 
@@ -233,6 +237,7 @@ describe('logger', () => {
 
             it('should track error with Error object in Application Insights', () => {
                 window.appInsights = mockAppInsights;
+                window.karamel = { telemetryStarted: true }; // User has given consent
                 window.logLevel = LogLevel.Error;
                 const logger = createLogger('TestModule');
                 const testError = new Error('Test error');
@@ -248,6 +253,7 @@ describe('logger', () => {
 
             it('should create Error object if none provided for Application Insights', () => {
                 window.appInsights = mockAppInsights;
+                window.karamel = { telemetryStarted: true }; // User has given consent
                 window.logLevel = LogLevel.Error;
                 const logger = createLogger('TestModule');
                 

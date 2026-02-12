@@ -55,11 +55,16 @@ function getCurrentSessionId() {
 }
 
 /**
- * Get Application Insights instance
+ * Get Application Insights instance (only if telemetry is enabled via user consent)
  * @returns {object|null}
  */
 function getAppInsights() {
-    return window.appInsights || null;
+    // CRITICAL: Only return appInsights if user has given consent (GDPR compliance)
+    // The window.karamel.telemetryStarted flag is set to true ONLY after user accepts cookies
+    if (window.karamel && window.karamel.telemetryStarted && window.appInsights) {
+        return window.appInsights;
+    }
+    return null;
 }
 
 /**
