@@ -39,18 +39,34 @@
          * Start Application Insights telemetry collection (called after user consent)
          */
         window.karamel.startTelemetry = function() {
-            if (!window.karamel.telemetryStarted && window.appInsights) {
-                try {
-                    window.karamel.telemetryStarted = true; // Set flag BEFORE loadAppInsights to prevent race conditions
-                    window.appInsights.loadAppInsights();
-                    window.appInsights.trackPageView();
-                    console.log('[Karamel] Analytics tracking enabled (user consent given)');
-                } catch (error) {
-                    console.error('[Karamel] Error starting telemetry:', error);
-                    // Keep telemetryStarted = true to prevent retries that would cause "already initialized" errors
-                }
-            } else if (window.karamel.telemetryStarted) {
+            // First check our custom flag
+            if (window.karamel.telemetryStarted) {
                 console.log('[Karamel] Telemetry already started, ignoring duplicate call');
+                return;
+            }
+            
+            // Check if SDK exists
+            if (!window.appInsights) {
+                console.warn('[Karamel] Application Insights SDK not loaded yet');
+                return;
+            }
+            
+            // Check if SDK is already initialized by examining its internal state
+            // The SDK sets 'core' property after loadAppInsights() is called
+            if (window.appInsights.core) {
+                console.log('[Karamel] Application Insights SDK already initialized (detected via core property)');
+                window.karamel.telemetryStarted = true; // Sync our flag with SDK state
+                return;
+            }
+            
+            try {
+                window.karamel.telemetryStarted = true; // Set flag BEFORE loadAppInsights to prevent race conditions
+                window.appInsights.loadAppInsights();
+                window.appInsights.trackPageView();
+                console.log('[Karamel] Analytics tracking enabled (user consent given)');
+            } catch (error) {
+                console.error('[Karamel] Error starting telemetry:', error);
+                // Keep telemetryStarted = true to prevent retries that would cause "already initialized" errors
             }
         };
         

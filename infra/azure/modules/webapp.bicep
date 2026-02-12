@@ -36,12 +36,15 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
   }
   properties: {
     serverFarmId: plan.id
+    clientAffinityEnabled: true // Enable sticky sessions (ARR Affinity) for SignalR
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'
+      webSocketsEnabled: true // Explicitly enable WebSockets
+      alwaysOn: planSkuTier != 'Free' && planSkuTier != 'Shared' // AlwaysOn not available on Free tier
       appSettings: [
         {
           name: 'WEBSITES_ENABLE_WEBSOCKETS'
-          value: '1'
+          value: 'true'
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
