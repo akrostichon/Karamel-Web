@@ -56,8 +56,8 @@ namespace Karamel.Backend.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPage(Guid sessionId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] string? search = null, [FromQuery] string? sort = null)
         {
+            _logger.LogInformation("GetPage called for session {SessionId}", sessionId);
             var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort);
-            // Add X-Total-Count header
             Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
             return Ok(result.Items);
         }

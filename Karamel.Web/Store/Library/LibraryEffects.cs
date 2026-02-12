@@ -18,32 +18,49 @@ public class LibraryEffects(
     [EffectMethod]
     public async Task HandleLoadPageAction(LoadPageAction action, IDispatcher dispatcher)
     {
+        var correlationId = Guid.NewGuid().ToString("N").Substring(0, 8);
+        Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects.HandleLoadPageAction: START - Page={action.Page}, SearchQuery={action.SearchQuery ?? "null"}, Append={action.Append}");
+        
         var session = sessionState.Value.CurrentSession;
+        Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: sessionState.Value.CurrentSession={(session != null ? $"EXISTS (Id={session.SessionId})" : "NULL")}");
+        
         if (session == null)
         {
+            Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: NO ACTIVE SESSION - dispatching LoadLibraryFailureAction");
             dispatcher.Dispatch(new LoadLibraryFailureAction("No active session"));
             return;
         }
 
+        Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: Using sessionId={session.SessionId}");
+
         try
         {
+            Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: Calling FetchPageResultAsync...");
+            var startTime = DateTime.Now;
             var pageResult = await FetchPageResultAsync(session.SessionId, action);
+            var duration = (DateTime.Now - startTime).TotalMilliseconds;
+            Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: FetchPageResultAsync completed in {duration}ms");
+            Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: pageResult.ValueKind={pageResult.ValueKind}");
             
             if (!IsValidJsonResponse(pageResult))
             {
+                Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: Empty or invalid response from server");
                 dispatcher.Dispatch(new LoadLibraryFailureAction("Empty or invalid response from server"));
                 return;
             }
 
             if (!TryParseSongsFromResponse(pageResult, out var songs))
             {
+                Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: Response missing 'items' array");
+                Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: pageResult={pageResult}");
                 dispatcher.Dispatch(new LoadLibraryFailureAction($"Response missing '{ItemsPropertyName}' array"));
                 return;
             }
 
             var totalCount = ParseTotalCount(pageResult);
 
-            Console.WriteLine($"LibraryEffects: Loaded page {action.Page}: {songs.Count} songs (total: {totalCount})");
+            Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: Successfully parsed - songs.Count={songs.Count}, totalCount={totalCount}");
+            Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: Dispatching LoadPageSuccessAction");
 
             dispatcher.Dispatch(new LoadPageSuccessAction(
                 Songs: songs,
@@ -52,9 +69,13 @@ public class LibraryEffects(
                 SearchQuery: action.SearchQuery,
                 Append: action.Append
             ));
+            
+            Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects.HandleLoadPageAction: END - SUCCESS");
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: Exception: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: Stack trace: {ex.StackTrace}");
             dispatcher.Dispatch(new LoadLibraryFailureAction($"Failed to load page {action.Page}: {ex.Message}"));
         }
     }
