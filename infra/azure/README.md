@@ -49,3 +49,74 @@ Notes and caveats:
 - The SQL SKU used above is a basic example; to use serverless you can change the SKU and settings accordingly (serverless requires specific SKUs and compute tier settings).
 - Static Web Apps are created plainly — connect to GitHub Actions for automatic publish.
 - This template is intentionally minimal to get started for dev. Review compliance, networking, and secrets policies for production.
+## SignalR Troubleshooting
+
+### Connection Timeout Errors
+
+If you see errors like:
+- `Server timeout elapsed without receiving a message from the server`
+- `WebSocket failed to connect. The connection could not be found on the server`
+- `There was an error with the transport 'WebSockets'`
+
+**Root Causes:**
+1. **WebSockets not enabled** in App Service
+2. **ARR Affinity (sticky sessions) disabled** - required for stateful SignalR connections
+3. **Free tier limitations** - cold starts and no AlwaysOn feature
+
+**Quick Fix (without redeployment):**
+
+```powershell
+# Run the diagnostic script to check current configuration
+.\infra\diagnose_signalr.ps1
+
+# Apply fixes automatically (enables WebSockets + ARR Affinity)
+.\infra\fix_signalr.ps1
+
+# If issues persist, restart the app
+az webapp restart -g rg-karamel-prod -n rg-karamel-prod-api
+```
+
+**Manual Fix:**
+
+```powershell
+# Enable WebSockets
+az webapp config set -g rg-karamel-prod -n rg-karamel-prod-api --web-sockets-enabled true
+
+# Enable sticky sessions (ARR Affinity)
+az webapp update -g rg-karamel-prod -n rg-karamel-prod-api --client-affinity-enabled true
+
+# Set app setting
+az webapp config appsettings set -g rg-karamel-prod -n rg-karamel-prod-api --settings WEBSITES_ENABLE_WEBSOCKETS=true
+```
+
+**Long-term Fix:**
+
+Redeploy the Bicep templates (already updated with proper settings):
+
+```powershell
+az deployment group create --resource-group rg-karamel-prod --template-file infra/azure/main.bicep --parameters @infra/azure/parameters.json
+```
+
+**Production Recommendations:**
+- **Upgrade from Free tier to B1 or higher** to enable AlwaysOn and avoid cold starts
+- **Monitor SignalR connections** in Application Insights:
+  ```kusto
+  exceptions
+  | where timestamp > ago(1h)
+  | where outerMessage contains "SignalR" or outerMessage contains "WebSocket"
+  | project timestamp, outerMessage, customDimensions
+  ```
+
+### Verifying Configuration
+
+Check if WebSockets and sticky sessions are enabled:
+
+```powershell
+# Check WebSockets
+az webapp config show -g rg-karamel-prod -n rg-karamel-prod-api --query "webSocketsEnabled"
+
+# Check ARR Affinity
+az webapp show -g rg-karamel-prod -n rg-karamel-prod-api --query "clientAffinityEnabled"
+```
+
+Both should return `true`.
