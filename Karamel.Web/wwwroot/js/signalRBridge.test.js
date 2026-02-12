@@ -152,6 +152,34 @@ describe('signalRBridge', () => {
                 this._params.set(key, value);
             }
         };
+        
+        // CRITICAL: Always mock signalR globally to prevent script loading attempts
+        // This prevents happy-dom from trying to fetch from localhost:3000
+        if (!global.signalR) {
+            global.signalR = {
+                HubConnectionBuilder: class {
+                    withUrl() { return this; }
+                    withAutomaticReconnect() { return this; }
+                    withServerTimeout() { return this; }
+                    withKeepAliveInterval() { return this; }
+                    build() {
+                        return {
+                            on: vi.fn(),
+                            start: vi.fn().mockResolvedValue(undefined),
+                            invoke: vi.fn().mockResolvedValue(undefined),
+                            stop: vi.fn().mockResolvedValue(undefined)
+                        };
+                    }
+                },
+                HubConnectionState: {
+                    Disconnected: 0,
+                    Connecting: 1,
+                    Connected: 2,
+                    Disconnecting: 3,
+                    Reconnecting: 4
+                }
+            };
+        }
     });
 
     afterEach(() => {
@@ -536,15 +564,23 @@ describe('signalRBridge', () => {
                 },
                 start: vi.fn().mockResolvedValue(undefined),
                 invoke: vi.fn().mockResolvedValue(undefined),
-                stop: vi.fn().mockResolvedValue(undefined)
+                stop: vi.fn().mockResolvedValue(undefined),
+                withUrl: function() { return this; },
+                withAutomaticReconnect: function() { return this; },
+                withServerTimeout: function() { return this; },
+                withKeepAliveInterval: function() { return this; }
+            };
+
+            const MockHubConnectionBuilder = class {
+                withUrl() { return this; }
+                withAutomaticReconnect() { return this; }
+                withServerTimeout() { return this; }
+                withKeepAliveInterval() { return this; }
+                build() { return mockHubConnection; }
             };
 
             global.signalR = {
-                HubConnectionBuilder: class {
-                    withUrl() { return this; }
-                    withAutomaticReconnect() { return this; }
-                    build() { return mockHubConnection; }
-                }
+                HubConnectionBuilder: MockHubConnectionBuilder
             };
 
             // Dynamic import to pick up the mocked signalR
@@ -630,18 +666,33 @@ describe('signalRBridge', () => {
                     this.handlers[eventName] = handler;
                 },
                 start: vi.fn().mockResolvedValue(undefined),
-                invoke: vi.fn().mockResolvedValue(undefined)
+                invoke: vi.fn().mockResolvedValue(undefined),
+                withUrl: function() { return this; },
+                withAutomaticReconnect: function() { return this; },
+                withServerTimeout: function() { return this; },
+                withKeepAliveInterval: function() { return this; }
+            };
+
+            const MockHubConnectionBuilder = class {
+                withUrl() { return this; }
+                withAutomaticReconnect() { return this; }
+                withServerTimeout() { return this; }
+                withKeepAliveInterval() { return this; }
+                build() { return mockHubConnection; }
             };
 
             global.signalR = {
-                HubConnectionBuilder: class {
-                    withUrl() { return this; }
-                    withAutomaticReconnect() { return this; }
-                    build() { return mockHubConnection; }
+                HubConnectionBuilder: MockHubConnectionBuilder,
+                HubConnectionState: {
+                    Disconnected: 0,
+                    Connecting: 1,
+                    Connected: 2,
+                    Disconnecting: 3,
+                    Reconnecting: 4
                 }
             };
 
-            const { initializeSession } = await import('./signalRBridge.js');
+            const { initializeSession } = await import('./signalRBridge.js?t=' + Date.now());
             await initializeSession(TEST_SESSION_ID, true, 'test-token', 'http://backend:5000');
 
             // Test with PascalCase (C# backend convention)
@@ -667,6 +718,32 @@ describe('signalRBridge', () => {
             // Mock global fetch
             fetchMock = vi.fn();
             global.fetch = fetchMock;
+            
+            // Ensure signalR is defined to prevent script loading
+            if (!global.signalR) {
+                global.signalR = {
+                    HubConnectionBuilder: class {
+                        withUrl() { return this; }
+                        withAutomaticReconnect() { return this; }
+                        withServerTimeout() { return this; }
+                        withKeepAliveInterval() { return this; }
+                        build() { 
+                            return {
+                                on: vi.fn(),
+                                start: vi.fn().mockResolvedValue(undefined),
+                                invoke: vi.fn().mockResolvedValue(undefined)
+                            };
+                        }
+                    },
+                    HubConnectionState: {
+                        Disconnected: 0,
+                        Connecting: 1,
+                        Connected: 2,
+                        Disconnecting: 3,
+                        Reconnecting: 4
+                    }
+                };
+            }
         });
 
         afterEach(() => {
@@ -675,7 +752,7 @@ describe('signalRBridge', () => {
 
         it('should include id field when uploading songs', async () => {
             // Purpose: JavaScript must send IDs for backend to store them
-            const { uploadLibraryToServer } = await import('./signalRBridge.js');
+            const { uploadLibraryToServer } = await import('./signalRBridge.js?uploadtest1=' + Date.now());
             
             // Mock successful response
             fetchMock.mockResolvedValueOnce({
@@ -707,7 +784,7 @@ describe('signalRBridge', () => {
 
         it('should sanitize payload but keep id field', async () => {
             // Purpose: Filenames should never reach backend (security/privacy), but IDs must be included
-            const { uploadLibraryToServer } = await import('./signalRBridge.js');
+            const { uploadLibraryToServer } = await import('./signalRBridge.js?uploadtest2=' + Date.now());
             
             fetchMock.mockResolvedValueOnce({
                 ok: true,
@@ -748,7 +825,7 @@ describe('signalRBridge', () => {
 
         it('should handle empty or null ids gracefully', async () => {
             // Purpose: Defensive programming - should handle edge cases gracefully
-            const { uploadLibraryToServer } = await import('./signalRBridge.js');
+            const { uploadLibraryToServer } = await import('./signalRBridge.js?uploadtest3=' + Date.now());
             
             fetchMock.mockResolvedValueOnce({
                 ok: true,
