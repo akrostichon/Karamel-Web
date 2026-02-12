@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
+using System.Diagnostics;
 
 namespace Karamel.Backend.Hubs
 {
@@ -118,6 +119,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Adding item to session {SessionId}: SongId={SongId} (Singer: {SingerName})", 
                     sessionId, songId, singerName ?? "None");
 
@@ -159,6 +162,13 @@ namespace Karamel.Backend.Hubs
 
                 _logger.LogInformation("Successfully added item {ItemId} to session {SessionId} playlist", item.Id, sessionId);
 
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: AddItemAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
+
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
             }
@@ -189,6 +199,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Removing item {ItemId} from session {SessionId} playlist", 
                     itemId, sessionId);
 
@@ -213,6 +225,13 @@ namespace Karamel.Backend.Hubs
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully removed item {ItemId} from session {SessionId} playlist", itemId, sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: RemoveItemAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
@@ -246,6 +265,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Reordering session {SessionId} playlist: from {From} to {To}", 
                     sessionId, from, to);
 
@@ -290,6 +311,13 @@ namespace Karamel.Backend.Hubs
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully reordered session {SessionId} playlist", sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: ReorderAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 // Broadcast update to all clients in the session group
                 await BroadcastPlaylistUpdate(sessionId, playlist);
@@ -411,6 +439,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Advancing to next song in session {SessionId}", sessionId);
 
                 var session = await _sessionRepo.GetByIdAsync(sessionId);
@@ -461,6 +491,13 @@ namespace Karamel.Backend.Hubs
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully advanced song in session {SessionId}", sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: AdvanceToNextSongAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 await BroadcastPlaylistUpdate(sessionId, playlist);
             }
@@ -590,6 +627,8 @@ namespace Karamel.Backend.Hubs
             await sem.WaitAsync();
             try
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 _logger.LogInformation("Clearing queue (Queued and UpNext songs) in session {SessionId}", sessionId);
 
                 var playlist = await _playlistRepo.GetBySessionIdAsync(sessionId);
@@ -599,16 +638,22 @@ namespace Karamel.Backend.Hubs
                     .Where(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext)
                     .ToList();
                 
-                foreach (var item in itemsToRemove)
-                {
-                    playlist.Items.Remove(item);
-                    _logger.LogInformation("Removed {Status} item {ItemId} ({Artist} - {Title}) from session {SessionId}", 
-                        item.Status, item.Id, item.Artist, item.Title, sessionId);
-                }
+                // Log items before batch removal for audit trail
+                LogPlaylistItemsRemoval(itemsToRemove, sessionId);
+
+                // Use RemoveAll for efficient batch deletion instead of removing one by one
+                playlist.Items.RemoveAll(i => i.Status == SongStatus.Queued || i.Status == SongStatus.UpNext);
 
                 await _playlistRepo.UpdateAsync(playlist);
 
                 _logger.LogInformation("Successfully cleared {Count} queued songs from session {SessionId}", itemsToRemove.Count, sessionId);
+
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
+                {
+                    _logger.LogWarning("Slow playlist operation detected: ClearQueueAsync for session {SessionId} took {ElapsedMs}ms",
+                        sessionId, stopwatch.ElapsedMilliseconds);
+                }
 
                 await BroadcastPlaylistUpdate(sessionId, playlist);
             }
@@ -710,6 +755,30 @@ namespace Karamel.Backend.Hubs
                 dto.CurrentSong != null ? $"{dto.CurrentSong.Artist} - {dto.CurrentSong.Title}" : "None");
 
             await Clients.Group(groupName).SendAsync("ReceivePlaylistUpdated", dto);
+        }
+
+        /// <summary>
+        /// Logs the removal of playlist items in a single efficient log entry.
+        /// </summary>
+        private void LogPlaylistItemsRemoval(List<PlaylistItem> items, Guid sessionId)
+        {
+            if (items.Count == 0)
+            {
+                _logger.LogInformation("No items to remove from session {SessionId}", sessionId);
+                return;
+            }
+
+            // Log first 5 items as examples for audit trail
+            var sampleItems = items.Take(5)
+                .Select(i => $"{i.Status}:{i.Artist}-{i.Title}")
+                .ToList();
+            
+            var summary = items.Count <= 5 
+                ? string.Join(", ", sampleItems)
+                : $"{string.Join(", ", sampleItems)} and {items.Count - 5} more";
+
+            _logger.LogInformation("Removing {Count} items from session {SessionId}: {Summary}",
+                items.Count, sessionId, summary);
         }
 
         /// <summary>

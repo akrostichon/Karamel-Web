@@ -47,11 +47,21 @@ namespace Karamel.Backend.Repositories
                 _db.Playlists.Attach(playlist);
             }
 
+            // Fix N+1 query: Batch fetch all existing item IDs in a single query
+            // Performance: 50 items = 51 queries → 2 queries (96% reduction)
+            var itemIds = playlist.Items.Select(i => i.Id).ToList();
+            var existingItemIds = await _db.PlaylistItems
+                .Where(pi => itemIds.Contains(pi.Id))
+                .Select(pi => pi.Id)
+                .ToListAsync();
+            
+            // Use HashSet for O(1) lookup instead of repeated database queries
+            var existingIds = new HashSet<Guid>(existingItemIds);
+
             // For each item, ensure new items are added to the context so EF issues INSERTs
             foreach (var item in playlist.Items)
             {
-                var exists = await _db.PlaylistItems.AnyAsync(p => p.Id == item.Id);
-                if (!exists)
+                if (!existingIds.Contains(item.Id))
                 {
                     await _db.PlaylistItems.AddAsync(item);
                 }
