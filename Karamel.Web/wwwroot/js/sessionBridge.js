@@ -3,6 +3,10 @@
  * Uses Broadcast Channel API for real-time updates and sessionStorage for persistence
  */
 
+import { createLogger } from './logger.js';
+
+const logger = createLogger('SessionBridge');
+
 let broadcastChannel = null;
 let isMainTab = false;
 let currentSessionId = null;
@@ -50,13 +54,13 @@ function handleMainTabMessage(event) {
     if (event.data?.senderId === tabId) return;
 
     try {
-        console.log('Main tab received message:', event.data);
+        logger.debug('Main tab received message:', event.data);
     } catch (error) {
-        console.log('Main tab received message (unserializable data)');
+        logger.debug('Main tab received message (unserializable data)');
     }
 
     if (event.data?.type === 'request-state') {
-        console.log('Main tab: Sending current state to requesting tab');
+        logger.debug('Main tab: Sending current state to requesting tab');
         const currentState = getSessionState();
         broadcastChannel.postMessage({
             type: 'state-sync-response',
@@ -65,11 +69,11 @@ function handleMainTabMessage(event) {
             senderId: tabId
         });
     } else if (event.data?.type) {
-        console.log(`Main tab: Processing message type: ${event.data.type}`);
+        logger.debug(`Main tab: Processing message type: ${event.data.type}`);
         try {
             handleBroadcastMessage(event.data);
         } catch (error) {
-            console.error('Main tab: Error handling broadcast message:', error);
+            logger.error('Main tab: Error handling broadcast message:', error);
         }
     }
 }
@@ -84,7 +88,7 @@ function handleSecondaryTabMessage(event, sessionId) {
     if (event.data?.senderId === tabId) return;
 
     if (event.data?.type === 'state-sync-response') {
-        console.log('Secondary tab: Received state sync response');
+        logger.debug('Secondary tab: Received state sync response');
         // Save the full state to this tab's sessionStorage
         sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(event.data.data));
         // Trigger custom event for Blazor to reload state
@@ -101,7 +105,7 @@ function handleSecondaryTabMessage(event, sessionId) {
  * Request initial state from main tab (secondary tabs only)
  */
 function requestStateFromMainTab() {
-    console.log('Secondary tab: Requesting state from main tab');
+    logger.debug('Secondary tab: Requesting state from main tab');
     broadcastChannel.postMessage({
         type: 'request-state',
         timestamp: Date.now(),
@@ -129,7 +133,7 @@ function createBroadcastChannel(sessionId, asMainTab) {
         
         return channel;
     } catch (error) {
-        console.error('Failed to create Broadcast Channel:', error);
+        logger.error('Failed to create Broadcast Channel:', error);
         throw new Error('Broadcast Channel API is not supported in this browser');
     }
 }
@@ -153,7 +157,7 @@ export function initializeSession(sessionId, asMainTab) {
     // Create and configure broadcast channel
     broadcastChannel = createBroadcastChannel(sessionId, asMainTab);
     
-    console.log(`Session bridge initialized as ${asMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId}`);
+    logger.debug(`Session bridge initialized as ${asMainTab ? 'MAIN' : 'SECONDARY'} tab for session ${sessionId}`);
 }
 
 /**
@@ -167,7 +171,7 @@ export function broadcastStateUpdate(type, data) {
     // and notify other tabs as well.
     
     if (!broadcastChannel) {
-        console.error('Broadcast channel not initialized');
+        logger.error('Broadcast channel not initialized');
         return;
     }
     
@@ -183,7 +187,7 @@ export function broadcastStateUpdate(type, data) {
     
     // Broadcast to other tabs
     broadcastChannel.postMessage(message);
-    console.log('Broadcasted:', type, data);
+    logger.debug('Broadcasted:', type, data);
 }
 
 /**
@@ -191,7 +195,7 @@ export function broadcastStateUpdate(type, data) {
  * @param {object} message - Broadcast message
  */
 function handleBroadcastMessage(message) {
-    console.log('Received broadcast:', message.type, message.data);
+    logger.debug('Received broadcast:', message.type, message.data);
     
     // Save to sessionStorage
     saveToSessionStorage(message.type, message.data);
@@ -208,14 +212,14 @@ function handleBroadcastMessage(message) {
             import('./themeToggle.js').then(module => {
                 try {
                     module.setTheme(message.data.theme);
-                    console.log('Applied theme from session-settings:', message.data.theme);
+                    logger.debug('Applied theme from session-settings:', message.data.theme);
                 } catch (e) {
-                    console.warn('Failed to apply theme from session-settings:', e);
+                    logger.warn('Failed to apply theme from session-settings:', e);
                 }
             });
         }
     } catch (e) {
-        console.warn('Error while attempting to apply theme from broadcast:', e);
+        logger.warn('Error while attempting to apply theme from broadcast:', e);
     }
 }
 
@@ -227,7 +231,7 @@ function handleBroadcastMessage(message) {
 function saveToSessionStorage(type, data) {
     try {
         if (!currentSessionId) {
-            console.error('Cannot save to sessionStorage: No active session');
+            logger.error('Cannot save to sessionStorage: No active session');
             return;
         }
         
@@ -244,13 +248,13 @@ function saveToSessionStorage(type, data) {
                 sessionState.currentSong = data;
                 break;
             default:
-                console.warn('Unknown state type:', type);
+                logger.warn('Unknown state type:', type);
                 return;
         }
         
         sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(sessionState));
     } catch (error) {
-        console.error('Failed to save to sessionStorage:', error);
+        logger.error('Failed to save to sessionStorage:', error);
     }
 }
 
@@ -273,7 +277,7 @@ export function getSessionStateForSession(sessionId) {
             currentSong: null
         };
     } catch (error) {
-        console.error('Failed to read from sessionStorage:', error);
+        logger.error('Failed to read from sessionStorage:', error);
         return {
             session: null,
             library: null,
@@ -289,7 +293,7 @@ export function getSessionStateForSession(sessionId) {
  */
 export function getSessionState() {
     if (!currentSessionId) {
-        console.warn('No active session');
+        logger.warn('No active session');
         return {
             session: null,
             library: null,
@@ -319,10 +323,10 @@ export function clearSessionState() {
             broadcastChannel = null;
         }
         
-        console.log('Session state cleared for session', currentSessionId);
+        logger.debug('Session state cleared for session', currentSessionId);
         currentSessionId = null;
     } catch (error) {
-        console.error('Failed to clear session state:', error);
+        logger.error('Failed to clear session state:', error);
     }
 }
 
@@ -354,7 +358,7 @@ export function getSessionIdFromUrl() {
 export function setupStateSyncListener(dotNetRef) {
     const handler = (event) => {
         if (event.type === 'session-state-synced') {
-            console.log('State sync event received, notifying .NET');
+            logger.debug('State sync event received, notifying .NET');
             dotNetRef.invokeMethodAsync('OnStateSynced');
             window.removeEventListener('session-state-synced', handler);
         }
@@ -373,17 +377,17 @@ export function setupStateSyncListener(dotNetRef) {
  * @param {object} dotNetRef - .NET object reference with OnStateUpdated callback
  */
 export function setupStateUpdateListener(dotNetRef) {
-    console.log('Registering state update listener (isMainTab=' + isMainTab + ')');
+    logger.debug('Registering state update listener (isMainTab=' + isMainTab + ')');
 
     const handler = (event) => {
         if (event.type === 'session-state-updated') {
-            console.log('State update event received:', event.detail.type);
+            logger.debug('State update event received:', event.detail.type);
             dotNetRef.invokeMethodAsync('OnStateUpdated', event.detail.type, event.detail.data);
         }
     };
     
     window.addEventListener('session-state-updated', handler);
-    console.log('State update listener registered for secondary tab');
+    logger.debug('State update listener registered for secondary tab');
 }
 
 /**
