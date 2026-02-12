@@ -195,7 +195,9 @@
         isSessionValid = ValidateSession();
 
         // Subscribe to playlist updates so we react immediately when queue changes
+#if DEBUG
         Console.WriteLine($"NextSongView: Subscribing to PlaylistState changes. Current items count={PlaylistState.Value.Items?.Count ?? 0}");
+#endif
         PlaylistState.StateChanged += OnPlaylistStateChanged;
 
         // Subscribe to session state changes so we can initialize when session data arrives
@@ -269,12 +271,16 @@
             var upNextCount = PlaylistState.Value.Items?.Count(i => i.Status == (int)SongStatus.UpNext) ?? 0;
             var nowPlayingCount = PlaylistState.Value.Items?.Count(i => i.Status == (int)SongStatus.NowPlaying) ?? 0;
             
+#if DEBUG
             Console.WriteLine($"NextSongView: OnPlaylistStateChanged - Total: {itemsCount}, Queued: {queuedCount}, UpNext: {upNextCount}, NowPlaying: {nowPlayingCount}, CurrentSong={(PlaylistState.Value.CurrentSong != null ? $"set (ID: {PlaylistState.Value.CurrentSong.Id})" : "null")}");
+#endif
             
             // If we're waiting for a playlist update and CurrentSong is now set, complete the awaiter
             if (_playlistUpdateAwaiter != null && PlaylistState.Value.CurrentSong != null)
             {
+#if DEBUG
                 Console.WriteLine($"NextSongView: CurrentSong is set to {PlaylistState.Value.CurrentSong.Id}, completing playlist update awaiter");
+#endif
                 _playlistUpdateAwaiter.TrySetResult(true);
                 _playlistUpdateAwaiter = null;
             }
@@ -302,23 +308,29 @@
         // If no session in state, it's invalid
         if (SessionState.Value.CurrentSession == null)
         {
+#if DEBUG
             Console.WriteLine($"[NextSongView] Session validation failed: CurrentSession is null");
+#endif
             return false;
         }
 
         // STRICT VALIDATION: Session parameter is REQUIRED for multi-session support
         if (string.IsNullOrWhiteSpace(SessionParam) || !Guid.TryParse(SessionParam, out var sessionGuid))
         {
+#if DEBUG
             Console.WriteLine($"[NextSongView] Session validation failed: Invalid SessionParam '{SessionParam}'");
+#endif
             return false;
         }
 
         // Session ID must match the parameter
         var match = SessionState.Value.CurrentSession.SessionId == sessionGuid;
+#if DEBUG
         if (!match)
         {
             Console.WriteLine($"[NextSongView] Session validation failed: State.SessionId={SessionState.Value.CurrentSession.SessionId}, URL.SessionId={sessionGuid}");
         }
+#endif
         
         return match;
     }
@@ -329,10 +341,14 @@
 
         if (firstRender)
         {
+#if DEBUG
             Console.WriteLine($"[NextSongView] Initializing with SessionParam={SessionParam}, TokenParam={TokenParam?.Substring(0, Math.Min(20, TokenParam?.Length ?? 0))}...");
+#endif
         }
 
+#if DEBUG
         Console.WriteLine($"NextSongView: OnAfterRenderAsync firstRender={firstRender}. isSessionValid={isSessionValid}. ItemsCount={PlaylistState.Value.Items?.Count ?? 0}");
+#endif
 
         if (isSessionValid && !isLocalhost)
         {
@@ -357,7 +373,9 @@
                 var previousNextSong = nextSong;
                 UpdateNextSong();
 
-                    Console.WriteLine($"NextSongView: Playlist changed in OnAfterRender. previousNextId={previousNextSong?.Id} newNextId={nextSong?.Id}");
+#if DEBUG
+                Console.WriteLine($"NextSongView: Playlist changed in OnAfterRender. previousNextId={previousNextSong?.Id} newNextId={nextSong?.Id}");
+#endif
 
                 // Restart timer if song changed
                 if (previousNextSong?.Id != nextSong?.Id)
@@ -419,15 +437,11 @@
             var url = $"/api/sessions/{session.SessionId}/heartbeat";
             var req = new { ExtendMinutes = 30 };
             var res = await Http.PostAsJsonAsync(url, req);
-            // ignore result; logging for diagnostics
-            if (!res.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"NextSongView: Heartbeat failed with {(int)res.StatusCode}");
-            }
+            // Backend logs heartbeat failures; no need to log here
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"NextSongView: Heartbeat error: {ex.Message}");
+            // Backend logs errors; no need to log here
         }
     }
 
@@ -460,11 +474,15 @@
             
             if (nextSong != null)
             {
+#if DEBUG
                 Console.WriteLine($"NextSongView: WARNING - Found Queued song {nextSong.Id} instead of UpNext. Backend auto-promotion may not have run yet.");
+#endif
             }
         }
         
+#if DEBUG
         Console.WriteLine($"NextSongView: UpdateNextSong found {(nextSong != null ? $"song {nextSong.Id} ('{nextSong.Artist} - {nextSong.Title}') with status {nextSong.Status}" : "no song")}");
+#endif
     }
 
     private bool ItemsEqual(List<PlaylistItemDto> a, List<PlaylistItemDto> b)
@@ -484,7 +502,9 @@
         // Guard: Skip if timer is already running for the same song
         if (ShouldSkipTimerRestart(newNextSongId))
         {
+#if DEBUG
             Console.WriteLine($"NextSongView: Timer already running for song {newNextSongId}, skipping restart");
+#endif
             return;
         }
         
@@ -540,7 +560,9 @@
         isTimerActive = true;
         countdownStart = DateTime.UtcNow;
         
+#if DEBUG
         Console.WriteLine($"NextSongView: Starting {totalSeconds}s timer for song {nextSong?.Id}");
+#endif
     }
 
     private void StartCountdownTimer()
@@ -590,7 +612,9 @@
             // Advance to next song via SignalR (marks UpNext as NowPlaying)
             try
             {
+#if DEBUG
                 Console.WriteLine($"NextSongView: Dispatching AdvanceToNextSongAction for song {nextSong?.Id} and waiting for CurrentSong to be set...");
+#endif
                 
                 // Create awaiter for playlist update
                 _playlistUpdateAwaiter = new TaskCompletionSource<bool>();
@@ -605,7 +629,9 @@
                 
                 if (completedTask == updateTask)
                 {
+#if DEBUG
                     Console.WriteLine("NextSongView: CurrentSong set successfully, navigating to player");
+#endif
                 }
                 else
                 {
