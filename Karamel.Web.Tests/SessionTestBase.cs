@@ -1,5 +1,6 @@
 using Bunit;
 using Karamel.Web.Models;
+using Karamel.Web.Pages;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Library;
@@ -171,6 +172,43 @@ public abstract class SessionTestBase : TestContext
             CdgFileName = $"{artist.ToLower().Replace(" ", "-")}-{title.ToLower().Replace(" ", "-")}.cdg",
             AddedBySinger = singerName
         };
+    }
+
+    /// <summary>
+    /// Helper method to render SingerView with proper session parameter and wait for initialization.
+    /// Must be called AFTER SetupTestWithSession has been called to register services.
+    /// </summary>
+    /// <param name="sessionId">The session ID to pass as component parameter</param>
+    /// <param name="tokenParam">Optional token parameter for authentication</param>
+    /// <returns>The rendered component</returns>
+    protected IRenderedComponent<SingerView> RenderSingerViewComponent(
+        Guid sessionId,
+        string? tokenParam = null)
+    {
+        // For SupplyParameterFromQuery parameters, we must use NavigationManager
+        var navManager = Services.GetRequiredService<NavigationManager>();
+        var uri = navManager.GetUriWithQueryParameter("session", sessionId.ToString());
+        if (tokenParam != null)
+        {
+            var uriBuilder = new UriBuilder(uri);
+            uriBuilder.Query += $"&token={Uri.EscapeDataString(tokenParam)}";
+            uri = uriBuilder.Uri.ToString();
+        }
+        navManager.NavigateTo(uri);
+        
+        var cut = RenderComponent<SingerView>();
+        
+        // Wait for initialization to complete (component should no longer show spinner)
+        cut.WaitForState(() => 
+        {
+            var markup = cut.Markup;
+            return !markup.Contains("Loading session...") || 
+                   markup.Contains("input#singerNameInput") || 
+                   markup.Contains("library-container") ||
+                   markup.Contains("Session Loading Failed");
+        }, timeout: TimeSpan.FromSeconds(5));
+        
+        return cut;
     }
 
     /// <summary>
