@@ -61,34 +61,34 @@ namespace Karamel.Backend.Services
             var sessions = await repo.ListAsync();
             
             // Catch sessions with explicit expiry OR NULL ExpiresAt older than 30 minutes (legacy/missed heartbeat sessions)
-            var expired = sessions.Where(s => 
+            var expiredSessions = sessions.Where(s => 
                 (s.ExpiresAt.HasValue && s.ExpiresAt.Value <= now) ||
                 (!s.ExpiresAt.HasValue && s.CreatedAt < now.AddMinutes(-30))
             ).ToList();
 
             int sessionsDeleted = 0, songsDeleted = 0, playlistsDeleted = 0;
 
-            foreach (var s in expired)
+            foreach (var expiredSession in expiredSessions)
             {
                 try
                 {
                     _logger.LogInformation("Expiring session {SessionId} (ExpiresAt={ExpiresAt}, CreatedAt={CreatedAt})", 
-                        s.Id, s.ExpiresAt, s.CreatedAt);
+                        expiredSession.Id, expiredSession.ExpiresAt, expiredSession.CreatedAt);
                     
                     // Explicit cleanup of associated data (belt-and-suspenders before FK cascade added in Phase 3)
                     try
                     {
-                        await songRepo.DeleteBySessionAsync(s.Id);
+                        await songRepo.DeleteBySessionAsync(expiredSession.Id);
                         songsDeleted++;
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to delete songs for session {SessionId}", s.Id);
+                        _logger.LogWarning(ex, "Failed to delete songs for session {SessionId}", expiredSession.Id);
                     }
 
                     try
                     {
-                        var playlist = await playlistRepo.GetBySessionIdAsync(s.Id);
+                        var playlist = await playlistRepo.GetBySessionIdAsync(expiredSession.Id);
                         if (playlist != null)
                         {
                             await playlistRepo.DeleteAsync(playlist.Id);
@@ -97,22 +97,22 @@ namespace Karamel.Backend.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to delete playlist for session {SessionId}", s.Id);
+                        _logger.LogWarning(ex, "Failed to delete playlist for session {SessionId}", expiredSession.Id);
                     }
 
                     // Delete session itself
-                    await repo.DeleteAsync(s.Id);
+                    await repo.DeleteAsync(expiredSession.Id);
                     sessionsDeleted++;
 
                     if (hubContext != null)
                     {
-                        var group = Hubs.PlaylistHub.GetSessionGroupName(s.Id.ToString());
-                        await hubContext.Clients.Group(group).SendAsync("ReceiveSessionEnded", s.Id, cancellationToken);
+                        var group = Hubs.PlaylistHub.GetSessionGroupName(expiredSession.Id.ToString());
+                        await hubContext.Clients.Group(group).SendAsync("ReceiveSessionEnded", expiredSession.Id, cancellationToken);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to expire session {SessionId}", s.Id);
+                    _logger.LogError(ex, "Failed to expire session {SessionId}", expiredSession.Id);
                 }
             }
 
