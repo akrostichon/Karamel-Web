@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using static Karamel.Backend.Models.SessionConstants;
 
 namespace Karamel.Backend.Services
 {
@@ -45,7 +46,7 @@ namespace Karamel.Backend.Services
 
         /// <summary>
         /// Performs one cleanup pass. This method is public to allow unit/integration tests to invoke cleanup deterministically.
-        /// It finds sessions with ExpiresAt <= UtcNow OR NULL ExpiresAt older than 30 minutes, deletes associated data (songs/playlists),
+        /// It finds sessions with ExpiresAt <= UtcNow OR NULL ExpiresAt older than DefaultTtlMinutes, deletes associated data (songs/playlists),
         /// and then deletes the session. For each deleted session it broadcasts a "ReceiveSessionEnded" message to the SignalR group 
         /// so clients can handle termination gracefully.
         /// </summary>
@@ -60,10 +61,10 @@ namespace Karamel.Backend.Services
             var now = DateTime.UtcNow;
             var sessions = await repo.ListAsync();
             
-            // Catch sessions with explicit expiry OR NULL ExpiresAt older than 30 minutes (legacy/missed heartbeat sessions)
+            // Catch sessions with explicit expiry OR NULL ExpiresAt older than DefaultTtlMinutes (legacy/missed heartbeat sessions)
             var expiredSessions = sessions.Where(s => 
                 (s.ExpiresAt.HasValue && s.ExpiresAt.Value <= now) ||
-                (!s.ExpiresAt.HasValue && s.CreatedAt < now.AddMinutes(-30))
+                (!s.ExpiresAt.HasValue && s.CreatedAt < now.AddMinutes(-DefaultTtlMinutes))
             ).ToList();
 
             int sessionsDeleted = 0, songsDeleted = 0, playlistsDeleted = 0;

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
 using Karamel.Backend.Services;
+using static Karamel.Backend.Models.SessionConstants;
 
 namespace Karamel.Backend.Controllers
 {
@@ -29,7 +30,7 @@ namespace Karamel.Backend.Controllers
                 {
                     Id = Guid.NewGuid(),
                     CreatedAt = DateTime.UtcNow,
-                    ExpiresAt = DateTime.UtcNow.AddMinutes(30), // Guaranteed 30-minute TTL
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(DefaultTtlMinutes),
                     Config = new SessionConfig
                     {
                         RequireSingerName = req.RequireSingerName,
@@ -55,7 +56,7 @@ namespace Karamel.Backend.Controllers
                     adminToken = session.AdminToken,
                     singerToken = session.SingerToken,
                     linkToken = session.AdminToken, // Deprecated
-                    expiresAt = session.ExpiresAt, // 30-minute TTL guarantee
+                    expiresAt = session.ExpiresAt,
                     requireSingerName = session.Config.RequireSingerName,
                     pauseBetweenSongsSeconds = session.Config.PauseBetweenSongsSeconds,
                     allowSingersToReorder = session.Config.AllowSingersToReorder

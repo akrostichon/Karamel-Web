@@ -7,6 +7,7 @@ using Karamel.Backend.Services;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
 using Karamel.Backend.Controllers;
+using static Karamel.Backend.Models.SessionConstants;
 
 namespace Karamel.Backend.Tests
 {
@@ -72,11 +73,11 @@ namespace Karamel.Backend.Tests
             var repo = services.GetRequiredService<ISessionRepository>();
             var cleanup = services.GetRequiredService<SessionCleanupService>();
 
-            // Create a session with NULL ExpiresAt, older than 30 minutes
+            // Create a session with NULL ExpiresAt, older than DefaultTtlMinutes
             var oldSession = new Session
             {
                 Id = Guid.NewGuid(),
-                CreatedAt = DateTime.UtcNow.AddMinutes(-35), // 35 minutes ago
+                CreatedAt = DateTime.UtcNow.AddMinutes(-(DefaultTtlMinutes + 5)), // Older than TTL
                 ExpiresAt = null, // NULL ExpiresAt (legacy/missed heartbeat)
                 Config = new SessionConfig
                 {
