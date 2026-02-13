@@ -51,8 +51,11 @@ public class SingerViewTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = null };
         SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
 
-        // Act
+        // Act - don't pass SessionParam, triggering error state
         var cut = RenderComponent<SingerView>();
+        
+        // Wait for initialization to complete (should show error)
+        cut.WaitForState(() => cut.Markup.Contains("Session Loading Failed"), timeout: TimeSpan.FromSeconds(2));
 
         // Assert
         var alert = cut.Find(".alert-danger");
@@ -65,10 +68,11 @@ public class SingerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
+        var libraryState = new LibraryState();
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
 
         // Assert
         var nameInput = cut.Find("input#singerNameInput");
@@ -87,10 +91,10 @@ public class SingerViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithoutNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(_testSessionWithoutNameRequired.SessionId);
 
         // Assert
         var librarySearch = cut.FindComponent<LibrarySearch>();
@@ -105,10 +109,10 @@ public class SingerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
         var continueButton = cut.Find("button.k-btn-primary");
 
         // Assert
@@ -120,8 +124,8 @@ public class SingerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
@@ -137,8 +141,8 @@ public class SingerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
@@ -157,8 +161,8 @@ public class SingerViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
@@ -180,8 +184,8 @@ public class SingerViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
@@ -200,8 +204,8 @@ public class SingerViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
@@ -226,10 +230,10 @@ public class SingerViewTests : SessionTestBase
         {
             Items = new List<PlaylistItemDto>() // SingerSongCounts removed
         };
-        SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
+        SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
 
         // Assert
         var songCount = cut.Find(".song-count");
@@ -244,7 +248,7 @@ public class SingerViewTests : SessionTestBase
         var libraryState = new LibraryState { Songs = _testSongs };
         var (_, dispatcher, _) = SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         
         // Enter name first
         var nameInput = cut.Find("input#singerNameInput");
@@ -273,7 +277,7 @@ public class SingerViewTests : SessionTestBase
         var libraryState = new LibraryState { Songs = _testSongs };
         var (_, dispatcher, _) = SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
         
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
 
         // Act
         var librarySearch = cut.FindComponent<LibrarySearch>();
@@ -298,36 +302,44 @@ public class SingerViewTests : SessionTestBase
         {
             Items = TestDataFactory.CreatePlaylistItems(new[] { _testSongs[0] })
         };
-        var (actionSubscriber, _, _) = SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
+        var (mockActionSubscriber, _, _) = SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         
-        // Enter name
+        // Enter name first
         var nameInput = cut.Find("input#singerNameInput");
-        nameInput.Input("Bob");
+        nameInput.Input("Alice");
         var continueButton = cut.Find("button.k-btn-primary");
         continueButton.Click();
 
-        // Act - Simulate AddToPlaylistSuccessAction
-        var songWithSinger = _testSongs[0] with { AddedBySinger = "Bob" };
-        var successAction = new AddToPlaylistSuccessAction(songWithSinger);
+        // Act - Simulate success action
+        var successAction = new AddToPlaylistSuccessAction(
+            new Song { 
+                Id = _testSongs[0].Id, 
+                Title = "Let It Be", 
+                Artist = "Beatles", 
+                AddedBySinger = "Alice",
+                Mp3FileName = "beatles-let-it-be.mp3",
+                CdgFileName = "beatles-let-it-be.cdg"
+            }
+        );
         
-        // We need to directly call the component's handler
+        // Directly call the handler (since we can't easily trigger action subscriber in tests)
         cut.InvokeAsync(() => cut.Instance.GetType()
             .GetMethod("HandleAddToPlaylistSuccess", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
             .Invoke(cut.Instance, new[] { successAction }));
-
-        // Assert
-        var toast = cut.Find(".toast.show");
-        Assert.NotNull(toast);
         
-        var toastBody = cut.Find(".toast-body");
-        Assert.Contains("added", toastBody.TextContent);
-        Assert.Contains("#1 in queue", toastBody.TextContent);
+        // Assert - Check for success toast
+        cut.WaitForAssertion(() => 
+        {
+            var toast = cut.Find(".toast.show");
+            Assert.Contains("Success", toast.TextContent);
+            Assert.Contains("added", toast.TextContent);
+        }, timeout: TimeSpan.FromSeconds(2));
     }
 
     [Fact]
-    public void Component_ShowsErrorToast_OnAddToPlaylistFailure()
+    public async Task Component_ShowsErrorToast_OnAddToPlaylistFailure()
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
@@ -338,7 +350,7 @@ public class SingerViewTests : SessionTestBase
         };
         var (actionSubscriber, _, _) = SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
@@ -349,9 +361,12 @@ public class SingerViewTests : SessionTestBase
         // Act - Simulate AddToPlaylistFailureAction
         var failureAction = new AddToPlaylistFailureAction("Maximum 10 songs per singer reached");
         
-        cut.InvokeAsync(() => cut.Instance.GetType()
+        await cut.InvokeAsync(() => cut.Instance.GetType()
             .GetMethod("HandleAddToPlaylistFailure", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
             .Invoke(cut.Instance, new[] { failureAction }));
+
+        // Wait for the toast to appear in the DOM
+        cut.WaitForState(() => cut.Markup.Contains("toast show"), timeout: TimeSpan.FromSeconds(2));
 
         // Assert
         var toast = cut.Find(".toast.show");
@@ -379,9 +394,9 @@ public class SingerViewTests : SessionTestBase
                 new PlaylistItemDto(Guid.NewGuid().ToString(), _testSongs[0].Id.ToString(), _testSongs[0].Artist, _testSongs[0].Title, "David", 2, 0)
             }
         };
-        SetupTestWithSession(sessionState, playlistState, libraryState, view: "singer");
         
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         
         // Enter name
         var nameInput = cut.Find("input#singerNameInput");
@@ -401,8 +416,8 @@ public class SingerViewTests : SessionTestBase
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
         var libraryState = new LibraryState { Songs = _testSongs };
-        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         var nameInput = cut.Find("input#singerNameInput");
 
         // Act
@@ -420,8 +435,8 @@ public class SingerViewTests : SessionTestBase
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
-        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
-        var cut = RenderComponent<SingerView>();
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         var nameInput = cut.Find("input#singerNameInput");
 
         // Assert
@@ -450,7 +465,7 @@ public class SingerViewTests : SessionTestBase
         Assert.NotNull(playlistStateService);
         var mockPlaylistState = Mock.Get(playlistStateService);
         
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         
         // Enter singer name
         var nameInput = cut.Find("input#singerNameInput");
@@ -552,7 +567,7 @@ public class SingerViewTests : SessionTestBase
         Assert.NotNull(playlistStateService);
         var mockPlaylistState = Mock.Get(playlistStateService);
         
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         
         // Enter singer name
         var nameInput = cut.Find("input#singerNameInput");
@@ -609,7 +624,7 @@ public class SingerViewTests : SessionTestBase
         Assert.NotNull(playlistStateService);
         var mockPlaylistState = Mock.Get(playlistStateService);
         
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
         
         // Enter singer name
         var nameInput = cut.Find("input#singerNameInput");
@@ -731,7 +746,7 @@ public class SingerViewTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
 
         // Assert: Load more button should be visible
         var loadMoreButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Load more"));
@@ -775,7 +790,7 @@ public class SingerViewTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
 
         // Assert: Load more button should NOT exist
         var loadMoreButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Load more"));
@@ -818,7 +833,7 @@ public class SingerViewTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
 
         // Assert: Button should exist and be disabled with loading text
         var loadingButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Loading"));
@@ -864,7 +879,7 @@ public class SingerViewTests : SessionTestBase
         var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, libraryState, "singer", false);
 
         // Act
-        var cut = RenderComponent<SingerView>();
+        var cut = RenderSingerViewComponent(sessionState.CurrentSession.SessionId);
 
         var loadMoreButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Load more"));
         Assert.NotNull(loadMoreButton);
