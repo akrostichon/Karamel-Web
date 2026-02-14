@@ -23,15 +23,31 @@ public record SongDto(
 public static class SongConverters
 {
     /// <summary>
-    /// Convert Song to sanitized upload DTO (PRIVACY: excludes filecodes paths).
-    /// Use this for uploading to backend - only contains Artist, Title, and future metadata fields.
+    /// Convert Song to sanitized upload DTO (PRIVACY: excludes file paths).
+    /// Use this for uploading to backend - only contains Artist, Title, and metadata fields.
     /// </summary>
-    public static SongUploadDto ConvertSongToUploadDto(Song s) => new(
-        Id: s.Id.ToString(),
-        Artist: s.Artist,
-        Title: s.Title,
-        MetadataJson: null  // TODO: Serialize duration, genre when implemented
-    );
+    public static SongUploadDto ConvertSongToUploadDto(Song s)
+    {
+        string? metadataJson = null;
+        
+        // Only include metadata for video songs (Mp3Cdg songs use null for backward compatibility)
+        if (s.MediaType == MediaType.Video)
+        {
+            var metadata = new
+            {
+                mediaType = (int)s.MediaType,
+                extension = s.VideoExtension
+            };
+            metadataJson = JsonSerializer.Serialize(metadata);
+        }
+        
+        return new SongUploadDto(
+            Id: s.Id.ToString(),
+            Artist: s.Artist,
+            Title: s.Title,
+            MetadataJson: metadataJson
+        );
+    }
 
     /// <summary>
     /// Convert Song to full DTO (includes file paths for internal use).
@@ -55,30 +71,71 @@ public static class SongConverters
 
     /// <summary>
     /// Convert JSON from backend to Song model.
-   /// PRIVACY: Backend never returns file paths - all path fields will be empty/null.
+    /// PRIVACY: Backend never returns file paths - all path fields will be empty/null.
     /// Secondary tabs use this for display-only (browse/search) without playback capability.
     /// </summary>
-    public static Song ConvertJsonToSong(JsonElement s) => new Song
+    public static Song ConvertJsonToSong(JsonElement s)
     {
-        Id = Guid.Parse(s.GetProperty("id").GetString()!),
-        Artist = s.GetProperty("artist").GetString() ?? string.Empty,
-        Title = s.GetProperty("title").GetString() ?? string.Empty,
-        // Default to Mp3Cdg for backward compatibility
-        MediaType = MediaType.Mp3Cdg,
-        // PRIVACY: File paths never returned from backend (empty/null for secondary tabs)
-        Mp3FileName = null,
-        CdgFileName = null,
-        VideoFileName = null,
-        VideoExtension = null,
-        Path = null,
-        FullPath = null,
-        SourceType = SongSourceType.Directory,
-        ZipFileName = null,
-        ZipEntryMp3Path = null,
-        ZipEntryCdgPath = null,
-        ZipFilePath = null,
-        AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
-    };
+        // Parse metadata to extract MediaType and VideoExtension
+        var mediaType = MediaType.Mp3Cdg; // Default for backward compatibility
+        string? videoExtension = null;
+        
+        if (s.TryGetProperty("metadataJson", out var metadataJsonProp) && 
+            metadataJsonProp.ValueKind == JsonValueKind.String)
+        {
+            var metadataJsonStr = metadataJsonProp.GetString();
+            if (!string.IsNullOrWhiteSpace(metadataJsonStr))
+            {
+                try
+                {
+                    var metadata = JsonDocument.Parse(metadataJsonStr).RootElement;
+                    
+                    // Extract mediaType (integer enum value)
+                    if (metadata.TryGetProperty("mediaType", out var mediaTypeProp) && 
+                        mediaTypeProp.ValueKind == JsonValueKind.Number)
+                    {
+                        var mediaTypeValue = mediaTypeProp.GetInt32();
+                        if (Enum.IsDefined(typeof(MediaType), mediaTypeValue))
+                        {
+                            mediaType = (MediaType)mediaTypeValue;
+                        }
+                    }
+                    
+                    // Extract video extension
+                    if (metadata.TryGetProperty("extension", out var extensionProp) && 
+                        extensionProp.ValueKind == JsonValueKind.String)
+                    {
+                        videoExtension = extensionProp.GetString();
+                    }
+                }
+                catch
+                {
+                    // Invalid JSON in metadata - use defaults
+                }
+            }
+        }
+        
+        return new Song
+        {
+            Id = Guid.Parse(s.GetProperty("id").GetString()!),
+            Artist = s.GetProperty("artist").GetString() ?? string.Empty,
+            Title = s.GetProperty("title").GetString() ?? string.Empty,
+            MediaType = mediaType,
+            // PRIVACY: File paths never returned from backend (empty/null for secondary tabs)
+            Mp3FileName = null,
+            CdgFileName = null,
+            VideoFileName = null,
+            VideoExtension = videoExtension,
+            Path = null,
+            FullPath = null,
+            SourceType = SongSourceType.Directory,
+            ZipFileName = null,
+            ZipEntryMp3Path = null,
+            ZipEntryCdgPath = null,
+            ZipFilePath = null,
+            AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
+        };
+    }
 
     public static Song ConvertDtoToSong(SongDto dto)
     {
