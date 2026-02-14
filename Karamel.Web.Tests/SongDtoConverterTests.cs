@@ -37,8 +37,8 @@ public class SongDtoConverterTests
         Assert.Equal("Test Artist", song.Artist);
         Assert.Equal("Test Title", song.Title);
         // PRIVACY: File paths never deserialized from backend
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Equal(SongSourceType.Directory, song.SourceType);  // Default
@@ -65,8 +65,8 @@ public class SongDtoConverterTests
         Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789012"), song.Id);
         Assert.Equal("Test Artist", song.Artist);
         Assert.Equal("Test Title", song.Title);
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Equal(SongSourceType.Directory, song.SourceType);
@@ -92,8 +92,8 @@ public class SongDtoConverterTests
         var song = SongConverters.ConvertJsonToSong(jsonElement);
 
         // Assert
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
     }
 
     [Fact]
@@ -119,8 +119,8 @@ public class SongDtoConverterTests
         Assert.Equal(Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), song.Id);
         Assert.Equal("Backend Artist", song.Artist);
         Assert.Equal("Backend Title", song.Title);
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
     }
 
     [Fact]
@@ -261,8 +261,8 @@ public class SongDtoConverterTests
         Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789012"), song.Id);
         Assert.Equal("Artist from Backend", song.Artist);
         Assert.Equal("Title from Backend", song.Title);
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Null(song.ZipFilePath);
@@ -294,8 +294,8 @@ public class SongDtoConverterTests
         var song = SongConverters.ConvertJsonToSong(jsonElement);
 
         // Assert - All paths should be empty/null regardless of JSON content
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Null(song.ZipFilePath);

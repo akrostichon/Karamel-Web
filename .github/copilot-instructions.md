@@ -357,6 +357,7 @@ public class ComponentTests : TestContext
 }
 ```
 Use XUnit assertions.
+Do NOT use Fluent assertions. They are not supported in this project and will cause build errors.
 
 ### JavaScript Tests (Vitest)
 ```javascript

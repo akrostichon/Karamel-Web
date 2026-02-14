@@ -11,6 +11,7 @@ const logger = createLogger('FileAccess');
 
 let libraryDirectoryHandle = null; // Keep directory handle for session-long access
 const MAX_ZIP_SIZE = 20 * 1024 * 1024; // 20 MB limit for in-memory unzip (kept for local checks)
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500 MB limit for video files
 
 // Helper: build a song object for a directory-origin song
 async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
@@ -25,6 +26,30 @@ async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
         title: metadata.title,
         mp3FileName: `${baseName}.mp3`,
         cdgFileName: `${baseName}.cdg`,
+        path: relativePath,
+        fullPath: fullPath
+    };
+}
+
+// Helper: build a song object for a video file
+async function buildVideoSong(videoFileData, relativePath, filenamePattern) {
+    const fileObj = videoFileData.file;
+    const extension = videoFileData.extension;
+    const baseName = fileObj.name.slice(0, -(extension.length));
+    const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
+    
+    // Use existing extractMetadata to parse artist/title from filename
+    const metadata = await extractMetadata(fileObj, fullPath, filenamePattern);
+    
+    return {
+        id: crypto.randomUUID(),
+        artist: metadata.artist,
+        title: metadata.title,
+        mediaType: 'video',
+        videoFileName: fileObj.name,
+        videoExtension: extension,
+        mp3FileName: null,
+        cdgFileName: null,
         path: relativePath,
         fullPath: fullPath
     };
@@ -150,12 +175,13 @@ async function processZipEntry(entry, relativePath, filenamePattern) {
 }
 
 /**
- * Categorize directory entries into MP3 files, CDG files, ZIP files, and subdirectories
+ * Categorize directory entries into MP3 files, CDG files, video files, ZIP files, and subdirectories
  * @private
  */
 async function categorizeDirectoryEntries(directoryHandle) {
     const mp3Files = new Map();
     const cdgFiles = new Set();
+    const videoFiles = new Map();
     const zipFiles = [];
     const subdirectories = [];
 
@@ -170,6 +196,18 @@ async function categorizeDirectoryEntries(directoryHandle) {
             } else if (fileName.endsWith('.cdg')) {
                 const baseName = entry.name.slice(0, -4);
                 cdgFiles.add(baseName);
+            } else if (fileName.endsWith('.mp4') || fileName.endsWith('.m4v')) {
+                const extension = fileName.endsWith('.mp4') ? '.mp4' : '.m4v';
+                const file = await entry.getFile();
+                
+                // Check file size - skip videos > 500MB
+                if (file.size > MAX_VIDEO_SIZE) {
+                    console.warn(`Skipping large video (${(file.size / (1024 * 1024)).toFixed(1)}MB): ${entry.name}`);
+                    continue;
+                }
+                
+                const baseName = entry.name.slice(0, -(extension.length));
+                videoFiles.set(baseName, { handle: entry, file, extension });
             } else if (fileName.endsWith('.zip')) {
                 zipFiles.push(entry);
             }
@@ -178,7 +216,7 @@ async function categorizeDirectoryEntries(directoryHandle) {
         }
     }
 
-    return { mp3Files, cdgFiles, zipFiles, subdirectories };
+    return { mp3Files, cdgFiles, videoFiles, zipFiles, subdirectories };
 }
 
 /**
@@ -245,6 +283,24 @@ async function processZipFiles(zipFiles, relativePath, filenamePattern, songsAcc
 }
 
 /**
+ * Process video files and add them to the collection
+ * @private
+ */
+async function processVideoFiles(videoFiles, relativePath, filenamePattern, songsAcc, matchedCountRef) {
+    for (const [baseName, videoData] of videoFiles) {
+        try {
+            const song = await buildVideoSong(videoData, relativePath, filenamePattern);
+            if (song) {
+                songsAcc.push(song);
+                matchedCountRef.count++;
+            }
+        } catch (error) {
+            logger.warn('Failed to process video file', { baseName, error: error.message || String(error) });
+        }
+    }
+}
+
+/**
  * Pick a library directory and scan for karaoke files (MP3 + CDG pairs)
  * @param {string} filenamePattern - Pattern for parsing filenames (default: "%artist - %title")
  * @param {number} progressStep - Frequency of progress updates (default: 10)
@@ -262,7 +318,7 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
         const matchedCountRef = { count: 0 };
 
         async function scanDirectory(directoryHandle, songsAcc, relativePath = '') {
-            const { mp3Files, cdgFiles, zipFiles, subdirectories } = 
+            const { mp3Files, cdgFiles, videoFiles, zipFiles, subdirectories } = 
                 await categorizeDirectoryEntries(directoryHandle);
 
             // Process ZIP files first (they're already complete songs)
@@ -270,6 +326,9 @@ export async function pickLibraryDirectory(filenamePattern = '%artist - %title',
 
             // Process MP3/CDG pairs
             await processMp3CdgPairs(mp3Files, cdgFiles, relativePath, validPattern, songsAcc, progressStep, matchedCountRef);
+
+            // Process video files
+            await processVideoFiles(videoFiles, relativePath, validPattern, songsAcc, matchedCountRef);
 
             // Recursively scan subdirectories
             for (const subdir of subdirectories) {
