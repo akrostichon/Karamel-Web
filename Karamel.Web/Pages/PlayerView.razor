@@ -58,6 +58,10 @@
             <a href="/" class="btn btn-primary">Return to Home</a>
         </div>
     }
+    else if (_isTransitioningToNextSong)
+    {
+        <div class="transition-placeholder" aria-hidden="true"></div>
+    }
     else if (PlaylistState.Value.CurrentSong == null)
     {
         <div class="alert alert-warning m-4" role="alert">
@@ -170,6 +174,7 @@
     private Timer? heartbeatTimer;
     private bool _showAdminMenu = false;
     private IJSObjectReference? _protectionModule;
+    private bool _isTransitioningToNextSong = false;
 
     protected override void OnInitialized()
     {
@@ -269,6 +274,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (PlaylistState.Value.CurrentSong != null)
+        {
+            _isTransitioningToNextSong = false;
+        }
+
         // If a new song is loaded and we're initialized, play it
         if (isInitialized && PlaylistState.Value.CurrentSong != null && fileAccessModule != null && byteStoreModule != null)
         {
@@ -423,6 +433,9 @@
         // Acknowledgement from user - clear blocking state and navigate back to NextSongView
         showBlockingError = false;
         blockingErrorMessage = string.Empty;
+        _isTransitioningToNextSong = true;
+        isPlaying = false;
+        StateHasChanged();
 
         // Complete current song so it's marked as done
         try
@@ -443,6 +456,15 @@
     [JSInvokable]
     public async Task OnSongEnded()
     {
+        if (_isTransitioningToNextSong)
+        {
+            return;
+        }
+
+        _isTransitioningToNextSong = true;
+        isPlaying = false;
+        await InvokeAsync(StateHasChanged);
+
         try
         {
             // Complete current song via SignalR (marks as Completed, doesn't advance)
@@ -460,6 +482,7 @@
         }
         catch (Exception ex)
         {
+            _isTransitioningToNextSong = false;
             errorMessage = $"Error handling song end: {ex.Message}";
             StateHasChanged();
         }
