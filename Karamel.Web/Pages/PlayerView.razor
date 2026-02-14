@@ -70,6 +70,9 @@
         <!-- Full-screen canvas for CDG display -->
         <canvas id="cdgCanvas" width="300" height="216" class="cdg-canvas"></canvas>
         
+        <!-- Video player for MP4 playback -->
+        <video id="videoPlayer" style="display: none;" class="video-player"></video>
+        
         <!-- Hidden audio element -->
         <audio id="audioPlayer" style="display: none;"></audio>
         
@@ -290,10 +293,15 @@
 
         try
         {
-            await PrepareByteStoreForNewSong();
-            await LoadSongFilesFromDirectory(song!);
-            await InitializePlayerForPlayback();
-            StartPlayback();
+            // Branch based on media type
+            if (song!.MediaType == MediaType.Video)
+            {
+                await LoadAndPlayVideoSong(song);
+            }
+            else
+            {
+                await LoadAndPlayCdgSong(song);
+            }
         }
         catch (JSException jsEx)
         {
@@ -303,6 +311,25 @@
         {
             HandleNonBlockingPlaybackError(ex);
         }
+    }
+
+    private async Task LoadAndPlayCdgSong(Song song)
+    {
+        await PrepareByteStoreForNewSong();
+        await LoadSongFilesFromDirectory(song);
+        await InitializePlayerForPlayback();
+        StartPlayback();
+    }
+
+    private async Task LoadAndPlayVideoSong(Song song)
+    {
+        // Load video file and get blob URL
+        var videoUrl = await fileAccessModule!.InvokeAsync<string>("loadVideoFile", song.VideoFileName);
+        
+        // Initialize video player
+        await playerModule!.InvokeVoidAsync("initializeVideoPlayer", videoUrl, dotNetRef);
+        
+        StartPlayback();
     }
 
     private bool ValidatePlaybackPreconditions()

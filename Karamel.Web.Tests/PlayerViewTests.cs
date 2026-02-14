@@ -3,6 +3,7 @@ using Karamel.Web.Models;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
+using Karamel.Web.Store.Library;
 using Karamel.Web.Tests.TestHelpers;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -602,6 +603,291 @@ public class PlayerViewTests : SessionTestBase
             .ReturnsAsync(playerModule);
 
         Services.AddSingleton(mockJSRuntime.Object);
+    }
+
+    // Video playback tests
+
+    [Fact]
+    public void Component_WhenVideoSong_DisplaysVideoElement()
+    {
+        // Arrange
+        var videoSong = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Song",
+            MediaType = MediaType.Video,
+            VideoFileName = "video-song.mp4",
+            VideoExtension = ".mp4"
+        };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(videoSong, status: 2) }; // 2 = NowPlaying
+        SetupTestWithSession(sessionState, playlistState, view: "player");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+
+        // Assert
+        var videoElement = cut.Find("#videoPlayer");
+        Assert.NotNull(videoElement);
+    }
+
+    [Fact]
+    public void Component_WhenCdgSong_DisplaysCdgCanvas()
+    {
+        // Arrange - using default _testSong which is MediaType.Mp3Cdg
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
+        SetupTestWithSession(sessionState, playlistState, view: "player");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+
+        // Assert
+        var canvas = cut.Find("#cdgCanvas");
+        Assert.NotNull(canvas);
+        Assert.Equal("300", canvas.GetAttribute("width"));
+        Assert.Equal("216", canvas.GetAttribute("height"));
+    }
+
+    [Fact]
+    public void Component_WhenVideoSong_CanvasStillExistsButVideoShown()
+    {
+        // Arrange
+        var videoSong = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Song",
+            MediaType = MediaType.Video,
+            VideoFileName = "video-song.mp4",
+            VideoExtension = ".mp4"
+        };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(videoSong, status: 2) }; // 2 = NowPlaying
+        SetupTestWithSession(sessionState, playlistState, view: "player");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+
+        // Assert - both elements exist in DOM
+        var videoElement = cut.Find("#videoPlayer");
+        var canvas = cut.Find("#cdgCanvas");
+        Assert.NotNull(videoElement);
+        Assert.NotNull(canvas);
+    }
+
+    [Fact]
+    public async Task Component_WhenVideoSong_LoadsVideoFile()
+    {
+        // Arrange
+        var videoSong = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Song",
+            MediaType = MediaType.Video,
+            VideoFileName = "video-song.mp4",
+            VideoExtension = ".mp4",
+            Path = "Videos"
+        };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(videoSong, status: 2) }; // 2 = NowPlaying
+        var libraryState = new LibraryState 
+        { 
+            Songs = new List<Song> { videoSong },
+            IsLoading = false
+        };
+        
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player", isMainTab: true);
+
+        // Setup JS runtime with mocks that track method calls
+        var mockFileAccess = new Mock<IJSObjectReference>();
+        var mockPlayer = new Mock<IJSObjectReference>();
+        var mockByteStore = new Mock<IJSObjectReference>();
+        var mockFullscreen = new Mock<IJSObjectReference>();
+
+        // Mock loadVideoFile to return a blob URL
+        mockFileAccess.Setup(m => m.InvokeAsync<string>(
+            "loadVideoFile",
+            It.IsAny<object[]>()))
+            .ReturnsAsync("blob:http://localhost/video-blob-url");
+
+        var mockJSRuntime = new Mock<IJSRuntime>();
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("fileAccess.js"))))
+            .ReturnsAsync(mockFileAccess.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("player.js"))))
+            .ReturnsAsync(mockPlayer.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("byteStore.js"))))
+            .ReturnsAsync(mockByteStore.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("fullscreen.js"))))
+            .ReturnsAsync(mockFullscreen.Object);
+
+        Services.AddSingleton(mockJSRuntime.Object);
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+        
+        // Wait for async initialization and video loading to complete
+        await cut.InvokeAsync(async () =>
+        {
+            await Task.Delay(200); // Give time for OnAfterRenderAsync and LoadAndPlaySong to complete
+        });
+
+        // Assert - verify loadVideoFile was called
+        mockFileAccess.Verify(m => m.InvokeAsync<string>(
+            "loadVideoFile",
+            It.Is<object[]>(args => args.Length > 0 && args[0].ToString() == "video-song.mp4")),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Component_WhenVideoSong_InitializesVideoPlayer()
+    {
+        // Arrange
+        var videoSong = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Song",
+            MediaType = MediaType.Video,
+            VideoFileName = "video-song.mp4",
+            VideoExtension = ".mp4",
+            Path = "Videos"
+        };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(videoSong, status: 2) }; // 2 = NowPlaying
+        var libraryState = new LibraryState 
+        { 
+            Songs = new List<Song> { videoSong },
+            IsLoading = false
+        };
+        
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player", isMainTab: true);
+
+        // Setup JS runtime with mocks that track method calls
+        var mockFileAccess = new Mock<IJSObjectReference>();
+        var mockPlayer = new Mock<IJSObjectReference>();
+        var mockByteStore = new Mock<IJSObjectReference>();
+        var mockFullscreen = new Mock<IJSObjectReference>();
+
+        mockFileAccess.Setup(m => m.InvokeAsync<string>(
+            "loadVideoFile",
+            It.IsAny<object[]>()))
+            .ReturnsAsync("blob:http://localhost/video-blob-url");
+
+        var mockJSRuntime = new Mock<IJSRuntime>();
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("fileAccess.js"))))
+            .ReturnsAsync(mockFileAccess.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("player.js"))))
+            .ReturnsAsync(mockPlayer.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("byteStore.js"))))
+            .ReturnsAsync(mockByteStore.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("fullscreen.js"))))
+            .ReturnsAsync(mockFullscreen.Object);
+
+        Services.AddSingleton(mockJSRuntime.Object);
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+        
+        // Wait for async initialization and video loading to complete
+        await cut.InvokeAsync(async () =>
+        {
+            await Task.Delay(200); // Give time for OnAfterRenderAsync and LoadAndPlaySong to complete
+        });
+
+        // Assert - verify both loadVideoFile AND that initializeVideoPlayer exists in markup
+        // Note: Can't verify InvokeVoidAsync directly with Moq (extension method limitation)
+        mockFileAccess.Verify(m => m.InvokeAsync<string>(
+            "loadVideoFile",
+            It.IsAny<object[]>()),
+            Times.Once);
+        
+        // Verify video element exists in DOM (indirect proof player was initialized)
+        var videoElement = cut.Find("#videoPlayer");
+        Assert.NotNull(videoElement);
+    }
+
+    [Fact]
+    public async Task Component_WhenCdgSong_UsesExistingCdgPlayerPath()
+    {
+        // Arrange - using default _testSong which is MediaType.Mp3Cdg
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
+        var libraryState = new LibraryState 
+        { 
+            Songs = new List<Song> { _testSong },
+            IsLoading = false
+        };
+        
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player", isMainTab: true);
+
+        // Setup JS runtime with mocks
+        var mockFileAccess = new Mock<IJSObjectReference>();
+        var mockPlayer = new Mock<IJSObjectReference>();
+        var mockByteStore = new Mock<IJSObjectReference>();
+        var mockFullscreen = new Mock<IJSObjectReference>();
+
+        var mockJSRuntime = new Mock<IJSRuntime>();
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("fileAccess.js"))))
+            .ReturnsAsync(mockFileAccess.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("player.js"))))
+            .ReturnsAsync(mockPlayer.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("byteStore.js"))))
+            .ReturnsAsync(mockByteStore.Object);
+        mockJSRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString()!.Contains("fullscreen.js"))))
+            .ReturnsAsync(mockFullscreen.Object);
+
+        Services.AddSingleton(mockJSRuntime.Object);
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+        
+        // Wait for async initialization to complete
+        await cut.InvokeAsync(async () =>
+        {
+            await Task.Delay(200); // Give time for OnAfterRenderAsync and LoadAndPlaySong to complete
+        });
+
+        // Assert - verify loadSongFiles was called (CDG path), NOT loadVideoFile
+        // Note: Can't verify InvokeVoidAsync directly with Moq (extension method limitation)
+        // Instead, verify that loadVideoFile was NOT called (video path not taken)
+        mockFileAccess.Verify(m => m.InvokeAsync<string>(
+            "loadVideoFile",
+            It.IsAny<object[]>()),
+            Times.Never);
+        
+        // Verify canvas element exists in DOM (indirect proof CDG player was used)
+        var canvas = cut.Find("#cdgCanvas");
+        Assert.NotNull(canvas);
     }
 
 }
