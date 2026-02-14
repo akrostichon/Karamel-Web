@@ -748,7 +748,9 @@ public class PlayerViewTests : SessionTestBase
         // Assert - verify loadVideoFile was called
         mockFileAccess.Verify(m => m.InvokeAsync<string>(
             "loadVideoFile",
-            It.Is<object[]>(args => args.Length > 0 && args[0].ToString() == "video-song.mp4")),
+            It.Is<object[]>(args => args.Length == 2
+                && args[0].ToString() == "Videos"
+                && args[1].ToString() == "video-song.mp4")),
             Times.Once);
     }
 

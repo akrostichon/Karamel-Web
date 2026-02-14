@@ -96,14 +96,24 @@ public static class SongConverters
                 {
                     var metadata = JsonDocument.Parse(metadataJsonStr).RootElement;
                     
-                    // Extract mediaType (integer enum value)
-                    if (metadata.TryGetProperty("mediaType", out var mediaTypeProp) && 
-                        mediaTypeProp.ValueKind == JsonValueKind.Number)
+                    // Extract mediaType (supports both legacy integer and current string formats)
+                    if (metadata.TryGetProperty("mediaType", out var mediaTypeProp))
                     {
-                        var mediaTypeValue = mediaTypeProp.GetInt32();
-                        if (Enum.IsDefined(typeof(MediaType), mediaTypeValue))
+                        if (mediaTypeProp.ValueKind == JsonValueKind.String)
                         {
-                            mediaType = (MediaType)mediaTypeValue;
+                            var mediaTypeValue = mediaTypeProp.GetString();
+                            if (string.Equals(mediaTypeValue, "video", StringComparison.OrdinalIgnoreCase))
+                            {
+                                mediaType = MediaType.Video;
+                            }
+                        }
+                        else if (mediaTypeProp.ValueKind == JsonValueKind.Number)
+                        {
+                            var mediaTypeValue = mediaTypeProp.GetInt32();
+                            if (Enum.IsDefined(typeof(MediaType), mediaTypeValue))
+                            {
+                                mediaType = (MediaType)mediaTypeValue;
+                            }
                         }
                     }
                     
