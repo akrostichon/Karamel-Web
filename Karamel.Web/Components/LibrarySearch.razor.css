@@ -21,6 +21,7 @@
 
 .library-search .table th {
     background-color: var(--color-surface-variant);
+    color: var(--color-text);
     font-weight: 600;
     border-top: none;
 }
