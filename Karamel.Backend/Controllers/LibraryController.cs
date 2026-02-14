@@ -39,6 +39,41 @@ namespace Karamel.Backend.Controllers
                     return BadRequest("Too many songs in single upload");
                 }
 
+                // Video validation: reject videos with duration > 15 minutes (heuristic for 500MB+ files)
+                foreach (var song in list)
+                {
+                    if (!string.IsNullOrEmpty(song.MetadataJson))
+                    {
+                        try
+                        {
+                            using var doc = System.Text.Json.JsonDocument.Parse(song.MetadataJson);
+                            if (doc.RootElement.TryGetProperty("mediaType", out var mediaType) && 
+                                mediaType.GetString() == "video")
+                            {
+                                if (doc.RootElement.TryGetProperty("durationSeconds", out var duration))
+                                {
+                                    var durationValue = duration.GetDouble();
+                                    const double maxDurationSeconds = 15 * 60; // 15 minutes
+                                    
+                                    if (durationValue > maxDurationSeconds)
+                                    {
+                                        _logger.LogWarning(
+                                            "BulkUpsert rejected: Video '{Artist} - {Title}' exceeds duration limit ({Duration}s > {MaxDuration}s) for session {SessionId}",
+                                            song.Artist, song.Title, durationValue, maxDurationSeconds, sessionId);
+                                        return BadRequest($"Video '{song.Artist} - {song.Title}' exceeds maximum duration of {maxDurationSeconds / 60} minutes");
+                                    }
+                                }
+                            }
+                        }
+                        catch (System.Text.Json.JsonException)
+                        {
+                            // Invalid JSON in MetadataJson - treat as regular song (non-blocking)
+                            _logger.LogDebug("Failed to parse MetadataJson for song '{Artist} - {Title}' in session {SessionId}", 
+                                song.Artist, song.Title, sessionId);
+                        }
+                    }
+                }
+
                 _logger.LogInformation("Starting bulk upsert of {Count} songs for session {SessionId}", list.Count, sessionId);
                 await _songRepo.BulkUpsertAsync(sessionId, list);
                 _logger.LogInformation("Successfully completed bulk upsert for session {SessionId}", sessionId);
