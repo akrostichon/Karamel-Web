@@ -7,9 +7,16 @@ describe('player.js - Dual-mode architecture', () => {
     let videoEventListeners = {};
 
     beforeEach(() => {
+        const classNames = new Set();
+
         // Mock video element
         mockVideoElement = {
             src: '',
+            classList: {
+                add: vi.fn((className) => classNames.add(className)),
+                remove: vi.fn((className) => classNames.delete(className)),
+                contains: vi.fn((className) => classNames.has(className))
+            },
             play: vi.fn().mockResolvedValue(undefined),
             pause: vi.fn(),
             load: vi.fn(),
@@ -47,6 +54,8 @@ describe('player.js - Dual-mode architecture', () => {
             await player.initializeVideoPlayer(videoUrl, mockDotNetRef);
 
             expect(mockVideoElement.src).toBe(videoUrl);
+            expect(mockVideoElement.classList.add).toHaveBeenCalledWith('is-visible');
+            expect(mockVideoElement.classList.contains('is-visible')).toBe(true);
             expect(mockVideoElement.load).toHaveBeenCalled();
             expect(mockVideoElement.addEventListener).toHaveBeenCalledWith('ended', expect.any(Function));
             expect(mockVideoElement.addEventListener).toHaveBeenCalledWith('error', expect.any(Function));
@@ -103,6 +112,16 @@ describe('player.js - Dual-mode architecture', () => {
 
             expect(mockVideoElement.pause).toHaveBeenCalled();
             expect(mockVideoElement.currentTime).toBe(0);
+        });
+
+        it('should hide video player when disposed', async () => {
+            const videoUrl = 'blob:http://localhost/test-video';
+
+            await player.initializeVideoPlayer(videoUrl, mockDotNetRef);
+            player.dispose();
+
+            expect(mockVideoElement.classList.remove).toHaveBeenCalledWith('is-visible');
+            expect(mockVideoElement.classList.contains('is-visible')).toBe(false);
         });
     });
 

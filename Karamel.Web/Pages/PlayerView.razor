@@ -71,7 +71,7 @@
         <canvas id="cdgCanvas" width="300" height="216" class="cdg-canvas"></canvas>
         
         <!-- Video player for MP4 playback -->
-        <video id="videoPlayer" style="display: none;" class="video-player"></video>
+        <video id="videoPlayer" class="video-player"></video>
         
         <!-- Hidden audio element -->
         <audio id="audioPlayer" style="display: none;"></audio>
@@ -324,7 +324,8 @@
     private async Task LoadAndPlayVideoSong(Song song)
     {
         // Load video file and get blob URL
-        var videoUrl = await fileAccessModule!.InvokeAsync<string>("loadVideoFile", song.VideoFileName);
+        var dirPath = song.Path ?? string.Empty;
+        var videoUrl = await fileAccessModule!.InvokeAsync<string>("loadVideoFile", dirPath, song.VideoFileName);
         
         // Initialize video player
         await playerModule!.InvokeVoidAsync("initializeVideoPlayer", videoUrl, dotNetRef);

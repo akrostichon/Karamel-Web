@@ -29,6 +29,10 @@ export function initializePlayerWithCallback(dotNetReference) {
     try {
         dotNetRef = dotNetReference;
         playerMode = 'cdg';
+
+        if (videoElement) {
+            videoElement.classList.remove('is-visible');
+        }
         
         // Get DOM elements
         audioElement = document.getElementById('audioPlayer');
@@ -102,6 +106,8 @@ export function initializeVideoPlayer(videoUrl, dotNetReference) {
             logger.error('Video element not found');
             throw new Error('Video element not found');
         }
+
+        videoElement.classList.add('is-visible');
 
         // Set video source
         videoElement.src = videoUrl;
@@ -232,6 +238,7 @@ export function dispose() {
         videoElement.removeEventListener('error', onVideoError);
         videoElement.pause();
         videoElement.src = '';
+        videoElement.classList.remove('is-visible');
     }
 
     cdgPlayer = null;

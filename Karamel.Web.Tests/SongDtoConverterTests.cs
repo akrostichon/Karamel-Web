@@ -323,7 +323,7 @@ public class SongDtoConverterTests
         // Assert
         Assert.NotNull(dto.MetadataJson);
         var metadata = JsonDocument.Parse(dto.MetadataJson).RootElement;
-        Assert.Equal(1, metadata.GetProperty("mediaType").GetInt32()); // MediaType.Video = 1
+        Assert.Equal("video", metadata.GetProperty("mediaType").GetString());
     }
 
     [Fact]
@@ -385,7 +385,7 @@ public class SongDtoConverterTests
             "id": "12345678-1234-1234-1234-123456789012",
             "artist": "Video Artist",
             "title": "Video Title",
-            "metadataJson": "{\"mediaType\":1,\"extension\":\".mp4\"}"
+            "metadataJson": "{\"mediaType\":\"video\",\"extension\":\".mp4\"}"
         }
         """;
         var jsonElement = JsonDocument.Parse(json).RootElement;

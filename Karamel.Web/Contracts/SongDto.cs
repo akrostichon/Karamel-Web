@@ -10,6 +10,9 @@ public record SongDto(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("mp3FileName")] string? Mp3FileName,
     [property: JsonPropertyName("cdgFileName")] string? CdgFileName,
+    [property: JsonPropertyName("videoFileName")] string? VideoFileName,
+    [property: JsonPropertyName("videoExtension")] string? VideoExtension,
+    [property: JsonPropertyName("mediaType")] string? MediaType,
     [property: JsonPropertyName("path")] string? Path,
     [property: JsonPropertyName("fullPath")] string? FullPath,
     [property: JsonPropertyName("sourceType")] string? SourceType,
@@ -35,7 +38,7 @@ public static class SongConverters
         {
             var metadata = new
             {
-                mediaType = (int)s.MediaType,
+                mediaType = "video",  // FIXED: Send as string to match backend validation
                 extension = s.VideoExtension
             };
             metadataJson = JsonSerializer.Serialize(metadata);
@@ -58,9 +61,12 @@ public static class SongConverters
         Artist: s.Artist,
         Title: s.Title,
         Mp3FileName: s.Mp3FileName,
+        CdgFileName: s.CdgFileName,
+        VideoFileName: s.VideoFileName,
+        VideoExtension: s.VideoExtension,
+        MediaType: s.MediaType == MediaType.Video ? "video" : "mp3cdg",
         Path: s.Path,
         FullPath: s.FullPath,
-        CdgFileName: s.CdgFileName,
         SourceType: s.SourceType.ToString(),
         ZipFileName: s.ZipFileName,
         ZipEntryMp3Path: s.ZipEntryMp3Path,
@@ -115,11 +121,14 @@ public static class SongConverters
             }
         }
         
+        var artist = s.GetProperty("artist").GetString() ?? string.Empty;
+        var title = s.GetProperty("title").GetString() ?? string.Empty;
+
         return new Song
         {
             Id = Guid.Parse(s.GetProperty("id").GetString()!),
-            Artist = s.GetProperty("artist").GetString() ?? string.Empty,
-            Title = s.GetProperty("title").GetString() ?? string.Empty,
+            Artist = artist,
+            Title = title,
             MediaType = mediaType,
             // PRIVACY: File paths never returned from backend (empty/null for secondary tabs)
             Mp3FileName = null,
@@ -139,17 +148,26 @@ public static class SongConverters
 
     public static Song ConvertDtoToSong(SongDto dto)
     {
+        // Parse MediaType from string (JavaScript sends 'video' or 'mp3cdg')
+        var mediaType = MediaType.Mp3Cdg; // Default for backward compatibility
+        if (!string.IsNullOrEmpty(dto.MediaType))
+        {
+            if (dto.MediaType.Equals("video", StringComparison.OrdinalIgnoreCase))
+            {
+                mediaType = MediaType.Video;
+            }
+        }
+
         return new Song
         {
             Id = Guid.Parse(dto.Id),
             Artist = dto.Artist ?? string.Empty,
             Title = dto.Title ?? string.Empty,
-            // Default to Mp3Cdg for backward compatibility
-            MediaType = MediaType.Mp3Cdg,
+            MediaType = mediaType,
             Mp3FileName = dto.Mp3FileName,
             CdgFileName = dto.CdgFileName,
-            VideoFileName = null,
-            VideoExtension = null,
+            VideoFileName = dto.VideoFileName,
+            VideoExtension = dto.VideoExtension,
             Path = dto.Path,
             FullPath = dto.FullPath,
             SourceType = GetSongTypeFromDto(dto),
@@ -171,35 +189,4 @@ public static class SongConverters
 
         return sourceTypeParsed;
     }
-
-    private static SongSourceType GetSourceTypeFromJson(JsonElement parent, string propName)
-        {
-            if (!parent.TryGetProperty(propName, out var st) || st.ValueKind == JsonValueKind.Null)
-                return SongSourceType.Directory;
-
-            try
-            {
-                if (st.ValueKind == JsonValueKind.String)
-                {
-                    var s = st.GetString();
-                    if (!string.IsNullOrWhiteSpace(s) && Enum.TryParse<SongSourceType>(s, ignoreCase: true, out var parsed))
-                        return parsed;
-                }
-                else if (st.ValueKind == JsonValueKind.Number)
-                {
-                    if (st.TryGetInt32(out var iv))
-                    {
-                        if (Enum.IsDefined(typeof(SongSourceType), iv))
-                            return (SongSourceType)iv;
-                    }
-                }
-            }
-            catch
-            {
-                // fall through to default
-            }
-
-            return SongSourceType.Directory;
-        }
-
 }

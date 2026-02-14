@@ -272,6 +272,35 @@ Karamel-Web/                          # Solution root
 
 ## Common Patterns & Conventions
 
+### Critical JavaScript↔C# Serialization Rules
+
+**CRITICAL**: These rules prevent data loss and type mismatches across the JavaScript↔C# boundary.
+
+1. **DTO Property Names Must Match**: Use `[JsonPropertyName("camelCase")]` attributes - property names are case-sensitive
+2. **Enums Serialize as Strings**: Never serialize enums as integers when crossing JavaScript↔C# boundary
+3. **Bidirectional Converters Required**: All DTOs need `ConvertDtoToSong` and `ConvertSongToDto` methods
+4. **Test Roundtrip Serialization**: Write tests that verify JavaScript → C# → JavaScript preserves all properties
+
+**Detailed Guidance**: See [.github/instructions/serialization.instructions.md](.github/instructions/serialization.instructions.md)
+
+**Common Mistakes**:
+```csharp
+// ❌ WRONG - Missing JsonPropertyName (defaults to PascalCase)
+public record SongDto(string MediaType, string VideoFileName);
+
+// ✅ CORRECT - Explicit camelCase naming
+public record SongDto(
+    [property: JsonPropertyName("mediaType")] string? MediaType,
+    [property: JsonPropertyName("videoFileName")] string? VideoFileName
+);
+
+// ❌ WRONG - Enum as integer
+MediaType: (int)s.MediaType  // Serializes as 0 or 1
+
+// ✅ CORRECT - Enum as string
+MediaType: s.MediaType == Models.MediaType.Video ? "video" : "mp3cdg"
+```
+
 ### Razor Component Structure
 ```csharp
 @page "/path"
@@ -321,14 +350,33 @@ public static LibraryState ReduceLoadLibrary(LibraryState state, LoadLibraryActi
 ```
 
 ### JavaScript Interop
-```csharp
-// C# side
-await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/module.js");
-await module.InvokeVoidAsync("functionName", arg1, arg2);
 
-// JavaScript side (ES module)
-export function functionName(arg1, arg2) { /* ... */ }
+**CRITICAL**: Parameter order and count must match **exactly** between C# calls and JavaScript function signatures.
+
+```csharp
+// C# side - LoadAndPlayVideoSong
+var dirPath = song.Path ?? string.Empty;
+await fileAccessModule!.InvokeAsync<string>("loadVideoFile", dirPath, song.VideoFileName);
+//                                                            ^^^^^^  ^^^^^^^^^^^^^^^^^^
+//                                                            param1  param2
+
+// JavaScript side (ES module) - MUST match C# call
+export async function loadVideoFile(path, videoFileName) {  // ✅ 2 parameters in same order
+    // ...
+}
 ```
+
+**Common Pattern**: Follow existing conventions (e.g., video loading should match MP3/CDG loading pattern).
+
+```csharp
+// ❌ WRONG - Missing path parameter
+await fileAccessModule.InvokeAsync<string>("loadVideoFile", song.VideoFileName);
+
+// ✅ CORRECT - Pass both path and filename (matches loadSongFiles pattern)
+await fileAccessModule.InvokeAsync<string>("loadVideoFile", dirPath, song.VideoFileName);
+```
+
+**Serialization**: See [.github/instructions/serialization.instructions.md](.github/instructions/serialization.instructions.md) for DTO patterns and JavaScript↔C# type conversion.
 
 ## Testing Patterns
 

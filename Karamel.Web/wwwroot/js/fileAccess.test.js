@@ -261,6 +261,178 @@ describe('fileAccess.js - Directory Scanning', () => {
       expect(song1).toBeDefined();
       expect(song1.cdgFileName).toBe('Artist - Song1.cdg'); // baseName + ".cdg"
     });
+
+    it('should detect and categorize .mp4 video files', async () => {
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'Artist - Song1.mp4': new MockFileSystemFileHandle('Artist - Song1.mp4', 'fake video data'),
+        'Artist - Song2.mp3': new MockFileSystemFileHandle('Artist - Song2.mp3', 'fake mp3'),
+        'Artist - Song2.cdg': new MockFileSystemFileHandle('Artist - Song2.cdg', 'fake cdg'),
+      });
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+
+      const songs = await fileAccessModule.pickLibraryDirectory();
+
+      expect(songs).toHaveLength(2);
+
+      // Find the video song
+      const videoSong = songs.find(s => s.mediaType === 'video');
+      expect(videoSong).toBeDefined();
+      expect(videoSong.videoFileName).toBe('Artist - Song1.mp4');
+      expect(videoSong.videoExtension).toBe('.mp4');
+      expect(videoSong.mp3FileName).toBe(null);
+      expect(videoSong.cdgFileName).toBe(null);
+      expect(videoSong.artist).toBe('Artist');
+      expect(videoSong.title).toBe('Song1');
+
+      // Verify MP3+CDG song still works
+      const mp3Song = songs.find(s => s.mp3FileName === 'Artist - Song2.mp3');
+      expect(mp3Song).toBeDefined();
+      expect(mp3Song.mediaType).toBeUndefined(); // MP3+CDG songs don't have mediaType
+    });
+
+    it('should detect and categorize .m4v video files', async () => {
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'Video Artist - Video Title.m4v': new MockFileSystemFileHandle('Video Artist - Video Title.m4v', 'fake video data'),
+      });
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+
+      const songs = await fileAccessModule.pickLibraryDirectory();
+
+      expect(songs).toHaveLength(1);
+      expect(songs[0].mediaType).toBe('video');
+      expect(songs[0].videoFileName).toBe('Video Artist - Video Title.m4v');
+      expect(songs[0].videoExtension).toBe('.m4v');
+      expect(songs[0].artist).toBe('Video Artist');
+      expect(songs[0].title).toBe('Video Title');
+    });
+
+    it('should skip video files larger than 500MB with console warning', async () => {
+      // Create a mock file that reports size > 500MB
+      const largeMockFile = {
+        name: 'Large Video.mp4',
+        size: 600 * 1024 * 1024, // 600MB
+        async arrayBuffer() {
+          return new ArrayBuffer(0);
+        }
+      };
+
+      const largeVideoHandle = new MockFileSystemFileHandle('Large Video.mp4', 'fake');
+      largeVideoHandle.getFile = vi.fn(async () => largeMockFile);
+
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'Large Video.mp4': largeVideoHandle,
+        'Normal Artist - Normal Song.mp3': new MockFileSystemFileHandle('Normal Artist - Normal Song.mp3', 'fake mp3'),
+        'Normal Artist - Normal Song.cdg': new MockFileSystemFileHandle('Normal Artist - Normal Song.cdg', 'fake cdg'),
+      });
+
+      // Spy on console.warn to verify warning is logged
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+
+      const songs = await fileAccessModule.pickLibraryDirectory();
+
+      // Should only include the MP3+CDG song, not the large video
+      expect(songs).toHaveLength(1);
+      expect(songs[0].mp3FileName).toBe('Normal Artist - Normal Song.mp3');
+
+      // Verify warning was logged (single string parameter with both size and filename)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Skipping large video.*600\.0MB.*Large Video\.mp4/)
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should use filename parsing fallback for video files', async () => {
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'NoSeparator.mp4': new MockFileSystemFileHandle('NoSeparator.mp4', 'fake video'),
+        'With Separator - Title.mp4': new MockFileSystemFileHandle('With Separator - Title.mp4', 'fake video'),
+      });
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+
+      const songs = await fileAccessModule.pickLibraryDirectory();
+
+      expect(songs).toHaveLength(2);
+
+      // Test fallback (no separator) - should use Unknown Artist
+      const noSeparatorSong = songs.find(s => s.videoFileName === 'NoSeparator.mp4');
+      expect(noSeparatorSong).toBeDefined();
+      expect(noSeparatorSong.mediaType).toBe('video');
+      expect(noSeparatorSong.artist).toBe('Unknown Artist');
+      expect(noSeparatorSong.title).toBe('NoSeparator');
+
+      // Test with separator - should parse correctly
+      const withSeparatorSong = songs.find(s => s.videoFileName === 'With Separator - Title.mp4');
+      expect(withSeparatorSong).toBeDefined();
+      expect(withSeparatorSong.artist).toBe('With Separator');
+      expect(withSeparatorSong.title).toBe('Title');
+    });
+
+    it('should process video files in subdirectories', async () => {
+      const subdirectory = new MockFileSystemDirectoryHandle('videos', {
+        'Subdir Artist - Subdir Song.mp4': new MockFileSystemFileHandle('Subdir Artist - Subdir Song.mp4', 'fake video'),
+      });
+
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'Root Artist - Root Song.mp4': new MockFileSystemFileHandle('Root Artist - Root Song.mp4', 'fake video'),
+        'videos': subdirectory,
+      });
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+
+      const songs = await fileAccessModule.pickLibraryDirectory();
+
+      expect(songs).toHaveLength(2);
+
+      // Root video
+      const rootVideo = songs.find(s => s.path === '');
+      expect(rootVideo).toBeDefined();
+      expect(rootVideo.mediaType).toBe('video');
+      expect(rootVideo.videoFileName).toBe('Root Artist - Root Song.mp4');
+      expect(rootVideo.fullPath).toBe('Root Artist - Root Song');
+
+      // Subdirectory video
+      const subdirVideo = songs.find(s => s.path === 'videos');
+      expect(subdirVideo).toBeDefined();
+      expect(subdirVideo.mediaType).toBe('video');
+      expect(subdirVideo.videoFileName).toBe('Subdir Artist - Subdir Song.mp4');
+      expect(subdirVideo.fullPath).toBe('videos/Subdir Artist - Subdir Song');
+    });
+
+    it('should handle mixed MP3+CDG and video files in same directory', async () => {
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'Artist1 - MP3Song.mp3': new MockFileSystemFileHandle('Artist1 - MP3Song.mp3', 'fake mp3'),
+        'Artist1 - MP3Song.cdg': new MockFileSystemFileHandle('Artist1 - MP3Song.cdg', 'fake cdg'),
+        'Artist2 - VideoSong.mp4': new MockFileSystemFileHandle('Artist2 - VideoSong.mp4', 'fake video'),
+        'Artist3 - AnotherVideo.m4v': new MockFileSystemFileHandle('Artist3 - AnotherVideo.m4v', 'fake video'),
+        'Artist4 - SecondMP3.mp3': new MockFileSystemFileHandle('Artist4 - SecondMP3.mp3', 'fake mp3'),
+        'Artist4 - SecondMP3.cdg': new MockFileSystemFileHandle('Artist4 - SecondMP3.cdg', 'fake cdg'),
+      });
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+
+      const songs = await fileAccessModule.pickLibraryDirectory();
+
+      expect(songs).toHaveLength(4);
+
+      const videoSongs = songs.filter(s => s.mediaType === 'video');
+      const mp3Songs = songs.filter(s => s.mp3FileName && s.cdgFileName);
+
+      expect(videoSongs).toHaveLength(2);
+      expect(mp3Songs).toHaveLength(2);
+
+      // Verify video songs
+      expect(videoSongs[0].videoFileName).toMatch(/\.mp4|\.m4v/);
+      expect(videoSongs[1].videoFileName).toMatch(/\.mp4|\.m4v/);
+
+      // Verify MP3 songs
+      expect(mp3Songs[0].mp3FileName).toContain('.mp3');
+      expect(mp3Songs[0].cdgFileName).toContain('.cdg');
+    });
   });
 
   describe('loadSongFiles', () => {
