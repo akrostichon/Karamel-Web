@@ -37,8 +37,8 @@ public class SongDtoConverterTests
         Assert.Equal("Test Artist", song.Artist);
         Assert.Equal("Test Title", song.Title);
         // PRIVACY: File paths never deserialized from backend
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Equal(SongSourceType.Directory, song.SourceType);  // Default
@@ -65,8 +65,8 @@ public class SongDtoConverterTests
         Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789012"), song.Id);
         Assert.Equal("Test Artist", song.Artist);
         Assert.Equal("Test Title", song.Title);
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Equal(SongSourceType.Directory, song.SourceType);
@@ -92,8 +92,8 @@ public class SongDtoConverterTests
         var song = SongConverters.ConvertJsonToSong(jsonElement);
 
         // Assert
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
     }
 
     [Fact]
@@ -119,8 +119,8 @@ public class SongDtoConverterTests
         Assert.Equal(Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), song.Id);
         Assert.Equal("Backend Artist", song.Artist);
         Assert.Equal("Backend Title", song.Title);
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
     }
 
     [Fact]
@@ -261,8 +261,8 @@ public class SongDtoConverterTests
         Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789012"), song.Id);
         Assert.Equal("Artist from Backend", song.Artist);
         Assert.Equal("Title from Backend", song.Title);
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Null(song.ZipFilePath);
@@ -294,10 +294,191 @@ public class SongDtoConverterTests
         var song = SongConverters.ConvertJsonToSong(jsonElement);
 
         // Assert - All paths should be empty/null regardless of JSON content
-        Assert.Equal(string.Empty, song.Mp3FileName);
-        Assert.Equal(string.Empty, song.CdgFileName);
+        Assert.Null(song.Mp3FileName);
+        Assert.Null(song.CdgFileName);
         Assert.Null(song.Path);
         Assert.Null(song.FullPath);
         Assert.Null(song.ZipFilePath);
     }
+
+    #region Video Support Tests
+
+    [Fact]
+    public void ConvertSongToUploadDto_VideoSong_IncludesMediaTypeInMetadata()
+    {
+        // Arrange
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Title",
+            MediaType = MediaType.Video,
+            VideoFileName = "video.mp4",
+            VideoExtension = ".mp4"
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert
+        Assert.NotNull(dto.MetadataJson);
+        var metadata = JsonDocument.Parse(dto.MetadataJson).RootElement;
+        Assert.Equal("video", metadata.GetProperty("mediaType").GetString());
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_VideoSong_IncludesExtensionInMetadata()
+    {
+        // Arrange
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Title",
+            MediaType = MediaType.Video,
+            VideoFileName = "video.mp4",
+            VideoExtension = ".mp4"
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert
+        Assert.NotNull(dto.MetadataJson);
+        var metadata = JsonDocument.Parse(dto.MetadataJson).RootElement;
+        Assert.Equal(".mp4", metadata.GetProperty("extension").GetString());
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_VideoSong_DoesNotIncludeVideoFileName()
+    {
+        // Arrange - PRIVACY: VideoFileName must NOT be uploaded to backend
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Title",
+            MediaType = MediaType.Video,
+            VideoFileName = "private-local-path/video.mp4",
+            VideoExtension = ".mp4"
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert - DTO type should not expose VideoFileName property
+        var dtoType = dto.GetType();
+        Assert.Null(dtoType.GetProperty("VideoFileName"));
+        
+        // Metadata should only contain mediaType and extension, NOT the filename
+        Assert.NotNull(dto.MetadataJson);
+        var metadata = JsonDocument.Parse(dto.MetadataJson).RootElement;
+        Assert.False(metadata.TryGetProperty("videoFileName", out _));
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithVideoMetadata_ParsesMediaTypeCorrectly()
+    {
+        // Arrange
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Video Artist",
+            "title": "Video Title",
+            "metadataJson": "{\"mediaType\":\"video\",\"extension\":\".mp4\"}"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert
+        Assert.Equal(MediaType.Video, song.MediaType);
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithVideoMetadata_ParsesVideoExtensionCorrectly()
+    {
+        // Arrange
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Video Artist",
+            "title": "Video Title",
+            "metadataJson": "{\"mediaType\":1,\"extension\":\".mp4\"}"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert
+        Assert.Equal(".mp4", song.VideoExtension);
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithVideoMetadata_LeavesVideoFileNameEmpty()
+    {
+        // Arrange - PRIVACY: VideoFileName must NEVER be deserialized from backend
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Video Artist",
+            "title": "Video Title",
+            "metadataJson": "{\"mediaType\":1,\"extension\":\".mp4\"}"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert
+        Assert.Null(song.VideoFileName);
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithoutMediaType_DefaultsToMp3Cdg()
+    {
+        // Arrange - Backward compatibility: old songs without mediaType should default to Mp3Cdg
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Classic Artist",
+            "title": "Classic Title"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert
+        Assert.Equal(MediaType.Mp3Cdg, song.MediaType);
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_Mp3CdgSong_DoesNotIncludeMediaTypeInMetadata()
+    {
+        // Arrange - Mp3Cdg songs should have null MetadataJson for backward compatibility
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "MP3 Artist",
+            Title = "MP3 Title",
+            MediaType = MediaType.Mp3Cdg,
+            Mp3FileName = "song.mp3",
+            CdgFileName = "song.cdg"
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert - Should remain null to avoid breaking existing backend logic
+        Assert.Null(dto.MetadataJson);
+    }
+
+    #endregion
 }

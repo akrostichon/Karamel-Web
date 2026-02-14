@@ -44,9 +44,9 @@ the design:
 For any new behavior, bug fix, or refactor:
 
 1.  **Clarify the Goal Image (very briefly).**
-2.  **Write a failing test first (Red).**
+2.  **Write a failing test first (Red). Search for existing tests that might cover the new behavior and modify them if necessary.**
 3.  **Make the test pass (Green)** with the simplest code that works.
-4.  **Refactor safely (Refactor)** and adjust the Goal Image if needed.
+4.  **Refactor safely (Refactor)** and adjust the Goal Image if needed. Do NOT skip refactoring. Even if the code works, it may be a sign of design issues that need addressing.
 5.  Repeat.
 
 > If existing code lacks tests: add **characterization tests** before
@@ -172,7 +172,7 @@ public void ExistingBehavior_DoesNotChange()
 
 ### Incremental Growth
 
-1.  Add a minimal failing test.
+1.  Add a minimal failing test or check for existing test that will fail and modify it.
 2.  Make it pass.
 3.  Add the next test for the next behavior.
 

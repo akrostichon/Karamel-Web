@@ -58,6 +58,10 @@
             <a href="/" class="btn btn-primary">Return to Home</a>
         </div>
     }
+    else if (_isTransitioningToNextSong)
+    {
+        <div class="transition-placeholder" aria-hidden="true"></div>
+    }
     else if (PlaylistState.Value.CurrentSong == null)
     {
         <div class="alert alert-warning m-4" role="alert">
@@ -69,6 +73,9 @@
     {
         <!-- Full-screen canvas for CDG display -->
         <canvas id="cdgCanvas" width="300" height="216" class="cdg-canvas"></canvas>
+        
+        <!-- Video player for MP4 playback -->
+        <video id="videoPlayer" class="video-player"></video>
         
         <!-- Hidden audio element -->
         <audio id="audioPlayer" style="display: none;"></audio>
@@ -167,6 +174,7 @@
     private Timer? heartbeatTimer;
     private bool _showAdminMenu = false;
     private IJSObjectReference? _protectionModule;
+    private bool _isTransitioningToNextSong = false;
 
     protected override void OnInitialized()
     {
@@ -266,6 +274,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (PlaylistState.Value.CurrentSong != null)
+        {
+            _isTransitioningToNextSong = false;
+        }
+
         // If a new song is loaded and we're initialized, play it
         if (isInitialized && PlaylistState.Value.CurrentSong != null && fileAccessModule != null && byteStoreModule != null)
         {
@@ -290,10 +303,15 @@
 
         try
         {
-            await PrepareByteStoreForNewSong();
-            await LoadSongFilesFromDirectory(song!);
-            await InitializePlayerForPlayback();
-            StartPlayback();
+            // Branch based on media type
+            if (song!.MediaType == MediaType.Video)
+            {
+                await LoadAndPlayVideoSong(song);
+            }
+            else
+            {
+                await LoadAndPlayCdgSong(song);
+            }
         }
         catch (JSException jsEx)
         {
@@ -303,6 +321,26 @@
         {
             HandleNonBlockingPlaybackError(ex);
         }
+    }
+
+    private async Task LoadAndPlayCdgSong(Song song)
+    {
+        await PrepareByteStoreForNewSong();
+        await LoadSongFilesFromDirectory(song);
+        await InitializePlayerForPlayback();
+        StartPlayback();
+    }
+
+    private async Task LoadAndPlayVideoSong(Song song)
+    {
+        // Load video file and get blob URL
+        var dirPath = song.Path ?? string.Empty;
+        var videoUrl = await fileAccessModule!.InvokeAsync<string>("loadVideoFile", dirPath, song.VideoFileName);
+        
+        // Initialize video player
+        await playerModule!.InvokeVoidAsync("initializeVideoPlayer", videoUrl, dotNetRef);
+        
+        StartPlayback();
     }
 
     private bool ValidatePlaybackPreconditions()
@@ -395,6 +433,9 @@
         // Acknowledgement from user - clear blocking state and navigate back to NextSongView
         showBlockingError = false;
         blockingErrorMessage = string.Empty;
+        _isTransitioningToNextSong = true;
+        isPlaying = false;
+        StateHasChanged();
 
         // Complete current song so it's marked as done
         try
@@ -415,6 +456,15 @@
     [JSInvokable]
     public async Task OnSongEnded()
     {
+        if (_isTransitioningToNextSong)
+        {
+            return;
+        }
+
+        _isTransitioningToNextSong = true;
+        isPlaying = false;
+        await InvokeAsync(StateHasChanged);
+
         try
         {
             // Complete current song via SignalR (marks as Completed, doesn't advance)
@@ -432,6 +482,7 @@
         }
         catch (Exception ex)
         {
+            _isTransitioningToNextSong = false;
             errorMessage = $"Error handling song end: {ex.Message}";
             StateHasChanged();
         }

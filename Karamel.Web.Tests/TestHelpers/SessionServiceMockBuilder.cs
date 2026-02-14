@@ -26,6 +26,7 @@ public class SessionServiceMockBuilder
     public SessionServiceMockBuilder AsMainTab(bool isMainTab = true)
     {
         _isMainTab = isMainTab;
+        ConfigureIsMainTabProperty();
         ConfigureInitialize();
         ConfigureBroadcasts();
         return this;
@@ -140,8 +141,14 @@ public class SessionServiceMockBuilder
         _mock.Setup(s => s.DisposeAsync())
             .Returns(ValueTask.CompletedTask);
 
+        ConfigureIsMainTabProperty();
         ConfigureInitialize();
         ConfigureBroadcasts();
+    }
+
+    private void ConfigureIsMainTabProperty()
+    {
+        _mock.Setup(s => s.IsMainTab).Returns(_isMainTab);
     }
 
     private void ConfigureInitialize()

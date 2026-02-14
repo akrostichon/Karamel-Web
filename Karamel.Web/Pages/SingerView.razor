@@ -188,14 +188,11 @@
         {
             Console.WriteLine($"[DIAG] SingerView: === INITIALIZATION START ===");
             Console.WriteLine($"[DIAG] SingerView: SessionGuid={sessionGuid}");
-            Console.WriteLine($"[DIAG] SingerView: TokenParam={(TokenParam != null ? $"Length={TokenParam.Length}, First20={TokenParam.Substring(0, Math.Min(20, TokenParam.Length))}" : "NULL")}");
-            Console.WriteLine($"[DIAG] SingerView: SessionState.CurrentSession={(SessionState.Value.CurrentSession != null ? $"EXISTS (Id={SessionState.Value.CurrentSession.SessionId})" : "NULL")}");
-            
+                        
             isInitializing = true;
             
             try
             {
-                Console.WriteLine($"[DIAG] SingerView: Calling SessionService.InitializeAsync...");
                 var startTime = DateTime.Now;
                 await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
                 var duration = (DateTime.Now - startTime).TotalMilliseconds;
@@ -224,7 +221,6 @@
             
             Console.WriteLine($"[DIAG] SingerView: After LoadPageAction dispatch:");
             Console.WriteLine($"[DIAG] SingerView: LibraryState.Songs.Count={LibraryState.Value.Songs.Count}");
-            Console.WriteLine($"[DIAG] SingerView: LibraryState.IsLoading={LibraryState.Value.IsLoading}");
             Console.WriteLine($"[DIAG] SingerView: LibraryState.TotalCount={LibraryState.Value.TotalCount}");
             Console.WriteLine($"[DIAG] SingerView: LibraryState.ErrorMessage={LibraryState.Value.ErrorMessage ?? "NULL"}");
             

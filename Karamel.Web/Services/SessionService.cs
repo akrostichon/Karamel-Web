@@ -528,9 +528,17 @@ public class SessionService : ISessionService
         {
             var song = songs[i];
             
-            // Skip if already has file information
-            if (!string.IsNullOrEmpty(song.Mp3FileName) && !string.IsNullOrEmpty(song.CdgFileName))
-                continue;
+            // Skip if already has file information (check based on MediaType)
+            if (song.MediaType == MediaType.Mp3Cdg)
+            {
+                if (!string.IsNullOrEmpty(song.Mp3FileName) && !string.IsNullOrEmpty(song.CdgFileName))
+                    continue;
+            }
+            else if (song.MediaType == MediaType.Video)
+            {
+                if (!string.IsNullOrEmpty(song.VideoFileName))
+                    continue;
+            }
             
             // Look up in local library by ID
             if (libraryLookup.TryGetValue(song.Id, out var libraryMatch))
@@ -538,7 +546,14 @@ public class SessionService : ISessionService
                 // Replace with enriched song (preserving AddedBySinger from playlist)
                 songs[i] = libraryMatch with { AddedBySinger = song.AddedBySinger };
 #if DEBUG
-                Console.WriteLine($"SessionService: Enriched '{song.Artist} - {song.Title}' (ID: {song.Id}) with files: {libraryMatch.Mp3FileName}");
+                if (libraryMatch.MediaType == MediaType.Video)
+                {
+                    Console.WriteLine($"SessionService: Enriched VIDEO '{song.Artist} - {song.Title}' (ID: {song.Id}) with VideoFileName: {libraryMatch.VideoFileName}");
+                }
+                else
+                {
+                    Console.WriteLine($"SessionService: Enriched MP3+CDG '{song.Artist} - {song.Title}' (ID: {song.Id}) with Mp3FileName: {libraryMatch.Mp3FileName}");
+                }
 #endif
             }
             else
@@ -590,8 +605,20 @@ public class SessionService : ISessionService
                 var currentSong = SongConverters.ConvertJsonToSong(currentSongObj);
                 
                 // Enrich currentSong if needed and we have a library lookup
-                if (_isMainTab && currentSong != null && libraryLookup != null &&
-                    (string.IsNullOrEmpty(currentSong.Mp3FileName) || string.IsNullOrEmpty(currentSong.CdgFileName)))
+                bool needsEnrichment = false;
+                if (currentSong != null)
+                {
+                    if (currentSong.MediaType == MediaType.Mp3Cdg)
+                    {
+                        needsEnrichment = string.IsNullOrEmpty(currentSong.Mp3FileName) || string.IsNullOrEmpty(currentSong.CdgFileName);
+                    }
+                    else if (currentSong.MediaType == MediaType.Video)
+                    {
+                        needsEnrichment = string.IsNullOrEmpty(currentSong.VideoFileName);
+                    }
+                }
+                
+                if (_isMainTab && currentSong != null && libraryLookup != null && needsEnrichment)
                 {
                     if (libraryLookup.TryGetValue(currentSong.Id, out var libraryMatch))
                     {

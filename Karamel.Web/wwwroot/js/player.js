@@ -1,4 +1,4 @@
-// Karaoke player - CDG and audio synchronization
+// Karaoke player - CDG and audio synchronization and video playback
 
 import CDGraphics from '/lib/cdgraphics/cdgraphics.esm.js';
 import * as byteStore from './byteStore.js';
@@ -6,10 +6,19 @@ import { createLogger } from './logger.js';
 
 const logger = createLogger('Player');
 
+// Player mode: null | 'cdg' | 'video'
+let playerMode = null;
+
+// CDG player state
 let cdgPlayer = null;
 let audioElement = null;
 let canvasElement = null;
 let animationFrameId = null;
+
+// Video player state
+let videoElement = null;
+
+// Shared state
 let dotNetRef = null;
 
 export function initializePlayer() {
@@ -19,6 +28,11 @@ export function initializePlayer() {
 export function initializePlayerWithCallback(dotNetReference) {
     try {
         dotNetRef = dotNetReference;
+        playerMode = 'cdg';
+
+        if (videoElement) {
+            videoElement.classList.remove('is-visible');
+        }
         
         // Get DOM elements
         audioElement = document.getElementById('audioPlayer');
@@ -80,6 +94,40 @@ export function initializePlayerWithCallback(dotNetReference) {
     }
 }
 
+export function initializeVideoPlayer(videoUrl, dotNetReference) {
+    try {
+        dotNetRef = dotNetReference;
+        playerMode = 'video';
+        
+        // Get video element
+        videoElement = document.getElementById('videoPlayer');
+        
+        if (!videoElement) {
+            logger.error('Video element not found');
+            throw new Error('Video element not found');
+        }
+
+        videoElement.classList.add('is-visible');
+
+        // Set video source
+        videoElement.src = videoUrl;
+        videoElement.load();
+
+        // Set up event listeners
+        videoElement.addEventListener('ended', onVideoEnded);
+        videoElement.addEventListener('error', onVideoError);
+
+        logger.debug('Video player initialized successfully', { videoUrl });
+        
+        // Auto-play
+        videoElement.play().catch(err => logger.error('Video auto-play failed', { error: err.message }));
+
+    } catch (error) {
+        logger.error('Error initializing video player', { error: error.message, stack: error.stack });
+        throw error;
+    }
+}
+
 function onTimeUpdate() {
     if (audioElement && cdgPlayer) {
         // Render frame based on current audio time
@@ -106,6 +154,23 @@ function onEnded() {
         dotNetRef.invokeMethodAsync('OnSongEnded')
             .catch(err => logger.error('Error calling OnSongEnded', { error: err.message }));
     }
+}
+
+function onVideoEnded() {
+    logger.debug('Video playback ended');
+    
+    // Call .NET callback if available
+    if (dotNetRef) {
+        dotNetRef.invokeMethodAsync('OnSongEnded')
+            .catch(err => logger.error('Error calling OnSongEnded from video', { error: err.message }));
+    }
+}
+
+function onVideoError(event) {
+    logger.error('Video playback error', { 
+        error: event.target.error?.message || 'Unknown error',
+        code: event.target.error?.code
+    });
 }
 
 function onSeeked() {
@@ -168,28 +233,45 @@ export function dispose() {
         audioElement.src = '';
     }
 
+    if (videoElement) {
+        videoElement.removeEventListener('ended', onVideoEnded);
+        videoElement.removeEventListener('error', onVideoError);
+        videoElement.pause();
+        videoElement.src = '';
+        videoElement.classList.remove('is-visible');
+    }
+
     cdgPlayer = null;
     audioElement = null;
     canvasElement = null;
+    videoElement = null;
     dotNetRef = null;
+    playerMode = null;
 }
 
 export function pausePlayback() {
-    if (audioElement) {
+    if (playerMode === 'video' && videoElement) {
+        videoElement.pause();
+    } else if (playerMode === 'cdg' && audioElement) {
         audioElement.pause();
     }
 }
 
 export function resumePlayback() {
-    if (audioElement) {
+    if (playerMode === 'video' && videoElement) {
+        videoElement.play().catch(err => logger.error('Video resume failed', { error: err.message }));
+    } else if (playerMode === 'cdg' && audioElement) {
         audioElement.play().catch(err => logger.error('Resume failed', { error: err.message }));
     }
 }
 
 export function stopPlayback() {
-    if (audioElement) {
+    if (playerMode === 'video' && videoElement) {
+        videoElement.pause();
+        videoElement.currentTime = 0;
+    } else if (playerMode === 'cdg' && audioElement) {
         audioElement.pause();
         audioElement.currentTime = 0;
+        stopAnimation();
     }
-    stopAnimation();
 }
