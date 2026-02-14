@@ -25,8 +25,10 @@
   --color-text-dark: #F5E1C0; /* Primary text (dark) */
   --color-text-secondary: #6B4B2B; /* Secondary text (light) */
   --color-text-secondary-dark: #D6BFA5; /* Secondary text (dark) */
-  --color-highlight: #FFD894; /* Light highlight */
-  --color-highlight-dark: #FFC878; /* Dark highlight */
+  --color-highlight: #FFD25F; /* Light highlight (Highlight Glow from style guide) */
+  --color-highlight-dark: #FFC254; /* Dark highlight (Highlight Glow from style guide) */
+  --color-checkbox-checked: var(--gradient-light-from); 
+  --color-checkbox-checked-dark: var(--gradient-dark-from);
   --color-success: #63B767;
   --color-error: #C76C6C;
 
@@ -81,7 +83,8 @@
     --color-text-border: var(--color-text);
     --color-text-rgb: 245,225,192;
     --color-text-secondary: #D6BFA5;
-    --color-highlight: #FFC878;
+    --color-highlight: #FFC254;
+    --color-checkbox-checked: #FFB64C;
 
     /* Bootstrap dark mappings */
     --bs-body-bg: var(--color-bg);
@@ -112,7 +115,8 @@
   --color-text-border: var(--color-text);
   --color-text-rgb: 245,225,192;
   --color-text-secondary: #D6BFA5;
-  --color-highlight: #FFC878;
+  --color-highlight: #FFC254;
+  --color-checkbox-checked: #FFB64C;
 
   /* Bootstrap dark mappings */
   --bs-body-bg: var(--color-bg);
@@ -311,13 +315,13 @@ select,
 input:focus,
 textarea:focus,
 .form-control:focus {
-  box-shadow: 0 0 0 0.15rem rgba(var(--color-text-rgb), 0.12);
+  box-shadow: 0 0 0 2px var(--color-highlight);
   border-color: var(--color-text-border) !important;
 }
 
-/* Ensure checked/indeterminate states also respect tokenized color */
+/* Ensure checked/indeterminate states use correct background for theme */
 .form-check-input:checked,
 .form-check-input:indeterminate {
-  border-color: var(--color-text-border) !important;
-  background-color: var(--color-text-border) !important;
+  border-color: var(--color-checkbox-checked) !important;
+  color: var(--color-checkbox-checked) !important;
 }
