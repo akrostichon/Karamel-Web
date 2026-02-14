@@ -565,3 +565,65 @@ export async function loadSongFiles(path, mp3FileName, cdgFileName, zipInfo = nu
         throw error instanceof Error ? error : new Error(String(error));
     }
 }
+
+/**
+ * Load a video file from the selected library directory
+ * @param {string} path - Relative subdirectory path (empty string for root)
+ * @param {string} videoFileName - Video file name (e.g., 'song.mp4')
+ * @returns {Promise<string>} Object URL for the video file
+ */
+export async function loadVideoFile(path, videoFileName) {
+    const startTime = performance.now();
+    
+    try {
+        if (!libraryDirectoryHandle) {
+            throw new Error('No library directory selected');
+        }
+
+        // Navigate to subdirectory if path provided
+        let currentDir = libraryDirectoryHandle;
+        if (path) {
+            try {
+                currentDir = await dirHelper.getDirectoryHandleByPath(libraryDirectoryHandle, path);
+            } catch (err) {
+                throw new Error(`Directory not found while loading video file: ${path}`);
+            }
+        }
+
+        // Load video file
+        let videoHandle;
+        try {
+            videoHandle = await currentDir.getFileHandle(videoFileName);
+        } catch (err) {
+            throw new Error(`Video file not found: ${videoFileName} (path: ${path || '<root>'})`);
+        }
+        
+        const videoFile = await videoHandle.getFile();
+        
+        // Create object URL directly (skip byteStore for large video files)
+        const videoUrl = URL.createObjectURL(videoFile);
+
+        // Track successful load
+        const duration = performance.now() - startTime;
+        logger.info('Video file loaded', { 
+            videoFileName,
+            path: path || '<root>',
+            duration: `${duration.toFixed(2)}ms`,
+            fileSize: `${(videoFile.size / (1024 * 1024)).toFixed(2)}MB`
+        });
+
+        return videoUrl;
+
+    } catch (error) {
+        // Track failed load
+        const duration = performance.now() - startTime;
+        logger.error('Error loading video file', { 
+            videoFileName, 
+            path: path || '<root>',
+            duration: `${duration.toFixed(2)}ms`,
+            error: error.message || String(error) 
+        });
+        throw error instanceof Error ? error : new Error(String(error));
+    }
+}
+

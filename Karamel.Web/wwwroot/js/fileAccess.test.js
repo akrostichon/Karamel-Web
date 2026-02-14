@@ -336,4 +336,72 @@ describe('fileAccess.js - Directory Scanning', () => {
       expect(handle.name).toBe('library');
     });
   });
+
+  describe('loadVideoFile', () => {
+    beforeEach(async () => {
+      // Mock URL.createObjectURL
+      global.URL.createObjectURL = vi.fn((file) => `blob:http://localhost/${file.name}`);
+      
+      // Set up a mock directory with video files
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'test-video.mp4': new MockFileSystemFileHandle('test-video.mp4', 'video content'),
+        'another-video.m4v': new MockFileSystemFileHandle('another-video.m4v', 'video content'),
+      });
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+      await fileAccessModule.pickLibraryDirectory();
+    });
+
+    it('should return object URL for valid video file', async () => {
+      const videoUrl = await fileAccessModule.loadVideoFile('', 'test-video.mp4');
+
+      expect(videoUrl).toBeDefined();
+      expect(typeof videoUrl).toBe('string');
+      expect(videoUrl).toMatch(/^blob:/);
+      expect(global.URL.createObjectURL).toHaveBeenCalled();
+    });
+
+    it('should throw error when library directory not selected', async () => {
+      // Reset module to clear directory handle
+      vi.resetModules();
+      global.URL.createObjectURL = vi.fn((file) => `blob:http://localhost/${file.name}`);
+      const freshModule = await import('../js/fileAccess.js');
+
+      await expect(
+        freshModule.loadVideoFile('', 'test-video.mp4')
+      ).rejects.toThrow('No library directory selected');
+    });
+
+    it('should throw error when video file not found', async () => {
+      await expect(
+        fileAccessModule.loadVideoFile('', 'nonexistent.mp4')
+      ).rejects.toThrow('Video file not found: nonexistent.mp4');
+    });
+
+    it('should handle subdirectory paths correctly', async () => {
+      const subdirectory = new MockFileSystemDirectoryHandle('videos', {
+        'subfolder-video.mp4': new MockFileSystemFileHandle('subfolder-video.mp4', 'video'),
+      });
+
+      const mockDirectory = new MockFileSystemDirectoryHandle('library', {
+        'videos': subdirectory,
+      });
+
+      mockDirectoryPicker.mockResolvedValue(mockDirectory);
+      await fileAccessModule.pickLibraryDirectory();
+
+      const videoUrl = await fileAccessModule.loadVideoFile('videos', 'subfolder-video.mp4');
+
+      expect(videoUrl).toBeDefined();
+      expect(videoUrl).toMatch(/^blob:/);
+    });
+
+    it('should return valid blob URL format', async () => {
+      const videoUrl = await fileAccessModule.loadVideoFile('', 'test-video.mp4');
+
+      // Verify URL format
+      expect(videoUrl.startsWith('blob:')).toBe(true);
+      expect(videoUrl).toContain('test-video.mp4');
+    });
+  });
 });
