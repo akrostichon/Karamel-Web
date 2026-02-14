@@ -21,7 +21,7 @@ namespace Karamel.Backend.Models
         /// <summary>
         /// Optional JSON metadata for the song.
         /// For videos, contains: {"mediaType": "video", "extension": ".mp4", "durationSeconds": 180, "width": 1920, "height": 1080}
-        /// For MP3+CDG songs, may contain: {"durationMs": 180000} or other metadata
+        /// For MP3+CDG songs, may contain: {"durationSeconds": 180} or other metadata
         /// </summary>
         public string? MetadataJson { get; set; }
 
