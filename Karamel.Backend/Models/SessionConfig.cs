@@ -6,5 +6,6 @@ namespace Karamel.Backend.Models
         public int PauseBetweenSongsSeconds { get; set; } = 5;
         public bool AllowSingersToReorder { get; set; } = false;
         public PlaybackMode PlaybackMode { get; set; } = PlaybackMode.Normal;
+        public string? Theme { get; set; }
     }
 }
