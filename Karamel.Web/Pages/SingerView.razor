@@ -17,7 +17,7 @@
 @inject IDispatcher Dispatcher
 @inject IActionSubscriber ActionSubscriber
 @inject NavigationManager NavigationManager
-@inject ISessionService SessionService
+@inject Karamel.Web.Services.ISignalRConnectionManager ConnectionManager
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Singer View - Karamel Karaoke</PageTitle>
@@ -196,7 +196,7 @@
             try
             {
                 var startTime = DateTime.Now;
-                await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
+                await ConnectionManager.InitializeAsync(sessionGuid, false, TokenParam);
                 var duration = (DateTime.Now - startTime).TotalMilliseconds;
                 Console.WriteLine($"[DIAG] SingerView: InitializeAsync completed in {duration}ms");
             }

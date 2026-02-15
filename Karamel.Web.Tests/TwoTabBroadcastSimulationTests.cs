@@ -6,9 +6,11 @@ using Karamel.Web.Store.Session;
 using Karamel.Web.Models;
 using Karamel.Web.Tests.TestHelpers;
 using Karamel.Web.Contracts;
+using Karamel.Web.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
+using Moq;
 
 namespace Karamel.Web.Tests
 {
@@ -58,6 +60,10 @@ namespace Karamel.Web.Tests
                 .WithSessionId(sessionId)
                 .Build();
             singerCtx.Services.AddSingleton(singerSessionMock.Object);
+            // Add SignalRPlaylistBridge mock for PlaylistEffects
+            var singerBridgeMock = new Mock<ISignalRPlaylistBridge>();
+            singerBridgeMock.Setup(m => m.AddItemToPlaylistAsync(It.IsAny<Song>())).ReturnsAsync(true);
+            singerCtx.Services.AddSingleton(singerBridgeMock.Object);
             singerCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
             var singerStore = singerCtx.Services.GetRequiredService<IStore>();
             var singerDispatcher = singerCtx.Services.GetRequiredService<IDispatcher>();
@@ -101,6 +107,9 @@ namespace Karamel.Web.Tests
                 .WithSessionId(sessionId)
                 .Build();
             nextCtx.Services.AddSingleton(nextSessionMock.Object);
+            // Add SignalRPlaylistBridge mock for PlaylistEffects
+            var nextBridgeMock = new Mock<ISignalRPlaylistBridge>();
+            nextCtx.Services.AddSingleton(nextBridgeMock.Object);
             nextCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
             var nextStore = nextCtx.Services.GetRequiredService<IStore>();
             var nextDispatcher = nextCtx.Services.GetRequiredService<IDispatcher>();

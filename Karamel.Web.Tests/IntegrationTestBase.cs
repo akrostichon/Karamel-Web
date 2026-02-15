@@ -63,12 +63,25 @@ public abstract class IntegrationTestBase : TestContext
         var mockJSRuntime = new MockJSRuntime();
         Services.AddSingleton<IJSRuntime>(mockJSRuntime);
 
-        // 3. Add ISessionService mock BEFORE Fluxor (CRITICAL - Fluxor scans for effects)
+        // 3. Add ISessionService mock AND new service mocks BEFORE Fluxor (CRITICAL - Fluxor scans for effects)
         MockSessionService = new SessionServiceMockBuilder()
             .AsMainTab(asMainTab)
             .WithSessionId(TestSessionId)
             .Build();
         Services.AddSingleton(MockSessionService.Object);
+        
+        // Add new service mocks for components
+        var mockConnectionManager = new Mock<ISignalRConnectionManager>();
+        mockConnectionManager.Setup(m => m.IsMainTab).Returns(asMainTab);
+        mockConnectionManager.Setup(m => m.InitializeAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
+        Services.AddSingleton(mockConnectionManager.Object);
+        
+        var mockSessionApiClient = new Mock<ISessionApiClient>();
+        Services.AddSingleton(mockSessionApiClient.Object);
+        
+        var mockSignalRBridge = new Mock<ISignalRPlaylistBridge>();
+        Services.AddSingleton(mockSignalRBridge.Object);
 
         // 4. THEN add Fluxor (which will scan and find ISessionService is available)
         Services.AddFluxor(options =>

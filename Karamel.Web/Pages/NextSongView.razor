@@ -225,8 +225,8 @@
             }
             
             // Enable main tab protection if this is the main tab
-            var sessionService = ServiceProvider.GetService<ISessionService>();
-            if (sessionService?.IsMainTab == true)
+            var connectionManager = ServiceProvider.GetService<Karamel.Web.Services.ISignalRConnectionManager>();
+            if (connectionManager?.IsMainTab == true)
             {
                 try
                 {
@@ -411,10 +411,10 @@
         try
         {
             var sessionId = SessionState.Value.CurrentSession?.SessionId;
-            var sessionService = ServiceProvider.GetService(typeof(Karamel.Web.Services.ISessionService)) as Karamel.Web.Services.ISessionService;
-            if (sessionId != null && sessionService != null)
+            var connectionManager = ServiceProvider.GetService(typeof(Karamel.Web.Services.ISignalRConnectionManager)) as Karamel.Web.Services.ISignalRConnectionManager;
+            if (sessionId != null && connectionManager != null)
             {
-                await sessionService.InitializeAsync(sessionId.Value, true);
+                await connectionManager.InitializeAsync(sessionId.Value, true);
             }
         }
         catch (Exception ex)

@@ -135,6 +135,19 @@ public abstract class SessionTestBase : TestContext
         
         // Register mock ISessionService instead of real SessionService
         Services.AddSingleton(MockSessionService.Object);
+        
+        // Register new service mocks for components
+        var mockConnectionManager = new Mock<ISignalRConnectionManager>();
+        mockConnectionManager.Setup(m => m.IsMainTab).Returns(isMainTab);
+        mockConnectionManager.Setup(m => m.InitializeAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
+        Services.AddSingleton(mockConnectionManager.Object);
+        
+        var mockSessionApiClient = new Mock<ISessionApiClient>();
+        Services.AddSingleton(mockSessionApiClient.Object);
+        
+        var mockSignalRBridge = new Mock<ISignalRPlaylistBridge>();
+        Services.AddSingleton(mockSignalRBridge.Object);
 
         return (mockActionSubscriber, mockDispatcher, fakeNavManager);
     }
