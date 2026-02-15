@@ -650,7 +650,13 @@
                 Console.WriteLine($"NextSongView: Error dispatching AdvanceToNextSongAction: {ex.Message}");
             }
 
-            NavigationManager.NavigateTo($"/player?session={sessionId}");
+            var playerUrl = $"/player?session={sessionId}";
+            if (!string.IsNullOrEmpty(TokenParam))
+            {
+                playerUrl += $"&token={Uri.EscapeDataString(TokenParam)}";
+            }
+
+            NavigationManager.NavigateTo(playerUrl);
         }
     }
 
@@ -717,7 +723,11 @@
 
     private async Task OpenPlaylistManager()
     {
-        var url = $"/playlist?session={SessionParam}&token={TokenParam}";
+        var url = $"/playlist?session={SessionParam}";
+        if (!string.IsNullOrEmpty(TokenParam))
+        {
+            url += $"&token={Uri.EscapeDataString(TokenParam)}";
+        }
         try
         {
             await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
@@ -731,7 +741,11 @@
 
     private async Task OpenSingerView()
     {
-        var url = $"/singer?session={SessionParam}&token={TokenParam}";
+        var url = $"/singer?session={SessionParam}";
+        if (!string.IsNullOrEmpty(TokenParam))
+        {
+            url += $"&token={Uri.EscapeDataString(TokenParam)}";
+        }
         try
         {
             await JSRuntime.InvokeAsync<bool>("open", url, "_blank");

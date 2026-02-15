@@ -447,7 +447,13 @@
         var sessionId = SessionState.Value.CurrentSession?.SessionId;
         if (sessionId.HasValue)
         {
-            NavigationManager.NavigateTo($"/nextsong?session={sessionId}");
+            var nextSongUrl = $"/nextsong?session={sessionId}";
+            if (!string.IsNullOrEmpty(TokenParam))
+            {
+                nextSongUrl += $"&token={Uri.EscapeDataString(TokenParam)}";
+            }
+
+            NavigationManager.NavigateTo(nextSongUrl);
         }
 
         await Task.CompletedTask;
@@ -477,7 +483,13 @@
             var sessionId = SessionState.Value.CurrentSession?.SessionId;
             if (sessionId.HasValue)
             {
-                NavigationManager.NavigateTo($"/nextsong?session={sessionId}");
+                var nextSongUrl = $"/nextsong?session={sessionId}";
+                if (!string.IsNullOrEmpty(TokenParam))
+                {
+                    nextSongUrl += $"&token={Uri.EscapeDataString(TokenParam)}";
+                }
+
+                NavigationManager.NavigateTo(nextSongUrl);
             }
         }
         catch (Exception ex)
@@ -562,7 +574,13 @@
             var sessionId = SessionState.Value.CurrentSession?.SessionId;
             if (sessionId.HasValue)
             {
-                NavigationManager.NavigateTo($"/nextsong?session={sessionId}");
+                var nextSongUrl = $"/nextsong?session={sessionId}";
+                if (!string.IsNullOrEmpty(TokenParam))
+                {
+                    nextSongUrl += $"&token={Uri.EscapeDataString(TokenParam)}";
+                }
+
+                NavigationManager.NavigateTo(nextSongUrl);
             }
         }
         catch (Exception ex)
@@ -642,10 +660,14 @@
         var sessionId = SessionState.Value.CurrentSession?.SessionId;
         if (!sessionId.HasValue) return "";
 
+        var tokenSuffix = string.IsNullOrEmpty(TokenParam)
+            ? string.Empty
+            : $"&token={Uri.EscapeDataString(TokenParam)}";
+
         return sidePanelView switch
         {
-            "singer" => $"/singer?session={sessionId}",
-            "playlist" => $"/playlist?session={sessionId}",
+            "singer" => $"/singer?session={sessionId}{tokenSuffix}",
+            "playlist" => $"/playlist?session={sessionId}{tokenSuffix}",
             _ => ""
         };
     }
@@ -684,7 +706,11 @@
 
     private async Task OpenPlaylistManager()
     {
-        var url = $"/playlist?session={SessionParam}&token={TokenParam}";
+        var url = $"/playlist?session={SessionParam}";
+        if (!string.IsNullOrEmpty(TokenParam))
+        {
+            url += $"&token={Uri.EscapeDataString(TokenParam)}";
+        }
         try
         {
             await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
@@ -698,7 +724,11 @@
 
     private async Task OpenSingerView()
     {
-        var url = $"/singer?session={SessionParam}&token={TokenParam}";
+        var url = $"/singer?session={SessionParam}";
+        if (!string.IsNullOrEmpty(TokenParam))
+        {
+            url += $"&token={Uri.EscapeDataString(TokenParam)}";
+        }
         try
         {
             await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
