@@ -10,4 +10,5 @@ public record Session
     public bool PauseBetweenSongs { get; init; } = true;
     public int PauseBetweenSongsSeconds { get; init; } = 5;
     public string FilenamePattern { get; init; } = "%artist - %title";
+    public string? Theme { get; init; }
 }
