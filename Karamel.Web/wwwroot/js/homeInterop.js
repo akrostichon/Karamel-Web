@@ -58,8 +58,10 @@ export function generateSessionUrl(path, sessionId, linkToken = null) {
     const origin = window.location.origin;
     const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
     
-    // Add linkToken to query string if provided
-    const params = `session=${sessionId}${linkToken ? `&token=${linkToken}` : ''}`;
+    // Add linkToken to query string if provided (must be URL-encoded)
+    const encodedSessionId = encodeURIComponent(sessionId);
+    const encodedToken = linkToken ? encodeURIComponent(linkToken) : null;
+    const params = `session=${encodedSessionId}${encodedToken ? `&token=${encodedToken}` : ''}`;
     return `${origin}${basePath}${cleanPath}?${params}`;
 }
 

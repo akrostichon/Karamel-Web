@@ -135,8 +135,12 @@ else
     private async Task OpenPlaylistManager()
     {
         var baseUrl = NavigationManager.BaseUri.TrimEnd('/');
-        var encodedToken = Uri.EscapeDataString(TokenParam ?? "");
-        var url = $"{baseUrl}/playlist?session={SessionParam}&token={encodedToken}";
+        var url = $"{baseUrl}/playlist?session={SessionParam}";
+        if (!string.IsNullOrEmpty(TokenParam))
+        {
+            var encodedToken = Uri.EscapeDataString(TokenParam);
+            url += $"&token={encodedToken}";
+        }
         try
         {
             var opened = await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
@@ -154,8 +158,12 @@ else
     private async Task OpenSingerView()
     {
         var baseUrl = NavigationManager.BaseUri.TrimEnd('/');
-        var encodedToken = Uri.EscapeDataString(TokenParam ?? "");
-        var url = $"{baseUrl}/singer?session={SessionParam}&token={encodedToken}";
+        var url = $"{baseUrl}/singer?session={SessionParam}";
+        if (!string.IsNullOrEmpty(TokenParam))
+        {
+            var encodedToken = Uri.EscapeDataString(TokenParam);
+            url += $"&token={encodedToken}";
+        }
         try
         {
             var opened = await JSRuntime.InvokeAsync<bool>("open", url, "_blank");
@@ -174,7 +182,13 @@ else
     {
         if (_acknowledgedWarning && _isSessionValid)
         {
-            NavigationManager.NavigateTo($"/nextsong?session={SessionParam}&token={TokenParam}");
+            var url = $"/nextsong?session={SessionParam}";
+            if (!string.IsNullOrEmpty(TokenParam))
+            {
+                url += $"&token={Uri.EscapeDataString(TokenParam)}";
+            }
+
+            NavigationManager.NavigateTo(url);
         }
     }
 
