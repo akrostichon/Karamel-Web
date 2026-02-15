@@ -515,13 +515,9 @@ public class PlayerViewTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         // Create playlist item with NowPlaying status (2) to trigger LoadAndPlaySong
         var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong, status: 2) };
-        
-        // Mock SessionService.IsMainTab = false (secondary tab)
-        var mockSessionService = new Mock<Services.ISessionService>();
-        mockSessionService.Setup(s => s.IsMainTab).Returns(false);
-        
-        SetupTestWithSession(sessionState, playlistState, view: "player");
-        Services.AddSingleton(mockSessionService.Object);
+
+        // Secondary tab (not main tab): PlayerView now checks ISignalRConnectionManager.IsMainTab
+        SetupTestWithSession(sessionState, playlistState, view: "player", isMainTab: false);
         SetupJSRuntime();
 
         // Act

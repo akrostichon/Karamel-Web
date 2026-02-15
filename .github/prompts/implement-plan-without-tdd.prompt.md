@@ -28,6 +28,7 @@ You are implementing plan provided within the markdown file from context. Follow
 4. **Commit Policy**
    - Use user-facing commit messages (e.g., "Add Azure deployment pipeline", not "Implement Phase 3")
    - Commit locally by default — only push if explicitly requested
+   - Never commit `plan*.md` files (including `plan-*.md`); they are git-ignored planning notes
 
 ## IMPLEMENTATION STEPS
 

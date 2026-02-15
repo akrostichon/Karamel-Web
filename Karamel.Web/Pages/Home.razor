@@ -9,7 +9,8 @@
 @inject IJSRuntime JSRuntime
 @inject IDispatcher Dispatcher
 @inject NavigationManager NavigationManager
-@inject Karamel.Web.Services.ISessionService SessionService
+@inject Karamel.Web.Services.ISignalRConnectionManager ConnectionManager
+@inject Karamel.Web.Services.ISessionApiClient SessionApiClient
 @inject System.Net.Http.HttpClient Http
 
 <PageTitle>Karamel - Karaoke Session Setup</PageTitle>
@@ -504,14 +505,14 @@
 
         Dispatcher.Dispatch(new InitializeSessionAction(session));
 
-        // Initialize SessionService as main tab
+        // Initialize SignalR connection as main tab
         try
         {
-            await SessionService.InitializeAsync(session.SessionId, true, adminToken);
+            await ConnectionManager.InitializeAsync(session.SessionId, true, adminToken);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Home.StartSession: SessionService.InitializeAsync failed: {ex.Message}");
+            Console.WriteLine($"Home.StartSession: ConnectionManager.InitializeAsync failed: {ex.Message}");
         }
     }
 
@@ -521,7 +522,7 @@
         {
             if (_selectedSongs != null)
             {
-                var uploaded = await SessionService.UploadLibraryToServerAsync(
+                var uploaded = await SessionApiClient.UploadLibraryToServerAsync(
                     Guid.Parse(sessionId), _selectedSongs, adminToken);
                 Console.WriteLine($"Library upload to server result: {uploaded}");
             }

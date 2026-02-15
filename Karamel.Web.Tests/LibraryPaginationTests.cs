@@ -207,8 +207,8 @@ public class LibraryPaginationTests
     [Fact]
     public async Task Effect_HandleLoadPageAction_CallsSessionService()
     {
-        // Arrange: Mock SessionService and State
-        var mockSessionService = new Mock<ISessionService>();
+        // Arrange: Mock SessionApiClient and State
+        var mockSessionApiClient = new Mock<ISessionApiClient>();
         var mockState = new Mock<IState<Store.Session.SessionState>>();
         var mockLibraryState = new Mock<IState<LibraryState>>();
         var mockDispatcher = new Mock<IDispatcher>();
@@ -240,18 +240,18 @@ public class LibraryPaginationTests
             "pageSize": 50
         }
         """);
-        mockSessionService.Setup(s => s.FetchLibraryPageAsync(sessionId, 2, 50, "test", null))
+        mockSessionApiClient.Setup(s => s.FetchLibraryPageAsync(sessionId, 2, 50, "test", null))
             .ReturnsAsync(responseJson.RootElement);
 
         // Create effect
-        var effect = new LibraryEffects(mockSessionService.Object, mockState.Object, mockLibraryState.Object);
+        var effect = new LibraryEffects(mockSessionApiClient.Object, mockState.Object, mockLibraryState.Object);
 
         // Act: Dispatch LoadPageAction
         var action = new LoadPageAction(Page: 2, SearchQuery: "test", Append: true);
         await effect.HandleLoadPageAction(action, mockDispatcher.Object);
 
-        // Assert: SessionService was called with correct params
-        mockSessionService.Verify(
+        // Assert: SessionApiClient was called with correct params
+        mockSessionApiClient.Verify(
             s => s.FetchLibraryPageAsync(sessionId, 2, 50, "test", null),
             Times.Once
         );
@@ -273,7 +273,7 @@ public class LibraryPaginationTests
     public async Task Effect_HandleLoadPageAction_DispatchesFailureOnError()
     {
         // Arrange
-        var mockSessionService = new Mock<ISessionService>();
+        var mockSessionApiClient = new Mock<ISessionApiClient>();
         var mockState = new Mock<IState<Store.Session.SessionState>>();
         var mockLibraryState = new Mock<IState<LibraryState>>();
         var mockDispatcher = new Mock<IDispatcher>();
@@ -289,11 +289,11 @@ public class LibraryPaginationTests
         mockLibraryState.Setup(s => s.Value).Returns(libraryState);
 
         // Mock FetchLibraryPageAsync to throw exception
-        mockSessionService.Setup(s => s.FetchLibraryPageAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<string?>()))
+        mockSessionApiClient.Setup(s => s.FetchLibraryPageAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .ThrowsAsync(new Exception("Network error"));
 
         // Create effect
-        var effect = new LibraryEffects(mockSessionService.Object, mockState.Object, mockLibraryState.Object);
+        var effect = new LibraryEffects(mockSessionApiClient.Object, mockState.Object, mockLibraryState.Object);
 
         // Act: Dispatch LoadPageAction
         var action = new LoadPageAction(Page: 1, SearchQuery: null, Append: false);

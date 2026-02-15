@@ -19,7 +19,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject System.Net.Http.HttpClient Http
-@inject Karamel.Web.Services.ISessionService SessionService
+@inject Karamel.Web.Services.ISignalRConnectionManager ConnectionManager
 
 <PageTitle>Karaoke Player</PageTitle>
 
@@ -248,7 +248,7 @@
                 }
                 
                 // If this is the main tab, add beforeunload warning
-                if (SessionService.IsMainTab)
+                if (ConnectionManager.IsMainTab)
                 {
                     try
                     {
@@ -345,7 +345,7 @@
 
     private bool ValidatePlaybackPreconditions()
     {
-        if (SessionService.IsMainTab)
+        if (ConnectionManager.IsMainTab)
         {
             return true;
         }

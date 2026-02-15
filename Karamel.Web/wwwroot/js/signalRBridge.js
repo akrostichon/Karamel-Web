@@ -799,7 +799,7 @@ export function setupStateSyncListener(dotNetRef) {
 export function setupStateUpdateListener(dotNetRef) {
 	const handler = (event) => {
 		if (event.type === 'session-state-updated') {
-			dotNetRef.invokeMethodAsync('OnStateUpdated', event.detail.type, event.detail.data);
+			dotNetRef.invokeMethodAsync('HandleBroadcastMessage', event.detail.type, event.detail.data);
 		}
 	};
 	window.addEventListener('session-state-updated', handler);

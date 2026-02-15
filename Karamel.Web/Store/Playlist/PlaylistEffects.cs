@@ -1,16 +1,32 @@
 using Fluxor;
+using Karamel.Web.Contracts;
 using Karamel.Web.Services;
 
 namespace Karamel.Web.Store.Playlist;
 
-public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionService sessionService)
+public class PlaylistEffects
 {
+    private readonly IState<PlaylistState> _playlistState;
+    private readonly ISignalRPlaylistBridge _signalRBridge;
+    private readonly IDispatcher _dispatcher;
     private const int MaxSongsPerSinger = 10;
+
+    public PlaylistEffects(
+        IState<PlaylistState> playlistState,
+        ISignalRPlaylistBridge signalRBridge,
+        IPlaylistStateSynchronizer playlistStateSynchronizer,
+        IDispatcher dispatcher)
+    {
+        _playlistState = playlistState;
+        _signalRBridge = signalRBridge;
+        _dispatcher = dispatcher;
+        playlistStateSynchronizer.StateUpdateReceived += OnStateUpdateReceived;
+    }
 
     [EffectMethod]
     public Task HandleAddToPlaylistAction(AddToPlaylistAction action, IDispatcher dispatcher)
     {
-        var state = playlistState.Value;
+        var state = _playlistState.Value;
         var singerName = action.SingerName ?? "Unknown";
         
         // Calculate current count on-demand from Items
@@ -36,15 +52,15 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
         // Try to use server-side RPC via SignalR; fallback to local broadcast if unavailable
         try
         {
-            var sent = await sessionService.AddItemToPlaylistAsync(action.Song);
+            var sent = await _signalRBridge.AddItemToPlaylistAsync(action.Song);
             if (!sent)
             {
-                await sessionService.BroadcastPlaylistUpdatedAsync();
+                await _signalRBridge.BroadcastPlaylistUpdatedAsync();
             }
         }
         catch
         {
-            await sessionService.BroadcastPlaylistUpdatedAsync();
+            await _signalRBridge.BroadcastPlaylistUpdatedAsync();
         }
     }
 
@@ -53,15 +69,15 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            var sent = await sessionService.RemoveItemFromPlaylistAsync(action.SongId);
+            var sent = await _signalRBridge.RemoveItemFromPlaylistAsync(action.SongId);
             if (!sent)
             {
-                await sessionService.BroadcastPlaylistUpdatedAsync();
+                await _signalRBridge.BroadcastPlaylistUpdatedAsync();
             }
         }
         catch
         {
-            await sessionService.BroadcastPlaylistUpdatedAsync();
+            await _signalRBridge.BroadcastPlaylistUpdatedAsync();
         }
     }
 
@@ -69,14 +85,14 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     public async Task HandleNextSongAction(NextSongAction action, IDispatcher dispatcher)
     {
         // Broadcast playlist update after advancing to next song
-        await sessionService.BroadcastPlaylistUpdatedAsync();
+        await _signalRBridge.BroadcastPlaylistUpdatedAsync();
     }
 
     [EffectMethod]
     public async Task HandleClearPlaylistAction(ClearPlaylistAction action, IDispatcher dispatcher)
     {
         // Call backend to clear queued and up-next songs (preserves currently playing song)
-        await sessionService.ClearQueueAsync();
+        await _signalRBridge.ClearQueueAsync();
     }
 
     [EffectMethod]
@@ -85,12 +101,12 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
         try
         {
             // ReorderPlaylistAsync handles the reordering logic internally
-            var sent = await sessionService.ReorderPlaylistAsync(action.OldIndex, action.NewIndex);
+            await _signalRBridge.ReorderPlaylistAsync(action.OldIndex, action.NewIndex);
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
     }
 
@@ -99,12 +115,12 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            await sessionService.SetSongStatusAsync(action.ItemId, action.Status);
+            await _signalRBridge.SetSongStatusAsync(action.ItemId, action.Status);
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
     }
 
@@ -113,12 +129,12 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            await sessionService.AdvanceToNextSongAsync();
+            await _signalRBridge.AdvanceToNextSongAsync();
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
     }
 
@@ -127,12 +143,44 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            await sessionService.CompleteCurrentSongAsync();
+            await _signalRBridge.CompleteCurrentSongAsync();
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
+    }
+
+    private void OnStateUpdateReceived(BroadcastStateUpdate update)
+    {
+        if (update.Type != "playlist-updated" || update.Playlist is null)
+        {
+            return;
+        }
+
+        var itemDtos = update.Playlist.Queue.Select((song, index) => new PlaylistItemDto(
+            Id: Guid.NewGuid().ToString(),
+            SongId: song.Id.ToString(),
+            Artist: song.Artist,
+            Title: song.Title,
+            SingerName: song.AddedBySinger,
+            Position: index,
+            Status: (int)SongStatus.Queued
+        )).ToList();
+
+        var currentSongDto = update.Playlist.CurrentSong is null
+            ? null
+            : new PlaylistItemDto(
+                Id: Guid.NewGuid().ToString(),
+                SongId: update.Playlist.CurrentSong.Id.ToString(),
+                Artist: update.Playlist.CurrentSong.Artist,
+                Title: update.Playlist.CurrentSong.Title,
+                SingerName: update.Playlist.CurrentSong.AddedBySinger,
+                Position: 0,
+                Status: (int)SongStatus.NowPlaying
+            );
+
+        _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));
     }
 }
