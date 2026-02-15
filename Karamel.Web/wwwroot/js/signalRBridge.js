@@ -234,6 +234,20 @@ function handleBroadcastMessage(message) {
 		saveToSessionStorage(message.type, message.data);
 		const event = new CustomEvent('session-state-updated', { detail: message });
 		window.dispatchEvent(event);
+
+		// If session-settings include a theme, apply it on this tab
+		if (message && message.type === 'session-settings' && message.data && message.data.theme) {
+			import('./themeToggle.js').then(module => {
+				try {
+					module.setTheme(message.data.theme);
+					logger.debug('Applied theme from session-settings', { theme: message.data.theme });
+				} catch (e) {
+					logger.warn('Failed to apply theme from session-settings', { error: e.message });
+				}
+			}).catch(e => {
+				logger.warn('Error while attempting to apply theme from broadcast', { error: e.message });
+			});
+		}
 	} catch (e) {
 		logger.warn('Error in handleBroadcastMessage', { error: e.message, messageType: message?.type });
 	}

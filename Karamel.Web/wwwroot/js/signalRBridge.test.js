@@ -856,4 +856,93 @@ describe('signalRBridge', () => {
             expect(requestBody[2].id).toBe('guid-3');
         });
     });
+
+    describe('Theme Application', () => {
+        let mockSetTheme;
+
+        beforeEach(() => {
+            mockSetTheme = vi.fn();
+            
+            // Mock the themeToggle module
+            vi.doMock('./themeToggle.js', () => ({
+                setTheme: mockSetTheme
+            }));
+        });
+
+        afterEach(() => {
+            vi.doUnmock('./themeToggle.js');
+        });
+
+        it('should apply theme when session-settings message includes theme', async () => {
+            initializeSession(TEST_SESSION_ID, true);
+
+            const sessionData = {
+                sessionId: 'abc-123',
+                requireSingerName: true,
+                theme: 'dark'
+            };
+
+            // Simulate receiving session-settings via broadcast
+            const message = {
+                type: 'session-settings',
+                data: sessionData,
+                timestamp: Date.now()
+            };
+
+            // Trigger broadcast to main tab
+            const mainChannel = MockBroadcastChannel.instances[0];
+            if (mainChannel.onmessage) {
+                mainChannel.onmessage({ data: message });
+            }
+
+            // Wait for async import and setTheme call
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(mockSetTheme).toHaveBeenCalledWith('dark');
+        });
+
+        it('should not apply theme when session-settings message has no theme', async () => {
+            initializeSession(TEST_SESSION_ID, true);
+
+            const sessionData = {
+                sessionId: 'abc-123',
+                requireSingerName: true
+                // No theme property
+            };
+
+            const message = {
+                type: 'session-settings',
+                data: sessionData,
+                timestamp: Date.now()
+            };
+
+            const mainChannel = MockBroadcastChannel.instances[0];
+            if (mainChannel.onmessage) {
+                mainChannel.onmessage({ data: message });
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(mockSetTheme).not.toHaveBeenCalled();
+        });
+
+        it('should not apply theme when message type is not session-settings', async () => {
+            initializeSession(TEST_SESSION_ID, true);
+
+            const message = {
+                type: 'playlist-updated',
+                data: { theme: 'dark' }, // Theme in wrong message type
+                timestamp: Date.now()
+            };
+
+            const mainChannel = MockBroadcastChannel.instances[0];
+            if (mainChannel.onmessage) {
+                mainChannel.onmessage({ data: message });
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(mockSetTheme).not.toHaveBeenCalled();
+        });
+    });
 });
