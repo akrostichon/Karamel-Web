@@ -167,8 +167,13 @@ Karamel-Web/                          # Solution root
 │   │   ├── Playlist.razor            # Admin playlist management
 │   │   └── SingerView.razor          # Singer song selection
 │   ├── Services/                     # Application services
-│   │   ├── ISessionService.cs        # Interface for session management
-│   │   └── SessionService.cs         # SignalR session bridge & sessionStorage wrapper
+│   │   ├── ISessionStorageService.cs # SessionStorage read/write and URL/session helpers
+│   │   ├── ISessionApiClient.cs      # Backend /api/sessions and library HTTP client
+│   │   ├── ISignalRPlaylistBridge.cs # SignalR/JS playlist mutations + broadcast fallback
+│   │   ├── ISignalRConnectionManager.cs # SignalR lifecycle, initialization, IsMainTab
+│   │   ├── ISongEnrichmentService.cs # Main-tab-only playlist song enrichment with file paths
+│   │   ├── IPlaylistStateSynchronizer.cs # Broadcast/session state parsing and restoration
+│   │   └── SessionService.cs         # Obsolete compatibility facade (thin delegator)
 │   ├── Store/                        # Fluxor state management
 │   │   ├── Library/                  # Library state (song collection)
 │   │   ├── Playlist/                 # Playlist state (queue, current song)
@@ -219,6 +224,20 @@ Karamel-Web/                          # Solution root
 
 ### Key Architectural Patterns
 
+#### Session Service Boundaries (Post-Refactor)
+
+**CRITICAL**: Services are stateless helpers. Fluxor Effects orchestrate workflows and dispatch all state mutations.
+
+- `ISessionStorageService`: Session storage reads/writes and URL/session ID helpers
+- `ISessionApiClient`: Backend API access for session config and library operations
+- `ISignalRPlaylistBridge`: Playlist mutations + broadcast fallback wrapper
+- `ISignalRConnectionManager`: SignalR connection/module lifecycle and `IsMainTab`
+- `ISongEnrichmentService`: Main-tab-only enrichment of playlist songs with local file fields
+- `IPlaylistStateSynchronizer`: Restores/parses session + playlist updates and exposes parsed update events
+- `ISessionService`/`SessionService`: Obsolete compatibility facade; delegates to focused services
+
+Do not dispatch Fluxor actions from services. Dispatching belongs in Effects.
+
 #### Multi-Session Architecture
 **CRITICAL**: The app supports **multiple independent karaoke sessions** in different browser tabs/windows **AND across different physical devices** simultaneously. Each session:
 - Has a unique `SessionId` GUID (passed via `?session={guid}` query parameter)
@@ -247,6 +266,13 @@ Karamel-Web/                          # Solution root
 **Multi-Tab/Multi-Device Behavior**:
 - **Main tab** (host device): Full Song objects with paths (for playback via File System Access API)
 - **Secondary tabs/devices**: Songs with Artist/Title only (display-only, NO file access, fetched from backend API)
+
+#### Theme Synchronization
+
+- Theme source of truth on client: `localStorage` via `themeToggle.js`
+- Same-device propagation: BroadcastChannel state updates (fallback path)
+- Cross-device/session restore: backend session config (`SessionConfigDto.Theme`) via `ISessionApiClient`
+- Broadcast payloads must include theme in session settings updates
 
 #### File System Access API
 - **Main tab only** retains directory handle in JavaScript module scope (`fileAccess.js`)

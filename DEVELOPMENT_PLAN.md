@@ -458,6 +458,19 @@ Pagination needs to be built into the Library view.
   - The client-side main tab should call `UploadLibraryToServerAsync` after scanning the folder to upload a sanitized library payload (no file paths).
   - Server-side validation for forbidden keys (e.g. `fullPath`) is enforced by shape (only allowed fields are accepted) and by limiting payload size. If you prefer explicit raw JSON scanning, I can add a model binder or custom middleware to reject malicious properties.
 
+### Phase 7 Technical Debt Resolution ✅ COMPLETED
+
+- Refactored `SessionService` god object into six focused services:
+  - `ISessionStorageService`
+  - `ISessionApiClient`
+  - `ISignalRPlaylistBridge`
+  - `ISignalRConnectionManager`
+  - `ISongEnrichmentService`
+  - `IPlaylistStateSynchronizer`
+- Kept `SessionService` as an obsolete compatibility facade to support incremental migration.
+- Removed service-driven Fluxor action dispatching anti-pattern; effects now orchestrate service calls and dispatch actions.
+- Marked SessionService anti-pattern as resolved as of 2026-02-15.
+
 
 ## Phase 8: Azure provisioning & Deployment (new)
 
