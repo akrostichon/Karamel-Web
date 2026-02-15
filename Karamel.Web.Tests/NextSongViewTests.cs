@@ -25,6 +25,36 @@ public class NextSongViewTests : SessionTestBase
         // Setup test songs
         _testSongs = new List<Song>
         {
+
+    [Fact]
+    public void Component_OnFirstRender_RegistersStateUpdateListener()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithPause, IsInitialized = true };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong", isMainTab: true);
+        SetupJSRuntime();
+
+        var mockConnectionManager = new Mock<ISignalRConnectionManager>();
+        mockConnectionManager.SetupGet(m => m.IsMainTab).Returns(true);
+        mockConnectionManager
+            .Setup(m => m.InitializeAsync(It.IsAny<Guid>(), true, It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
+        Services.AddSingleton(mockConnectionManager.Object);
+
+        var mockStateSynchronizer = new Mock<IPlaylistStateSynchronizer>();
+        mockStateSynchronizer
+            .Setup(m => m.SetupStateUpdateListenerAsync())
+            .Returns(Task.CompletedTask);
+        Services.AddSingleton(mockStateSynchronizer.Object);
+
+        // Act
+        var cut = RenderComponent<NextSongView>();
+
+        // Assert
+        cut.WaitForAssertion(() =>
+            mockStateSynchronizer.Verify(m => m.SetupStateUpdateListenerAsync(), Times.AtLeastOnce()));
+    }
             new Song 
             { 
                 Id = Guid.NewGuid(), 

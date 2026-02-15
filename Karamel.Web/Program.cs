@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.JSInterop;
 using Karamel.Web;
 using Karamel.Web.Services;
 using Fluxor;
@@ -34,7 +35,13 @@ builder.Services.AddFluxor(options =>
 builder.Services.AddScoped<ISessionStorageService, SessionStorageService>();
 builder.Services.AddScoped<ISessionApiClient, SessionApiClient>();
 builder.Services.AddScoped<ISignalRPlaylistBridge, SignalRPlaylistBridge>();
-builder.Services.AddSingleton<ISignalRConnectionManager, SignalRConnectionManager>(); // Singleton - connection for entire app
+// SignalRConnectionManager needs backend base address (config value, not HttpClient)
+var backendBaseAddress = baseAddress.ToString().TrimEnd('/');
+builder.Services.AddSingleton<ISignalRConnectionManager>(sp => 
+    new SignalRConnectionManager(
+        sp.GetRequiredService<IJSRuntime>(),
+        backendBaseAddress,
+        sp.GetRequiredService<ILogger<SignalRConnectionManager>>()));
 builder.Services.AddScoped<ISongEnrichmentService, SongEnrichmentService>();
 builder.Services.AddScoped<IPlaylistStateSynchronizer, PlaylistStateSynchronizer>();
 

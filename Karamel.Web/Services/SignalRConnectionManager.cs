@@ -9,7 +9,7 @@ namespace Karamel.Web.Services;
 public class SignalRConnectionManager : ISignalRConnectionManager
 {
     private readonly IJSRuntime _jsRuntime;
-    private readonly HttpClient _httpClient;
+    private readonly string _backendBaseAddress;
     private readonly ILogger<SignalRConnectionManager> _logger;
     private IJSObjectReference? _sessionBridgeModule;
     private bool _isInitialized;
@@ -22,11 +22,11 @@ public class SignalRConnectionManager : ISignalRConnectionManager
 
     public SignalRConnectionManager(
         IJSRuntime jsRuntime,
-        HttpClient httpClient,
+        string backendBaseAddress,
         ILogger<SignalRConnectionManager> logger)
     {
         _jsRuntime = jsRuntime;
-        _httpClient = httpClient;
+        _backendBaseAddress = backendBaseAddress;
         _logger = logger;
     }
 
@@ -44,11 +44,8 @@ public class SignalRConnectionManager : ISignalRConnectionManager
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./js/signalRBridge.js");
 
-        // Get backend base address for SignalR connection
-        var backendBase = _httpClient.BaseAddress?.ToString().TrimEnd('/');
-
         // Pass link token and backend URL if present so JS SignalR client can use them when connecting
-        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, linkToken, backendBase);
+        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, linkToken, _backendBaseAddress);
 
         _isInitialized = true;
         _logger.LogInformation("SignalR connection manager initialized for session {SessionId} (isMainTab={IsMainTab})", sessionId, asMainTab);

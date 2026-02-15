@@ -13,6 +13,7 @@
 @inject IDispatcher Dispatcher
 @inject IJSRuntime JSRuntime
 @inject Karamel.Web.Services.ISignalRConnectionManager ConnectionManager
+@inject Karamel.Web.Services.IPlaylistStateSynchronizer StateSynchronizer
 
 <PageTitle>Playlist - Karamel</PageTitle>
 
@@ -233,6 +234,34 @@
             // Initialize session as secondary tab and load state from sessionStorage
             isInitializing = true;
             await ConnectionManager.InitializeAsync(sessionGuid, false, TokenParam);
+            
+            // Restore session state from backend/sessionStorage
+            var (session, playlist, currentSong) = await StateSynchronizer.RestoreSessionStateAsync(sessionGuid);
+
+            // Register listener for ongoing SignalR/BroadcastChannel state updates
+            await StateSynchronizer.SetupStateUpdateListenerAsync();
+            
+            if (session != null)
+            {
+                Dispatcher.Dispatch(new Karamel.Web.Store.Session.InitializeSessionAction(session));
+            }
+            if (playlist != null && playlist.Any())
+            {
+                var currentSongItem = currentSong != null
+                    ? new PlaylistItemDto(
+                        Id: Guid.NewGuid().ToString(),
+                        SongId: currentSong.Id,
+                        Artist: currentSong.Artist,
+                        Title: currentSong.Title,
+                        SingerName: currentSong.AddedBySinger,
+                        Position: 0,
+                        Status: (int)SongStatus.NowPlaying
+                    )
+                    : null;
+                Dispatcher.Dispatch(new Karamel.Web.Store.Playlist.UpdatePlaylistFromBroadcastAction(playlist, currentSongItem));
+            }
+            
+            Console.WriteLine($"[Playlist] State restoration completed");
 
             isSessionValid = ValidateSession();
             

@@ -412,9 +412,14 @@
         {
             var sessionId = SessionState.Value.CurrentSession?.SessionId;
             var connectionManager = ServiceProvider.GetService(typeof(Karamel.Web.Services.ISignalRConnectionManager)) as Karamel.Web.Services.ISignalRConnectionManager;
+            var stateSynchronizer = ServiceProvider.GetService(typeof(Karamel.Web.Services.IPlaylistStateSynchronizer)) as Karamel.Web.Services.IPlaylistStateSynchronizer;
             if (sessionId != null && connectionManager != null)
             {
                 await connectionManager.InitializeAsync(sessionId.Value, true);
+                if (stateSynchronizer != null)
+                {
+                    await stateSynchronizer.SetupStateUpdateListenerAsync();
+                }
             }
         }
         catch (Exception ex)
