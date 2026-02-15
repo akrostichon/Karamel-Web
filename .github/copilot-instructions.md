@@ -80,6 +80,12 @@ git push origin feature/your-feature-name
 # DO NOT merge to main - push the branch and stop
 ```
 
+### Plan Files Policy
+**MANDATORY**: `plan*.md` files are git-ignored working notes and must never be committed.
+
+- Never include `plan*.md` files in `git add`, commits, or pull requests
+- If staged accidentally, unstage them before committing code changes
+
 ### Before Making Changes
 1. Verify current branch: `git branch` (should NOT be `main`)
 2. Run `dotnet build` to ensure clean starting state

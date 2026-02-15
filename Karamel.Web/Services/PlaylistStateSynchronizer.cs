@@ -22,6 +22,8 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
     private readonly IDispatcher _dispatcher;
     private DotNetObjectReference<PlaylistStateSynchronizer>? _stateUpdateDotNetRef;
 
+    public event Action<BroadcastStateUpdate>? StateUpdateReceived;
+
     public PlaylistStateSynchronizer(
         ISessionStorageService sessionStorage,
         ISessionApiClient sessionApiClient,
@@ -267,8 +269,8 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
     /// <summary>
     /// Handle state update from broadcast (called by JavaScript via JSInvokable)
     /// </summary>
-    [JSInvokable]
-    public void OnStateUpdated(string type, JsonElement data)
+    [JSInvokable("OnStateUpdated")]
+    public void HandleBroadcastMessage(string type, JsonElement data)
     {
         try
         {
@@ -282,38 +284,44 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
                     var playlistResult = HandlePlaylistUpdate(data);
                     if (playlistResult.HasValue)
                     {
-                        // Dispatch the update
-                        var itemDtos = playlistResult.Value.queue.Select((s, index) => new PlaylistItemDto(
-                            Id: Guid.NewGuid().ToString(),
-                            SongId: s.Id.ToString(),
-                            Artist: s.Artist,
-                            Title: s.Title,
-                            SingerName: s.AddedBySinger,
-                            Position: index,
-                            Status: (int)SongStatus.Queued
-                        )).ToList();
+                        var playlistUpdate = new PlaylistBroadcastUpdate(
+                            playlistResult.Value.queue,
+                            playlistResult.Value.currentSong,
+                            playlistResult.Value.singerCounts,
+                            playlistResult.Value.currentSingerName);
 
-                        var currentSongDto = playlistResult.Value.currentSong != null ? new PlaylistItemDto(
-                            Id: Guid.NewGuid().ToString(),
-                            SongId: playlistResult.Value.currentSong.Id.ToString(),
-                            Artist: playlistResult.Value.currentSong.Artist,
-                            Title: playlistResult.Value.currentSong.Title,
-                            SingerName: playlistResult.Value.currentSong.AddedBySinger,
-                            Position: 0,
-                            Status: (int)SongStatus.NowPlaying
-                        ) : null;
-
-                        _dispatcher.Dispatch(new Store.Playlist.UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));
-                        Console.WriteLine($"PlaylistStateSynchronizer: Dispatched UpdatePlaylistFromBroadcastAction with {playlistResult.Value.queue.Count} songs");
+                        StateUpdateReceived?.Invoke(new BroadcastStateUpdate(
+                            type,
+                            playlistUpdate,
+                            null,
+                            null));
                     }
                     break;
                 case "session-settings":
                     var session = HandleSessionSettingsUpdate(data);
-                    // Effects would handle dispatching if needed
+                    if (session is not null)
+                    {
+                        StateUpdateReceived?.Invoke(new BroadcastStateUpdate(
+                            type,
+                            null,
+                            session,
+                            null));
+                    }
                     break;
                 case "current-song":
                     var songUpdate = HandleCurrentSongUpdate(data);
-                    // Effects would handle dispatching if needed
+                    if (songUpdate.HasValue)
+                    {
+                        var currentSongUpdate = new CurrentSongBroadcastUpdate(
+                            songUpdate.Value.song,
+                            songUpdate.Value.singerName);
+
+                        StateUpdateReceived?.Invoke(new BroadcastStateUpdate(
+                            type,
+                            null,
+                            null,
+                            currentSongUpdate));
+                    }
                     break;
                 default:
                     Console.WriteLine($"PlaylistStateSynchronizer: Unknown state update type: {type}");
@@ -329,7 +337,7 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
     /// <summary>
     /// Handle playlist update from broadcast
     /// </summary>
-    public (List<Song> queue, Song? currentSong, Dictionary<string, int> singerCounts, string? currentSingerName)? HandlePlaylistUpdate(JsonElement data)
+    private (List<Song> queue, Song? currentSong, Dictionary<string, int> singerCounts, string? currentSingerName)? HandlePlaylistUpdate(JsonElement data)
     {
         try
         {
@@ -377,25 +385,71 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
     /// <summary>
     /// Handle session settings update from broadcast
     /// </summary>
-    public Session? HandleSessionSettingsUpdate(JsonElement data)
+    private Session? HandleSessionSettingsUpdate(JsonElement data)
     {
 #if DEBUG
         Console.WriteLine($"PlaylistStateSynchronizer: Session settings update received");
 #endif
-        // Return parsed session if needed
-        return null;
+        if (!data.TryGetProperty("sessionId", out var sessionIdElement))
+        {
+            return null;
+        }
+
+        if (!Guid.TryParse(sessionIdElement.GetString(), out var sessionId))
+        {
+            return null;
+        }
+
+        return new Session
+        {
+            SessionId = sessionId,
+            RequireSingerName = data.TryGetProperty("requireSingerName", out var requireSingerName)
+                && requireSingerName.ValueKind == JsonValueKind.True,
+            AllowSingersToReorder = data.TryGetProperty("allowSingerReorder", out var allowSingerReorder)
+                && allowSingerReorder.ValueKind == JsonValueKind.True,
+            PauseBetweenSongs = !data.TryGetProperty("pauseBetweenSongs", out var pauseBetweenSongs)
+                || pauseBetweenSongs.ValueKind != JsonValueKind.False,
+            PauseBetweenSongsSeconds = data.TryGetProperty("pauseBetweenSongsSeconds", out var pauseBetweenSongsSeconds)
+                && pauseBetweenSongsSeconds.ValueKind == JsonValueKind.Number
+                ? pauseBetweenSongsSeconds.GetInt32()
+                : 5,
+            FilenamePattern = data.TryGetProperty("filenamePattern", out var filenamePattern)
+                && filenamePattern.ValueKind == JsonValueKind.String
+                ? filenamePattern.GetString() ?? "%artist - %title"
+                : "%artist - %title",
+            Theme = data.TryGetProperty("theme", out var theme) && theme.ValueKind == JsonValueKind.String
+                ? theme.GetString()
+                : null
+        };
     }
 
     /// <summary>
     /// Handle current song update from broadcast
     /// </summary>
-    public (Song? song, string? singerName)? HandleCurrentSongUpdate(JsonElement data)
+    private (Song? song, string? singerName)? HandleCurrentSongUpdate(JsonElement data)
     {
 #if DEBUG
         Console.WriteLine($"PlaylistStateSynchronizer: Current song update received");
 #endif
-        // Return parsed current song if needed
-        return null;
+        if (data.ValueKind == JsonValueKind.Null)
+        {
+            return (null, null);
+        }
+
+        string? singerName = null;
+        if (data.TryGetProperty("singerName", out var singerNameElement)
+            && singerNameElement.ValueKind == JsonValueKind.String)
+        {
+            singerName = singerNameElement.GetString();
+        }
+
+        if (!data.TryGetProperty("song", out var songElement) || songElement.ValueKind == JsonValueKind.Null)
+        {
+            return (null, singerName);
+        }
+
+        var song = SongConverters.ConvertJsonToSong(songElement);
+        return (song, singerName);
     }
 
     /// <summary>

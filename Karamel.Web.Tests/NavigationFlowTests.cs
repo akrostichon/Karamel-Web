@@ -260,6 +260,19 @@ public class NavigationFlowTests : TestContext
         Services.AddSingleton(mockActionSubscriber.Object);
         Services.AddSingleton<NavigationManager>(fakeNavManager);
         Services.AddSingleton(mockJSRuntime.Object);
+        
+        // Register new service mocks
+        var mockConnectionManager = new Mock<Services.ISignalRConnectionManager>();
+        mockConnectionManager.Setup(m => m.IsMainTab).Returns(true);
+        mockConnectionManager.Setup(m => m.InitializeAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
+        Services.AddSingleton(mockConnectionManager.Object);
+        
+        var mockSessionApiClient = new Mock<Services.ISessionApiClient>();
+        Services.AddSingleton(mockSessionApiClient.Object);
+        
+        var mockSignalRBridge = new Mock<Services.ISignalRPlaylistBridge>();
+        Services.AddSingleton(mockSignalRBridge.Object);
 
         return (mockActionSubscriber, mockDispatcher, fakeNavManager);
     }

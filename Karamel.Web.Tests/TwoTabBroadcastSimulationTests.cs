@@ -64,6 +64,19 @@ namespace Karamel.Web.Tests
             var singerBridgeMock = new Mock<ISignalRPlaylistBridge>();
             singerBridgeMock.Setup(m => m.AddItemToPlaylistAsync(It.IsAny<Song>())).ReturnsAsync(true);
             singerCtx.Services.AddSingleton(singerBridgeMock.Object);
+            
+            // Add ISessionApiClient mock for LibraryEffects
+            var singerApiClientMock = new Mock<ISessionApiClient>();
+            singerCtx.Services.AddSingleton(singerApiClientMock.Object);
+            
+            // Add ISignalRConnectionManager mock
+            var singerConnectionMock = new Mock<ISignalRConnectionManager>();
+            singerConnectionMock.Setup(m => m.IsMainTab).Returns(true);
+            singerCtx.Services.AddSingleton(singerConnectionMock.Object);
+
+            var singerStateSynchronizerMock = new Mock<IPlaylistStateSynchronizer>();
+            singerCtx.Services.AddSingleton(singerStateSynchronizerMock.Object);
+            
             singerCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
             var singerStore = singerCtx.Services.GetRequiredService<IStore>();
             var singerDispatcher = singerCtx.Services.GetRequiredService<IDispatcher>();
@@ -110,6 +123,19 @@ namespace Karamel.Web.Tests
             // Add SignalRPlaylistBridge mock for PlaylistEffects
             var nextBridgeMock = new Mock<ISignalRPlaylistBridge>();
             nextCtx.Services.AddSingleton(nextBridgeMock.Object);
+            
+            // Add ISessionApiClient mock for LibraryEffects
+            var nextApiClientMock = new Mock<ISessionApiClient>();
+            nextCtx.Services.AddSingleton(nextApiClientMock.Object);
+            
+            // Add ISignalRConnectionManager mock
+            var nextConnectionMock = new Mock<ISignalRConnectionManager>();
+            nextConnectionMock.Setup(m => m.IsMainTab).Returns(false);
+            nextCtx.Services.AddSingleton(nextConnectionMock.Object);
+
+            var nextStateSynchronizerMock = new Mock<IPlaylistStateSynchronizer>();
+            nextCtx.Services.AddSingleton(nextStateSynchronizerMock.Object);
+            
             nextCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
             var nextStore = nextCtx.Services.GetRequiredService<IStore>();
             var nextDispatcher = nextCtx.Services.GetRequiredService<IDispatcher>();

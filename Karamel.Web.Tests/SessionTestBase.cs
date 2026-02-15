@@ -149,6 +149,9 @@ public abstract class SessionTestBase : TestContext
         var mockSignalRBridge = new Mock<ISignalRPlaylistBridge>();
         Services.AddSingleton(mockSignalRBridge.Object);
 
+        var mockStateSynchronizer = new Mock<IPlaylistStateSynchronizer>();
+        Services.AddSingleton(mockStateSynchronizer.Object);
+
         return (mockActionSubscriber, mockDispatcher, fakeNavManager);
     }
 

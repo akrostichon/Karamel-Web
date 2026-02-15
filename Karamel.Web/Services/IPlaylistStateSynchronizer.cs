@@ -12,6 +12,12 @@ namespace Karamel.Web.Services;
 public interface IPlaylistStateSynchronizer : IAsyncDisposable
 {
     /// <summary>
+    /// Event raised when a broadcast state update is received and parsed.
+    /// Effects should subscribe and dispatch appropriate Fluxor actions.
+    /// </summary>
+    event Action<BroadcastStateUpdate>? StateUpdateReceived;
+
+    /// <summary>
     /// Restore session state from sessionStorage (secondary tabs)
     /// Returns (SessionConfig, PlaylistItems, CurrentSong) tuple for Effects to dispatch
     /// </summary>
@@ -24,24 +30,22 @@ public interface IPlaylistStateSynchronizer : IAsyncDisposable
 
     /// <summary>
     /// Handle state update from broadcast (called by JavaScript via JSInvokable)
-    /// Returns parsed data for Effects to dispatch
-    /// </summary>
-    (List<Song> queue, Song? currentSong, Dictionary<string, int> singerCounts, string? currentSingerName)? HandlePlaylistUpdate(JsonElement data);
-
-    /// <summary>
-    /// Handle session settings update from broadcast
-    /// </summary>
-    Session? HandleSessionSettingsUpdate(JsonElement data);
-
-    /// <summary>
-    /// Handle current song update from broadcast
-    /// </summary>
-    (Song? song, string? singerName)? HandleCurrentSongUpdate(JsonElement data);
-
-    /// <summary>
-    /// Handle state update from broadcast (called by JavaScript via JSInvokable)
-    /// Dispatches actions after parsing broadcast data
+    /// Parses payload and raises StateUpdateReceived event for Effects to dispatch
     /// </summary>
     [JSInvokable]
-    void OnStateUpdated(string type, JsonElement data);
+    void HandleBroadcastMessage(string type, JsonElement data);
 }
+
+public sealed record PlaylistBroadcastUpdate(
+    List<Song> Queue,
+    Song? CurrentSong,
+    Dictionary<string, int> SingerCounts,
+    string? CurrentSingerName);
+
+public sealed record CurrentSongBroadcastUpdate(Song? Song, string? SingerName);
+
+public sealed record BroadcastStateUpdate(
+    string Type,
+    PlaylistBroadcastUpdate? Playlist,
+    Session? Session,
+    CurrentSongBroadcastUpdate? CurrentSong);

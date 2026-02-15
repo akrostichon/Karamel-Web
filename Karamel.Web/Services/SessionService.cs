@@ -101,7 +101,7 @@ public class SessionService : ISessionService
 
     [JSInvokable]
     public void OnStateUpdated(string type, JsonElement data)
-        => _stateSynchronizer.OnStateUpdated(type, data);
+        => _stateSynchronizer.HandleBroadcastMessage(type, data);
 
     public async ValueTask DisposeAsync()
     {

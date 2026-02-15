@@ -83,6 +83,9 @@ public abstract class IntegrationTestBase : TestContext
         var mockSignalRBridge = new Mock<ISignalRPlaylistBridge>();
         Services.AddSingleton(mockSignalRBridge.Object);
 
+        var mockStateSynchronizer = new Mock<IPlaylistStateSynchronizer>();
+        Services.AddSingleton(mockStateSynchronizer.Object);
+
         // 4. THEN add Fluxor (which will scan and find ISessionService is available)
         Services.AddFluxor(options =>
         {

@@ -300,6 +300,17 @@ public class LibrarySearchTests : TestContext
         Services.AddSingleton(mockActionSubscriber.Object);
         Services.AddSingleton(mockSessionState.Object);
         Services.AddSingleton(mockSessionService.Object);
+        
+        // Register new service mocks
+        var mockConnectionManager = new Mock<Services.ISignalRConnectionManager>();
+        mockConnectionManager.Setup(m => m.IsMainTab).Returns(true);
+        Services.AddSingleton(mockConnectionManager.Object);
+        
+        var mockSessionApiClient = new Mock<Services.ISessionApiClient>();
+        Services.AddSingleton(mockSessionApiClient.Object);
+        
+        var mockSignalRBridge = new Mock<Services.ISignalRPlaylistBridge>();
+        Services.AddSingleton(mockSignalRBridge.Object);
 
         return mockDispatcher;
     }

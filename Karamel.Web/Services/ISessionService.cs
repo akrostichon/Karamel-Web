@@ -146,9 +146,9 @@ public interface ISessionService : IAsyncDisposable
 
     /// <summary>
     /// Handle state update from broadcast (called by JavaScript via JSInvokable)
-    /// Use: IPlaylistStateSynchronizer.OnStateUpdated
+    /// Use: IPlaylistStateSynchronizer.HandleBroadcastMessage
     /// </summary>
-    [Obsolete("Use IPlaylistStateSynchronizer.OnStateUpdated")]
+    [Obsolete("Use IPlaylistStateSynchronizer.HandleBroadcastMessage")]
     [JSInvokable]
     void OnStateUpdated(string type, JsonElement data);
 }
