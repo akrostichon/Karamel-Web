@@ -18,6 +18,7 @@
 @inject IActionSubscriber ActionSubscriber
 @inject NavigationManager NavigationManager
 @inject ISessionService SessionService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Singer View - Karamel Karaoke</PageTitle>
 
@@ -154,6 +155,7 @@
     private string toastIcon = string.Empty;
     private bool isSessionValid = false;
     private bool isInitializing = true;
+    private IJSObjectReference? themeToggleModule;
 
     protected override void OnInitialized()
     {
@@ -223,6 +225,8 @@
             Console.WriteLine($"[DIAG] SingerView: LibraryState.Songs.Count={LibraryState.Value.Songs.Count}");
             Console.WriteLine($"[DIAG] SingerView: LibraryState.TotalCount={LibraryState.Value.TotalCount}");
             Console.WriteLine($"[DIAG] SingerView: LibraryState.ErrorMessage={LibraryState.Value.ErrorMessage ?? "NULL"}");
+            // Apply session theme if set
+            await ApplySessionThemeAsync();
             
             isInitializing = false;
             isSessionValid = ValidateSession();
@@ -236,6 +240,24 @@
             isInitializing = false;
             isSessionValid = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task ApplySessionThemeAsync()
+    {
+        try
+        {
+            var theme = SessionState.Value.CurrentSession?.Theme;
+            if (!string.IsNullOrWhiteSpace(theme))
+            {
+                Console.WriteLine($"[SingerView] Applying session theme: {theme}");
+                themeToggleModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/themeToggle.js");
+                await themeToggleModule.InvokeVoidAsync("setTheme", theme);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SingerView] Failed to apply theme: {ex.Message}");
         }
     }
 

@@ -351,7 +351,10 @@ public class SessionService : ISessionService
                 ? pauseEnabled.GetBoolean() 
                 : true,
             PauseBetweenSongsSeconds = sessionData.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
-            FilenamePattern = sessionData.GetProperty("filenamePattern").GetString() ?? "%artist - %title"
+            FilenamePattern = sessionData.GetProperty("filenamePattern").GetString() ?? "%artist - %title",
+            Theme = sessionData.TryGetProperty("theme", out var theme) && theme.ValueKind == JsonValueKind.String
+                ? theme.GetString()
+                : null
         };
     }
 
@@ -387,7 +390,10 @@ public class SessionService : ISessionService
                         ? pauseEnabled.GetBoolean() 
                         : true,
                     PauseBetweenSongsSeconds = sessionDto.GetProperty("pauseBetweenSongsSeconds").GetInt32(),
-                    FilenamePattern = "%artist - %title"
+                    FilenamePattern = "%artist - %title",
+                    Theme = sessionDto.TryGetProperty("theme", out var theme) && theme.ValueKind == JsonValueKind.String
+                        ? theme.GetString()
+                        : null
                 };
                 
                 Console.WriteLine($"[DIAG] SessionService: Parsed session from backend - SessionId={session.SessionId}");

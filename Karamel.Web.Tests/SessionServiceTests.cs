@@ -539,4 +539,118 @@ public class SessionServiceTests : TestContext
         // Second song NOT enriched (remains without file paths)
         Assert.Null(songs[1].VideoFileName);
     }
+
+    [Fact]
+    public async Task RestoreSessionStateAsync_WithThemeInBackend_ShouldDispatchSessionWithTheme()
+    {
+        // Arrange
+        var sessionId = Guid.NewGuid();
+        var theme = "dark";
+        var sessionData = new
+        {
+            id = sessionId,
+            requireSingerName = true,
+            pauseBetweenSongsSeconds = 5,
+            allowSingersToReorder = false,
+            theme = theme
+        };
+
+        var mockJsModule = new Mock<IJSObjectReference>();
+        
+        // Mock sessionStorage returning empty object
+        var emptyJson = JsonDocument.Parse("{}");
+        mockJsModule.Setup(m => m.InvokeAsync<JsonElement>(
+            "getSessionStateForSession",
+            It.IsAny<object[]>()))
+            .ReturnsAsync(emptyJson.RootElement);
+
+        mockJsModule.Setup(m => m.InvokeAsync<bool>(
+            "isUsingSignalR",
+            It.IsAny<object[]>()))
+            .ReturnsAsync(false);
+
+        _mockJsRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString() == "./js/signalRBridge.js")))
+            .ReturnsAsync(mockJsModule.Object);
+
+        // Mock HTTP response with theme
+        var responseJson = JsonSerializer.Serialize(sessionData);
+        var responseMessage = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(responseJson, Encoding.UTF8, "application/json")
+        };
+
+        _mockHttpHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(req =>
+                    req.Method == HttpMethod.Get &&
+                    req.RequestUri!.ToString().Contains($"/api/sessions/{sessionId}")),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(responseMessage);
+
+        // Act
+        await _sessionService.InitializeAsync(sessionId, asMainTab: false);
+
+        // Assert
+        _mockDispatcher.Verify(d => d.Dispatch(It.Is<InitializeSessionAction>(
+            action => action.Session.Theme == theme)), Times.Once);
+    }
+
+    [Fact]
+    public async Task RestoreSessionStateAsync_WithoutThemeInBackend_ShouldDispatchSessionWithNullTheme()
+    {
+        // Arrange
+        var sessionId = Guid.NewGuid();
+        var sessionData = new
+        {
+            id = sessionId,
+            requireSingerName = true,
+            pauseBetweenSongsSeconds = 5,
+            allowSingersToReorder = false
+            // No theme property
+        };
+
+        var mockJsModule = new Mock<IJSObjectReference>();
+        
+        var emptyJson = JsonDocument.Parse("{}");
+        mockJsModule.Setup(m => m.InvokeAsync<JsonElement>(
+            "getSessionStateForSession",
+            It.IsAny<object[]>()))
+            .ReturnsAsync(emptyJson.RootElement);
+
+        mockJsModule.Setup(m => m.InvokeAsync<bool>(
+            "isUsingSignalR",
+            It.IsAny<object[]>()))
+            .ReturnsAsync(false);
+
+        _mockJsRuntime.Setup(js => js.InvokeAsync<IJSObjectReference>(
+            "import",
+            It.Is<object[]>(args => args[0].ToString() == "./js/signalRBridge.js")))
+            .ReturnsAsync(mockJsModule.Object);
+
+        var responseJson = JsonSerializer.Serialize(sessionData);
+        var responseMessage = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(responseJson, Encoding.UTF8, "application/json")
+        };
+
+        _mockHttpHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(req =>
+                    req.Method == HttpMethod.Get &&
+                    req.RequestUri!.ToString().Contains($"/api/sessions/{sessionId}")),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(responseMessage);
+
+        // Act
+        await _sessionService.InitializeAsync(sessionId, asMainTab: false);
+
+        // Assert
+        _mockDispatcher.Verify(d => d.Dispatch(It.Is<InitializeSessionAction>(
+            action => action.Session.Theme == null)), Times.Once);
+    }
 }
+

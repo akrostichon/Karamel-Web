@@ -348,7 +348,7 @@
             if (!await ValidateConfiguration(config))
                 return;
 
-            var (backendSessionId, adminToken, singerToken) = await CreateBackendSession();
+            var (backendSessionId, adminToken, singerToken) = await CreateBackendSession(config.Theme);
             
             await InitializeLocalSession(backendSessionId, adminToken, singerToken, config);
             await UploadLibraryAsync(backendSessionId, adminToken);
@@ -420,7 +420,7 @@
         return true;
     }
 
-    private async Task<(string sessionId, string? adminToken, string? singerToken)> CreateBackendSession()
+    private async Task<(string sessionId, string? adminToken, string? singerToken)> CreateBackendSession(string? theme)
     {
         // CRITICAL: The backend generates the authoritative session ID and tokens.
         // The admin token is an HMAC-SHA256 hash of the session ID, so they MUST match exactly.
@@ -428,7 +428,8 @@
         { 
             RequireSingerName = _requireSingerName, 
             PauseBetweenSongsSeconds = _pauseBetweenSongs, 
-            AllowSingersToReorder = _allowSingerReorder 
+            AllowSingersToReorder = _allowSingerReorder,
+            Theme = theme
         };
         
         var response = await Http.PostAsJsonAsync("/api/sessions", request);

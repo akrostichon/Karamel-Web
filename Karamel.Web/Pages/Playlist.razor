@@ -163,6 +163,7 @@
     private bool isSessionValid = false;
     private bool isInitializing = true;
     private bool _isAdminTab = false; // NEW: Track if current tab has admin privileges
+    private IJSObjectReference? themeToggleModule;
     
 
     protected override void OnInitialized()
@@ -234,6 +235,10 @@
             await SessionService.InitializeAsync(sessionGuid, false, TokenParam);
 
             isSessionValid = ValidateSession();
+            
+            // Apply session theme if set
+            await ApplySessionThemeAsync();
+            
             isInitializing = false;
             
             // If this is the main tab, add beforeunload warning
@@ -249,6 +254,24 @@
             }
             
             StateHasChanged();
+        }
+    }
+
+    private async Task ApplySessionThemeAsync()
+    {
+        try
+        {
+            var theme = SessionState.Value.CurrentSession?.Theme;
+            if (!string.IsNullOrWhiteSpace(theme))
+            {
+                Console.WriteLine($"[Playlist] Applying session theme: {theme}");
+                themeToggleModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/themeToggle.js");
+                await themeToggleModule.InvokeVoidAsync("setTheme", theme);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Playlist] Failed to apply theme: {ex.Message}");
         }
     }
 

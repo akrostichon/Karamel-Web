@@ -46,6 +46,8 @@ Execute these steps in order for the target markdown file:
    - Add a brief "Tests" substep to the markdown that captures:
      - Key behaviors that need test coverage
      - Intended test level (unit / bUnit / JS / integration)
+     - in case no testable behavior is identified, explicitly state "No testable behavior identified for this step" to confirm that tests were considered and ruled out.
+     - in case of required manual testing, explicitly state "Manual testing required for this step: [brief description of what to verify manually]" to confirm that manual testing was considered and deemed necessary.
    - Keep this concise — detailed test design will emerge through TDD.
 
 3. **Test Driven Development**

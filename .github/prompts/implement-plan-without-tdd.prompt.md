@@ -42,11 +42,13 @@ Execute these steps in order for the target markdown file:
      - Key behaviors that need test coverage
      - Intended test level (unit / bUnit / JS / integration)
    - Keep this concise — detailed test design will emerge through TDD.
+   - Only add test intents for the step(s) you will implement in this run (if implementing single step)
 
 3. **IMPLEMENTATION**
    - Implement the steps in the plan.
 
 4. **Validate Locally**
+   - Create tests according to test intents you defined in the markdown
    - Only run tests relevant to the changes made (do not run the entire suite unless necessary)
    - Run C# frontend tests: `dotnet test Karamel.Web.Tests`
    - Run JS tests: `cd Karamel.Web/wwwroot && npm run test:run`
