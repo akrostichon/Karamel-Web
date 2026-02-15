@@ -3,7 +3,7 @@ using Karamel.Web.Services;
 
 namespace Karamel.Web.Store.Playlist;
 
-public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionService sessionService)
+public class PlaylistEffects(IState<PlaylistState> playlistState, ISignalRPlaylistBridge signalRBridge)
 {
     private const int MaxSongsPerSinger = 10;
 
@@ -36,15 +36,15 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
         // Try to use server-side RPC via SignalR; fallback to local broadcast if unavailable
         try
         {
-            var sent = await sessionService.AddItemToPlaylistAsync(action.Song);
+            var sent = await signalRBridge.AddItemToPlaylistAsync(action.Song);
             if (!sent)
             {
-                await sessionService.BroadcastPlaylistUpdatedAsync();
+                await signalRBridge.BroadcastPlaylistUpdatedAsync();
             }
         }
         catch
         {
-            await sessionService.BroadcastPlaylistUpdatedAsync();
+            await signalRBridge.BroadcastPlaylistUpdatedAsync();
         }
     }
 
@@ -53,15 +53,15 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            var sent = await sessionService.RemoveItemFromPlaylistAsync(action.SongId);
+            var sent = await signalRBridge.RemoveItemFromPlaylistAsync(action.SongId);
             if (!sent)
             {
-                await sessionService.BroadcastPlaylistUpdatedAsync();
+                await signalRBridge.BroadcastPlaylistUpdatedAsync();
             }
         }
         catch
         {
-            await sessionService.BroadcastPlaylistUpdatedAsync();
+            await signalRBridge.BroadcastPlaylistUpdatedAsync();
         }
     }
 
@@ -69,14 +69,14 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     public async Task HandleNextSongAction(NextSongAction action, IDispatcher dispatcher)
     {
         // Broadcast playlist update after advancing to next song
-        await sessionService.BroadcastPlaylistUpdatedAsync();
+        await signalRBridge.BroadcastPlaylistUpdatedAsync();
     }
 
     [EffectMethod]
     public async Task HandleClearPlaylistAction(ClearPlaylistAction action, IDispatcher dispatcher)
     {
         // Call backend to clear queued and up-next songs (preserves currently playing song)
-        await sessionService.ClearQueueAsync();
+        await signalRBridge.ClearQueueAsync();
     }
 
     [EffectMethod]
@@ -85,12 +85,12 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
         try
         {
             // ReorderPlaylistAsync handles the reordering logic internally
-            var sent = await sessionService.ReorderPlaylistAsync(action.OldIndex, action.NewIndex);
+            var sent = await signalRBridge.ReorderPlaylistAsync(action.OldIndex, action.NewIndex);
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
     }
 
@@ -99,12 +99,12 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            await sessionService.SetSongStatusAsync(action.ItemId, action.Status);
+            await signalRBridge.SetSongStatusAsync(action.ItemId, action.Status);
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
     }
 
@@ -113,12 +113,12 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            await sessionService.AdvanceToNextSongAsync();
+            await signalRBridge.AdvanceToNextSongAsync();
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
     }
 
@@ -127,12 +127,12 @@ public class PlaylistEffects(IState<PlaylistState> playlistState, ISessionServic
     {
         try
         {
-            await sessionService.CompleteCurrentSongAsync();
+            await signalRBridge.CompleteCurrentSongAsync();
             // SignalR broadcast will update state
         }
         catch
         {
-            // Errors logged by SessionService
+            // Errors logged by SignalRPlaylistBridge
         }
     }
 }
