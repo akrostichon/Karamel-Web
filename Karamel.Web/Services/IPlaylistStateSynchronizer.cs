@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Karamel.Web.Models;
 using Karamel.Web.Contracts;
+using Microsoft.JSInterop;
 
 namespace Karamel.Web.Services;
 
@@ -8,7 +9,7 @@ namespace Karamel.Web.Services;
 /// Service for session state restoration orchestration for secondary tabs
 /// Orchestrator that returns DTOs - Effects handle action dispatching
 /// </summary>
-public interface IPlaylistStateSynchronizer
+public interface IPlaylistStateSynchronizer : IAsyncDisposable
 {
     /// <summary>
     /// Restore session state from sessionStorage (secondary tabs)
@@ -36,4 +37,11 @@ public interface IPlaylistStateSynchronizer
     /// Handle current song update from broadcast
     /// </summary>
     (Song? song, string? singerName)? HandleCurrentSongUpdate(JsonElement data);
+
+    /// <summary>
+    /// Handle state update from broadcast (called by JavaScript via JSInvokable)
+    /// Dispatches actions after parsing broadcast data
+    /// </summary>
+    [JSInvokable]
+    void OnStateUpdated(string type, JsonElement data);
 }
