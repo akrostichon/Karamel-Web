@@ -269,7 +269,7 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
     /// <summary>
     /// Handle state update from broadcast (called by JavaScript via JSInvokable)
     /// </summary>
-    [JSInvokable("OnStateUpdated")]
+    [JSInvokable("HandleBroadcastMessage")]
     public void HandleBroadcastMessage(string type, JsonElement data)
     {
         try
@@ -332,6 +332,12 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
         {
             Console.WriteLine($"PlaylistStateSynchronizer: Error handling state update: {ex.Message}");
         }
+    }
+
+    [JSInvokable("OnStateUpdated")]
+    public void OnStateUpdated(string type, JsonElement data)
+    {
+        HandleBroadcastMessage(type, data);
     }
 
     /// <summary>

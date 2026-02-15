@@ -7,7 +7,8 @@ import {
     clearSessionState,
     generateSessionUrl,
     getSessionIdFromUrl,
-    checkMainTabAlive
+    checkMainTabAlive,
+    setupStateUpdateListener
 } from './signalRBridge.js';
 
 // Test session ID
@@ -505,6 +506,32 @@ describe('signalRBridge', () => {
             const isAlive = await checkMainTabAlive();
             expect(isAlive).toBe(false);
         }, 3000);
+    });
+
+    describe('setupStateUpdateListener', () => {
+        it('should invoke HandleBroadcastMessage for session-state-updated events', () => {
+            const dotNetRef = {
+                invokeMethodAsync: vi.fn().mockResolvedValue(undefined)
+            };
+
+            setupStateUpdateListener(dotNetRef);
+
+            const listenerCall = mockWindow.addEventListener.mock.calls.find(call => call[0] === 'session-state-updated');
+            expect(listenerCall).toBeDefined();
+
+            const handler = listenerCall[1];
+            const payload = {
+                type: 'playlist-updated',
+                data: { queue: [{ id: 'song-1' }] }
+            };
+
+            handler({
+                type: 'session-state-updated',
+                detail: payload
+            });
+
+            expect(dotNetRef.invokeMethodAsync).toHaveBeenCalledWith('HandleBroadcastMessage', payload.type, payload.data);
+        });
     });
 
     describe('edge cases', () => {
