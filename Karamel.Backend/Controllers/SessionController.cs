@@ -35,7 +35,8 @@ namespace Karamel.Backend.Controllers
                     {
                         RequireSingerName = req.RequireSingerName,
                         PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds,
-                        AllowSingersToReorder = req.AllowSingersToReorder
+                        AllowSingersToReorder = req.AllowSingersToReorder,
+                        Theme = req.Theme
                     }
                 };
 
@@ -59,7 +60,8 @@ namespace Karamel.Backend.Controllers
                     expiresAt = session.ExpiresAt,
                     requireSingerName = session.Config.RequireSingerName,
                     pauseBetweenSongsSeconds = session.Config.PauseBetweenSongsSeconds,
-                    allowSingersToReorder = session.Config.AllowSingersToReorder
+                    allowSingersToReorder = session.Config.AllowSingersToReorder,
+                    theme = session.Config.Theme
                 });
             }
             catch (Exception ex)
@@ -81,7 +83,8 @@ namespace Karamel.Backend.Controllers
                 s.Id,
                 requireSingerName = s.Config.RequireSingerName,
                 pauseBetweenSongsSeconds = s.Config.PauseBetweenSongsSeconds,
-                allowSingersToReorder = s.Config.AllowSingersToReorder
+                allowSingersToReorder = s.Config.AllowSingersToReorder,
+                theme = s.Config.Theme
             });
         }
 
@@ -105,7 +108,7 @@ namespace Karamel.Backend.Controllers
         }
     }
 
-    public record CreateSessionRequest(bool RequireSingerName, int PauseBetweenSongsSeconds, bool AllowSingersToReorder);
+    public record CreateSessionRequest(bool RequireSingerName, int PauseBetweenSongsSeconds, bool AllowSingersToReorder, string? Theme);
     public record HeartbeatRequest(int ExtendMinutes);
     public record EndSessionRequest(bool Force);
 }
