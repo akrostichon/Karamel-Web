@@ -8,7 +8,7 @@ using Karamel.Web.Store.Session;
 namespace Karamel.Web.Store.Library;
 
 public class LibraryEffects(
-    ISessionService sessionService,
+    ISessionApiClient sessionApiClient,
     IState<SessionState> sessionState,
     IState<LibraryState> libraryState)
 {
@@ -83,7 +83,7 @@ public class LibraryEffects(
     private async Task<JsonElement> FetchPageResultAsync(Guid sessionId, LoadPageAction action)
     {
         var pageSize = libraryState.Value.PageSize;
-        return await sessionService.FetchLibraryPageAsync(
+        return await sessionApiClient.FetchLibraryPageAsync(
             sessionId,
             action.Page,
             pageSize,
