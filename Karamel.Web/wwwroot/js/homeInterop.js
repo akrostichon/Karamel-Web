@@ -160,9 +160,9 @@ export async function initializeKaraokeSession(config, songs) {
         throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
     }
     
-    // Session is already initialized by SessionService.InitializeAsync in Home.razor
+    // Session is already initialized by ISignalRConnectionManager.InitializeAsync in Home.razor
     // with proper linkToken and backendUrl parameters, so we don't call initializeSession here
-    // Library is also uploaded to server by SessionService.UploadLibraryToServerAsync
+    // Library is also uploaded to server by ISessionApiClient.UploadLibraryToServerAsync
     
     // Broadcast session settings (includes all session data for secondary tabs)
     const sessionSettings = {

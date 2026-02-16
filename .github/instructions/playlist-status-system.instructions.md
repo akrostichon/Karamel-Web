@@ -117,8 +117,8 @@ public record PlaylistState
 ### Effects
 **File**: [Karamel.Web/Store/Playlist/PlaylistEffects.cs](../../Karamel.Web/Store/Playlist/PlaylistEffects.cs)
 
-- `HandleSetSongStatusAction` - Calls `SessionService.SetSongStatusAsync`
-- `HandleAdvanceToNextSongAction` - Calls `SessionService.AdvanceToNextSongAsync`
+- `HandleSetSongStatusAction` - Calls `ISignalRPlaylistBridge.SetSongStatusAsync`
+- `HandleAdvanceToNextSongAction` - Calls `ISignalRPlaylistBridge.AdvanceToNextSongAsync`
 
 ### Reducers
 **File**: [Karamel.Web/Store/Playlist/PlaylistReducers.cs](../../Karamel.Web/Store/Playlist/PlaylistReducers.cs)
@@ -133,7 +133,7 @@ public record PlaylistState
 **Current Implementation**:
 - ✅ Uses `PlaylistHelpers.GetSongById` for song lookup (consolidated logic)
 - ✅ Dispatches `AdvanceToNextSongAction` on song end (lines 316, 335)
-- ✅ Validates `SessionService.IsMainTab` before playback (only main tab can play)
+- ✅ Validates `ISignalRConnectionManager.IsMainTab` before playback (only main tab can play)
 
 ### Playlist.razor
 **File**: [Karamel.Web/Pages/Playlist.razor](../../Karamel.Web/Pages/Playlist.razor)
@@ -177,7 +177,7 @@ if (song == null) {
 }
 ```
 
-⚠️ **Multi-Tab Limitation**: In secondary tabs (without File System Access API handle), the returned `Song` will have **empty file paths** (fetched from backend). Only the main tab can load song files for playback. PlayerView validates this with `SessionService.IsMainTab` check.
+⚠️ **Multi-Tab Limitation**: In secondary tabs (without File System Access API handle), the returned `Song` will have **empty file paths** (fetched from backend). Only the main tab can load song files for playback. PlayerView validates this with `ISignalRConnectionManager.IsMainTab` check.
 
 **Benefits**:
 - Centralized lookup logic

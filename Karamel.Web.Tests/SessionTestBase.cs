@@ -22,11 +22,6 @@ namespace Karamel.Web.Tests;
 public abstract class SessionTestBase : TestContext
 {
     /// <summary>
-    /// Mock SessionService for verification in tests
-    /// </summary>
-    protected Mock<ISessionService>? MockSessionService { get; private set; }
-
-    /// <summary>
     /// Sets up a test context with a valid session and proper URL with session parameter.
     /// Automatically constructs the URL based on the session ID in state.
     /// </summary>
@@ -115,15 +110,6 @@ public abstract class SessionTestBase : TestContext
         var mockLibraryState = new Mock<IState<LibraryState>>();
         mockLibraryState.Setup(s => s.Value).Returns(libraryState ?? new LibraryState());
 
-        // Create mock SessionService using the builder
-        var sessionId = sessionState.CurrentSession?.SessionId ?? Guid.NewGuid();
-        MockSessionService = new SessionServiceMockBuilder()
-            .AsMainTab(isMainTab)
-            .WithSessionId(sessionId)
-            .WithGenerateUrl("http://localhost")
-            .WithGetSessionIdFromUrl(sessionId)
-            .Build();
-
         // Register all services BEFORE creating any components
         Services.AddSingleton(mockSessionState.Object);
         Services.AddSingleton(mockPlaylistState.Object);
@@ -133,10 +119,7 @@ public abstract class SessionTestBase : TestContext
         Services.AddSingleton<NavigationManager>(fakeNavManager);
         Services.AddSingleton(mockJSRuntime.Object);
         
-        // Register mock ISessionService instead of real SessionService
-        Services.AddSingleton(MockSessionService.Object);
-        
-        // Register new service mocks for components
+        // Register service mocks for components
         var mockConnectionManager = new Mock<ISignalRConnectionManager>();
         mockConnectionManager.Setup(m => m.IsMainTab).Returns(isMainTab);
         mockConnectionManager.Setup(m => m.InitializeAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>()))

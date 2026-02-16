@@ -172,8 +172,7 @@ Karamel-Web/                          # Solution root
 │   │   ├── ISignalRPlaylistBridge.cs # SignalR/JS playlist mutations + broadcast fallback
 │   │   ├── ISignalRConnectionManager.cs # SignalR lifecycle, initialization, IsMainTab
 │   │   ├── ISongEnrichmentService.cs # Main-tab-only playlist song enrichment with file paths
-│   │   ├── IPlaylistStateSynchronizer.cs # Broadcast/session state parsing and restoration
-│   │   └── SessionService.cs         # Obsolete compatibility facade (thin delegator)
+│   │   └── IPlaylistStateSynchronizer.cs # Broadcast/session state parsing and restoration
 │   ├── Store/                        # Fluxor state management
 │   │   ├── Library/                  # Library state (song collection)
 │   │   ├── Playlist/                 # Playlist state (queue, current song)
@@ -234,9 +233,8 @@ Karamel-Web/                          # Solution root
 - `ISignalRConnectionManager`: SignalR connection/module lifecycle and `IsMainTab`
 - `ISongEnrichmentService`: Main-tab-only enrichment of playlist songs with local file fields
 - `IPlaylistStateSynchronizer`: Restores/parses session + playlist updates and exposes parsed update events
-- `ISessionService`/`SessionService`: Obsolete compatibility facade; delegates to focused services
 
-Do not dispatch Fluxor actions from services. Dispatching belongs in Effects.
+**Use focused services directly** - no facade pattern. Do not dispatch Fluxor actions from services. Dispatching belongs in Effects.
 
 #### Multi-Session Architecture
 **CRITICAL**: The app supports **multiple independent karaoke sessions** in different browser tabs/windows **AND across different physical devices** simultaneously. Each session:
@@ -278,7 +276,7 @@ Do not dispatch Fluxor actions from services. Dispatching belongs in Effects.
 - **Main tab only** retains directory handle in JavaScript module scope (`fileAccess.js`)
 - Secondary tabs receive song metadata via sessionStorage and SignalR (NO paths, NO file access)
 - `loadSongFiles(mp3FileName, cdgFileName)` loads files for playback from main tab's handle
-- **PlayerView validation**: Checks `SessionService.IsMainTab` before attempting playback
+- **PlayerView validation**: Checks `ISignalRConnectionManager.IsMainTab` before attempting playback
 
 #### Session Parameter Validation
 **ALL pages** except Home.razor must:
@@ -425,7 +423,8 @@ public class ComponentTests : TestContext
     {
         // Arrange
         var store = Services.AddFluxor(...);
-        Services.AddSingleton<ISessionService>(mockService);
+        var mockConnectionManager = new Mock<ISignalRConnectionManager>();
+        Services.AddSingleton(mockConnectionManager.Object);
         
         // Act
         var cut = RenderComponent<MyComponent>(parameters => parameters
@@ -491,7 +490,7 @@ describe('moduleName', () => {
 ## Important Files Reference
 
 **Entry points**:
-- `Karamel.Web/Program.cs`: Service registration (Fluxor, SessionService)
+- `Karamel.Web/Program.cs`: Service registration (Fluxor, focused services)
 - `Karamel.Web/App.razor`: Root component
 - `Karamel.Web/wwwroot/index.html`: HTML entry point
 

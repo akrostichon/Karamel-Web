@@ -27,11 +27,6 @@ public abstract class IntegrationTestBase : TestContext
     protected IDispatcher Dispatcher { get; private set; }
 
     /// <summary>
-    /// Mock SessionService for verification in tests
-    /// </summary>
-    protected Mock<ISessionService> MockSessionService { get; private set; }
-
-    /// <summary>
     /// Fake navigation manager for testing
     /// </summary>
     protected FakeNavigationManager NavigationManager { get; private set; }
@@ -63,14 +58,7 @@ public abstract class IntegrationTestBase : TestContext
         var mockJSRuntime = new MockJSRuntime();
         Services.AddSingleton<IJSRuntime>(mockJSRuntime);
 
-        // 3. Add ISessionService mock AND new service mocks BEFORE Fluxor (CRITICAL - Fluxor scans for effects)
-        MockSessionService = new SessionServiceMockBuilder()
-            .AsMainTab(asMainTab)
-            .WithSessionId(TestSessionId)
-            .Build();
-        Services.AddSingleton(MockSessionService.Object);
-        
-        // Add new service mocks for components
+        // 3. Add service mocks BEFORE Fluxor (CRITICAL - Fluxor scans for effects)
         var mockConnectionManager = new Mock<ISignalRConnectionManager>();
         mockConnectionManager.Setup(m => m.IsMainTab).Returns(asMainTab);
         mockConnectionManager.Setup(m => m.InitializeAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>()))
@@ -86,7 +74,7 @@ public abstract class IntegrationTestBase : TestContext
         var mockStateSynchronizer = new Mock<IPlaylistStateSynchronizer>();
         Services.AddSingleton(mockStateSynchronizer.Object);
 
-        // 4. THEN add Fluxor (which will scan and find ISessionService is available)
+        // 4. THEN add Fluxor (which will scan and register effects)
         Services.AddFluxor(options =>
         {
             options.ScanAssemblies(typeof(SessionState).Assembly);

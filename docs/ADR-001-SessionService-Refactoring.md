@@ -78,3 +78,27 @@ Refactoring does not move theme ownership to C# services; services only transpor
 - SessionService anti-pattern marked as resolved in project planning documentation.
 - Architecture instructions updated to reflect new boundaries and orchestration rule.
 - This ADR records the final decision and migration approach.
+
+## Migration Completed
+
+**Date**: 2026-02-16
+
+### Final Migration Status
+
+All production code and test infrastructure successfully migrated from facade to focused services:
+
+- ✅ **Production pages**: 6/6 migrated (Home, SingerView, Playlist, NextSongView, PlayerView, SessionSetup)
+- ✅ **Effects**: 2/2 migrated (PlaylistEffects, LibraryEffects)
+- ✅ **Test infrastructure**: All test base classes and mock builders updated
+- ✅ **Documentation**: All instruction files and comments updated
+
+### Removed Components
+
+- `ISessionService` interface (16 obsolete methods)
+- `SessionService` facade implementation
+- `SessionServiceMockBuilder` test helper (188 lines)
+- Service registration in Program.cs
+
+### Architecture Outcome
+
+The refactoring successfully eliminated the "god object" anti-pattern and established clear service boundaries following Single Responsibility Principle. Services are now stateless helpers that return data; Fluxor Effects orchestrate workflows and dispatch actions. Test complexity reduced through focused mocks instead of monolithic mock builder.

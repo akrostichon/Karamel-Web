@@ -290,7 +290,6 @@ public class LibrarySearchTests : TestContext
         var mockState = new Mock<IState<LibraryState>>();
         var mockActionSubscriber = new Mock<IActionSubscriber>();
         var mockSessionState = new Mock<IState<Store.Session.SessionState>>();
-        var mockSessionService = new Mock<Services.ISessionService>();
         
         mockState.Setup(s => s.Value).Returns(state);
         mockSessionState.Setup(s => s.Value).Returns(new Store.Session.SessionState { CurrentSession = new Session { SessionId = Guid.NewGuid() } });
@@ -299,9 +298,8 @@ public class LibrarySearchTests : TestContext
         Services.AddSingleton(mockState.Object);
         Services.AddSingleton(mockActionSubscriber.Object);
         Services.AddSingleton(mockSessionState.Object);
-        Services.AddSingleton(mockSessionService.Object);
         
-        // Register new service mocks
+        // Register service mocks
         var mockConnectionManager = new Mock<Services.ISignalRConnectionManager>();
         mockConnectionManager.Setup(m => m.IsMainTab).Returns(true);
         Services.AddSingleton(mockConnectionManager.Object);
