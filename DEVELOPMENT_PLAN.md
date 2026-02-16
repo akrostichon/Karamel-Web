@@ -467,9 +467,7 @@ Pagination needs to be built into the Library view.
   - `ISignalRConnectionManager`
   - `ISongEnrichmentService`
   - `IPlaylistStateSynchronizer`
-- Kept `SessionService` as an obsolete compatibility facade to support incremental migration.
 - Removed service-driven Fluxor action dispatching anti-pattern; effects now orchestrate service calls and dispatch actions.
-- Marked SessionService anti-pattern as resolved as of 2026-02-15.
 
 
 ## Phase 8: Azure provisioning & Deployment (new)

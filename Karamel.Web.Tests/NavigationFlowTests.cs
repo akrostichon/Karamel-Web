@@ -126,8 +126,9 @@ public class NavigationFlowTests : TestContext
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
         var libraryState = new LibraryState();
-        var mockSessionService = new Mock<Services.ISessionService>();
-        Services.AddSingleton(mockSessionService.Object);
+        var mockConnectionManager = new Mock<Services.ISignalRConnectionManager>();
+        mockConnectionManager.Setup(m => m.InitializeAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        Services.AddSingleton(mockConnectionManager.Object);
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/player");
 
         // Act
@@ -171,8 +172,9 @@ public class NavigationFlowTests : TestContext
         var sessionState = new SessionState { CurrentSession = null };
         var playlistState = new PlaylistState();
         var libraryState = new LibraryState();
-        var mockSessionService = new Mock<Services.ISessionService>();
-        Services.AddSingleton(mockSessionService.Object);
+        var mockConnectionManager = new Mock<Services.ISignalRConnectionManager>();
+        mockConnectionManager.Setup(m => m.InitializeAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        Services.AddSingleton(mockConnectionManager.Object);
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/");
 
         // Act

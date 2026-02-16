@@ -31,7 +31,7 @@ builder.Services.AddFluxor(options =>
     options.ScanAssemblies(typeof(Program).Assembly);
 });
 
-// Add new single-responsibility services (Step 1 of SessionService refactoring)
+// Add single-responsibility services (SessionService refactoring completed)
 builder.Services.AddScoped<ISessionStorageService, SessionStorageService>();
 builder.Services.AddScoped<ISessionApiClient, SessionApiClient>();
 builder.Services.AddScoped<ISignalRPlaylistBridge, SignalRPlaylistBridge>();
@@ -44,8 +44,5 @@ builder.Services.AddSingleton<ISignalRConnectionManager>(sp =>
         sp.GetRequiredService<ILogger<SignalRConnectionManager>>()));
 builder.Services.AddScoped<ISongEnrichmentService, SongEnrichmentService>();
 builder.Services.AddScoped<IPlaylistStateSynchronizer, PlaylistStateSynchronizer>();
-
-// Add SessionService for cross-tab communication
-builder.Services.AddScoped<ISessionService, SessionService>();
 
 await builder.Build().RunAsync();

@@ -54,33 +54,33 @@ namespace Karamel.Web.Tests
             var singerUrl = $"https://karaoke.example.com/singer?session={sessionId}";
             singerCtx.Services.AddSingleton<NavigationManager>(new FakeNavigationManager(singerUrl));
             singerCtx.Services.AddSingleton<IJSRuntime>(new SimpleMockJSRuntime());
-            // Main tab session service mock
-            var singerSessionMock = new SessionServiceMockBuilder()
-                .AsMainTab(true)
-                .WithSessionId(sessionId)
-                .Build();
-            singerCtx.Services.AddSingleton(singerSessionMock.Object);
-            // Add SignalRPlaylistBridge mock for PlaylistEffects
-            var singerBridgeMock = new Mock<ISignalRPlaylistBridge>();
-            singerBridgeMock.Setup(m => m.AddItemToPlaylistAsync(It.IsAny<Song>())).ReturnsAsync(true);
-            singerCtx.Services.AddSingleton(singerBridgeMock.Object);
-            
-            // Add ISessionApiClient mock for LibraryEffects
-            var singerApiClientMock = new Mock<ISessionApiClient>();
-            singerCtx.Services.AddSingleton(singerApiClientMock.Object);
-            
-            // Add ISignalRConnectionManager mock
-            var singerConnectionMock = new Mock<ISignalRConnectionManager>();
-            singerConnectionMock.Setup(m => m.IsMainTab).Returns(true);
-            singerCtx.Services.AddSingleton(singerConnectionMock.Object);
+        
+        // Add service mocks BEFORE Fluxor
+        var singerBridgeMock = new Mock<ISignalRPlaylistBridge>();
+        singerBridgeMock.Setup(m => m.AddItemToPlaylistAsync(It.IsAny<Song>())).ReturnsAsync(true);
+        singerCtx.Services.AddSingleton(singerBridgeMock.Object);
+        
+        var singerApiClientMock = new Mock<ISessionApiClient>();
+        singerCtx.Services.AddSingleton(singerApiClientMock.Object);
+        
+        // Add ISignalRConnectionManager mock
+        var singerConnectionMock = new Mock<ISignalRConnectionManager>();
+        singerConnectionMock.Setup(m => m.IsMainTab).Returns(true);
+        singerCtx.Services.AddSingleton(singerConnectionMock.Object);
 
-            var singerStateSynchronizerMock = new Mock<IPlaylistStateSynchronizer>();
-            singerCtx.Services.AddSingleton(singerStateSynchronizerMock.Object);
-            
-            singerCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
-            var singerStore = singerCtx.Services.GetRequiredService<IStore>();
-            var singerDispatcher = singerCtx.Services.GetRequiredService<IDispatcher>();
-            await singerStore.InitializeAsync();
+        var singerStateSynchronizerMock = new Mock<IPlaylistStateSynchronizer>();
+        singerCtx.Services.AddSingleton(singerStateSynchronizerMock.Object);
+        
+        var singerStorageMock = new Mock<ISessionStorageService>();
+        singerCtx.Services.AddSingleton(singerStorageMock.Object);
+        
+        var singerEnrichmentMock = new Mock<ISongEnrichmentService>();
+        singerCtx.Services.AddSingleton(singerEnrichmentMock.Object);
+        
+        singerCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
+        var singerStore = singerCtx.Services.GetRequiredService<IStore>();
+        var singerDispatcher = singerCtx.Services.GetRequiredService<IDispatcher>();
+        await singerStore.InitializeAsync();
 
             // Initialize session in singer context
             var initialSession = new Session { SessionId = sessionId };
@@ -115,16 +115,11 @@ namespace Karamel.Web.Tests
             var nextUrl = $"https://karaoke.example.com/nextsong?session={sessionId}";
             nextCtx.Services.AddSingleton<NavigationManager>(new FakeNavigationManager(nextUrl));
             nextCtx.Services.AddSingleton<IJSRuntime>(new SimpleMockJSRuntime());
-            var nextSessionMock = new SessionServiceMockBuilder()
-                .AsMainTab(false)
-                .WithSessionId(sessionId)
-                .Build();
-            nextCtx.Services.AddSingleton(nextSessionMock.Object);
-            // Add SignalRPlaylistBridge mock for PlaylistEffects
+        
+            // Add service mocks BEFORE Fluxor
             var nextBridgeMock = new Mock<ISignalRPlaylistBridge>();
             nextCtx.Services.AddSingleton(nextBridgeMock.Object);
             
-            // Add ISessionApiClient mock for LibraryEffects
             var nextApiClientMock = new Mock<ISessionApiClient>();
             nextCtx.Services.AddSingleton(nextApiClientMock.Object);
             
@@ -135,6 +130,12 @@ namespace Karamel.Web.Tests
 
             var nextStateSynchronizerMock = new Mock<IPlaylistStateSynchronizer>();
             nextCtx.Services.AddSingleton(nextStateSynchronizerMock.Object);
+            
+            var nextStorageMock = new Mock<ISessionStorageService>();
+            nextCtx.Services.AddSingleton(nextStorageMock.Object);
+            
+            var nextEnrichmentMock = new Mock<ISongEnrichmentService>();
+            nextCtx.Services.AddSingleton(nextEnrichmentMock.Object);
             
             nextCtx.Services.AddFluxor(options => options.ScanAssemblies(typeof(SessionState).Assembly));
             var nextStore = nextCtx.Services.GetRequiredService<IStore>();
