@@ -183,6 +183,22 @@ app.MapControllers();
 // Map SignalR hubs
 app.MapHub<Karamel.Backend.Hubs.PlaylistHub>("/hubs/playlist");
 
+// Initialize database
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<Karamel.Backend.Data.BackendDbContext>();
+    if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+    {
+        // For SQL Server, apply migrations
+        context.Database.Migrate();
+    }
+    else
+    {
+        // For SQLite, ensure database is created (migrations are SQL Server-specific)
+        context.Database.EnsureCreated();
+    }
+}
+
 // Root redirect removed to keep test server requests focused on /health
 
 app.Run();
