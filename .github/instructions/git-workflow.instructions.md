@@ -11,7 +11,7 @@ These rules apply to **all development work** — plan implementation, refactori
 
 - **NEVER** commit directly to `main`, `develop`, or `master`
 - Always check the current branch first (`git branch`)
-- If on `main`: create a feature branch with a user-facing name that describes the goal
+- If you are on `main`, `develop`, or `master`: create a feature branch with a user-facing name that describes the goal
   - Pattern: `feature/descriptive-name-of-implementation-goal`
   - Example: `feature/add-session-cleanup`, `feature/sanitize-library-upload`
 - If already on a feature branch: stay on it — do not create a new branch
