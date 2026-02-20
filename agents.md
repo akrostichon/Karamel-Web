@@ -38,6 +38,63 @@ This document provides a registry of all available custom agents for GitHub Copi
 - Must be on a feature branch (not main/develop/master)
 - Git repository with clean history (commits and uncommitted changes supported)
 
+## code-review
+
+**File**: [`.github/skills/code-review/SKILL.md`](.github/skills/code-review/SKILL.md)
+
+**Purpose**: Provides the review methodology used by the Code Review Agent: priorities, quality standards, security checklist, testing standards, comment format, and the full review checklist.
+
+**Activated by**: `code-review.agent.md` (loaded as part of Step 5 — Execute Code Review).
+
+---
+
+# Workflow Skills
+
+Skills are pluggable implementation strategies loaded by prompts on demand. They live in `.github/skills/<skill-name>/SKILL.md` and are activated automatically based on the user's request or `--workflow` parameter.
+
+See `.github/instructions/agent-skills.instructions.md` for authoring guidelines.
+
+## tdd-workflow
+
+**File**: [`.github/skills/tdd-workflow/SKILL.md`](.github/skills/tdd-workflow/SKILL.md)
+
+**Purpose**: Implements plan steps using Red → Green → Refactor TDD cycle.
+
+**Activated by**: `implement-plan` prompt (default workflow), or when user requests TDD or test-first development.
+
+**How it works**:
+1. Writes a lightweight Test Intent substep into the plan markdown
+2. Follows Red → Green → Refactor for each behavior
+
+## with-tests-workflow
+
+**File**: [`.github/skills/with-tests-workflow/SKILL.md`](.github/skills/with-tests-workflow/SKILL.md)
+
+**Purpose**: Implements plan steps by writing production code first, then adding tests to validate behavior.
+
+**Activated by**: `implement-plan` (default workflow), or `implement-plan --workflow=with-tests`.
+
+**How it works**:
+1. Writes a lightweight Test Intent substep into the plan markdown
+2. Implements the production code
+3. Writes tests after implementation
+4. Runs the relevant test suite
+
+## refactoring-workflow
+
+**File**: [`.github/skills/refactoring-workflow/SKILL.md`](.github/skills/refactoring-workflow/SKILL.md)
+
+**Purpose**: Implements refactoring plan steps, relying on the existing test suite as the safety net.
+
+**Activated by**: `refactoring-plan` prompt.
+
+**How it works**:
+1. Implements each refactoring step
+2. Applies Karamel-Web-specific refactoring rules (test migration when splitting files, combining blocked steps)
+3. Validates using existing tests — no new tests required unless behavior is added
+
+---
+
 ## Adding New Agents
 
 To add a new custom agent to the repository:
