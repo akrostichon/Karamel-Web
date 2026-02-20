@@ -242,17 +242,23 @@ if (!user || !user.isActive || !user.hasPermission('write')) return;
 - [ ] New code has appropriate test coverage
 - [ ] Tests are well-named and cover edge cases
 - [ ] Tests are independent and deterministic
+- [ ] No tests that always pass or are commented out
+- [ ] No new skipped tests
 
 ### Performance
 - [ ] No obvious N+1 queries or memory leaks
 - [ ] Proper resource cleanup
+- [ ] Appropriate use of caching
+- [ ] Efficient algorithms and data structures
 
 ### Architecture
 - [ ] Follows established patterns and conventions
 - [ ] Proper separation of concerns
 - [ ] Dependencies flow in correct direction
+- [ ] No architectural violations
 
 ### Documentation
 - [ ] Public APIs are documented
 - [ ] Complex logic has explanatory comments
 - [ ] Breaking changes are documented
+- [ ] README is updated if needed
