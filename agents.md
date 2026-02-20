@@ -38,6 +38,14 @@ This document provides a registry of all available custom agents for GitHub Copi
 - Must be on a feature branch (not main/develop/master)
 - Git repository with clean history (commits and uncommitted changes supported)
 
+## code-review
+
+**File**: [`.github/skills/code-review/SKILL.md`](.github/skills/code-review/SKILL.md)
+
+**Purpose**: Provides the review methodology used by the Code Review Agent: priorities, quality standards, security checklist, testing standards, comment format, and the full review checklist.
+
+**Activated by**: `code-review.agent.md` (loaded as part of Step 5 — Execute Code Review).
+
 ---
 
 # Workflow Skills

@@ -142,7 +142,7 @@ For each changed file identified in diffs:
 
 ### Step 5: Execute Code Review
 
-Apply comprehensive code review following [.github/instructions/code-review-generic.instructions.md](.github/instructions/code-review-generic.instructions.md).
+Apply comprehensive code review following [.github/skills/code-review/SKILL.md](.github/skills/code-review/SKILL.md).
 
 **CRITICAL SCOPE**: Review **ONLY** the lines that were added, modified, or deleted in the diff (from Step 3). Full file contents from Step 4 are for understanding context (e.g., how a changed function is called, what class it belongs to), but do NOT flag issues in unchanged code.
 
@@ -410,7 +410,7 @@ A successful code review session:
 - ✅ Categorizes findings by priority correctly
 - ✅ Provides actionable feedback with examples
 - ✅ Presents clear review report
-- ✅ Follows code-review-generic.instructions.md format
+- ✅ Follows code-review skill format
 - ✅ Uses PowerShell-safe git commands
 
 ## Important Reminders

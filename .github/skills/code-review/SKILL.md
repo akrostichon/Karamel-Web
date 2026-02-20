@@ -1,20 +1,13 @@
 ---
-description: 'Generic code review instructions that can be customized for any project using GitHub Copilot'
-applyTo: '**'
-excludeAgent: ["coding-agent"]
+name: code-review
+description: Comprehensive code review guidelines covering priorities, quality standards, security, testing, performance, architecture, documentation, comment format, and review checklists. Use when performing a code review, analyzing a pull request, or reviewing branch changes for quality and correctness.
 ---
 
-# Generic Code Review Instructions
-
-Comprehensive code review guidelines for GitHub Copilot that can be adapted to any project. These instructions follow best practices from prompt engineering and provide a structured approach to code quality, security, testing, and architecture review.
-
-## Review Language
-
-When performing a code review, respond in **English**.
+# Code Review Guidelines
 
 ## Review Priorities
 
-When performing a code review, prioritize issues in the following order:
+Prioritize issues in the following order:
 
 ### 🔴 CRITICAL (Block merge)
 - **Security**: Vulnerabilities, exposed secrets, authentication/authorization issues
@@ -34,9 +27,7 @@ When performing a code review, prioritize issues in the following order:
 - **Best Practices**: Minor deviations from conventions
 - **Documentation**: Missing or incomplete comments/documentation
 
-## General Review Principles
-
-When performing a code review, follow these principles:
+## General Principles
 
 1. **Be specific**: Reference exact lines, files, and provide concrete examples
 2. **Provide context**: Explain WHY something is an issue and the potential impact
@@ -48,8 +39,6 @@ When performing a code review, follow these principles:
 
 ## Code Quality Standards
 
-When performing a code review, check for:
-
 ### Clean Code
 - Descriptive and meaningful names for variables, functions, and classes
 - Single Responsibility Principle: each function/class does one thing well
@@ -59,7 +48,6 @@ When performing a code review, check for:
 - Avoid magic numbers and strings (use constants)
 - Code should be self-documenting; comments only when necessary
 
-### Examples
 ```javascript
 // ❌ BAD: Poor naming and magic numbers
 function calc(x, y) {
@@ -86,7 +74,6 @@ function calculateDiscount(orderTotal, itemPrice) {
 - Fail fast: validate inputs early
 - Use appropriate error types/exceptions
 
-### Examples
 ```python
 # ❌ BAD: Silent failure and generic error
 def process_user(user_id):
@@ -100,20 +87,16 @@ def process_user(user_id):
 def process_user(user_id):
     if not user_id or user_id <= 0:
         raise ValueError(f"Invalid user_id: {user_id}")
-
     try:
         user = db.get(user_id)
     except UserNotFoundError:
         raise UserNotFoundError(f"User {user_id} not found in database")
     except DatabaseError as e:
         raise ProcessingError(f"Failed to retrieve user {user_id}: {e}")
-
     return user.process()
 ```
 
 ## Security Review
-
-When performing a code review, check for security issues:
 
 - **Sensitive Data**: No passwords, API keys, tokens, or PII in code or logs
 - **Input Validation**: All user inputs are validated and sanitized
@@ -123,29 +106,16 @@ When performing a code review, check for security issues:
 - **Cryptography**: Use established libraries, never roll your own crypto
 - **Dependency Security**: Check for known vulnerabilities in dependencies
 
-### Examples
 ```java
 // ❌ BAD: SQL injection vulnerability
 String query = "SELECT * FROM users WHERE email = '" + email + "'";
 
 // ✅ GOOD: Parameterized query
-PreparedStatement stmt = conn.prepareStatement(
-    "SELECT * FROM users WHERE email = ?"
-);
+PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?");
 stmt.setString(1, email);
 ```
 
-```javascript
-// ❌ BAD: Exposed secret in code
-const API_KEY = "sk_live_abc123xyz789";
-
-// ✅ GOOD: Use environment variables
-const API_KEY = process.env.API_KEY;
-```
-
 ## Testing Standards
-
-When performing a code review, verify test quality:
 
 - **Coverage**: Critical paths and new functionality must have tests
 - **Test Names**: Descriptive names that explain what is being tested
@@ -155,7 +125,6 @@ When performing a code review, verify test quality:
 - **Edge Cases**: Test boundary conditions, null values, empty collections
 - **Mock Appropriately**: Mock external dependencies, not domain logic
 
-### Examples
 ```typescript
 // ❌ BAD: Vague name and assertion
 test('test1', () => {
@@ -167,40 +136,30 @@ test('test1', () => {
 test('should calculate 10% discount for orders under $100', () => {
     const orderTotal = 50;
     const itemPrice = 20;
-
     const discount = calculateDiscount(orderTotal, itemPrice);
-
     expect(discount).toBe(2.00);
 });
 ```
 
 ## Performance Considerations
 
-When performing a code review, check for performance issues:
-
 - **Database Queries**: Avoid N+1 queries, use proper indexing
 - **Algorithms**: Appropriate time/space complexity for the use case
 - **Caching**: Utilize caching for expensive or repeated operations
 - **Resource Management**: Proper cleanup of connections, files, streams
 - **Pagination**: Large result sets should be paginated
-- **Lazy Loading**: Load data only when needed
 
-### Examples
 ```python
 # ❌ BAD: N+1 query problem
 users = User.query.all()
 for user in users:
-    orders = Order.query.filter_by(user_id=user.id).all()  # N+1!
+    orders = Order.query.filter_by(user_id=user.id).all()
 
 # ✅ GOOD: Use JOIN or eager loading
 users = User.query.options(joinedload(User.orders)).all()
-for user in users:
-    orders = user.orders
 ```
 
 ## Architecture and Design
-
-When performing a code review, verify architectural principles:
 
 - **Separation of Concerns**: Clear boundaries between layers/modules
 - **Dependency Direction**: High-level modules don't depend on low-level details
@@ -211,17 +170,14 @@ When performing a code review, verify architectural principles:
 
 ## Documentation Standards
 
-When performing a code review, check documentation:
-
 - **API Documentation**: Public APIs must be documented (purpose, parameters, returns)
 - **Complex Logic**: Non-obvious logic should have explanatory comments
 - **README Updates**: Update README when adding features or changing setup
 - **Breaking Changes**: Document any breaking changes clearly
-- **Examples**: Provide usage examples for complex features
 
-## Comment Format Template
+## Comment Format
 
-When performing a code review, use this format for comments:
+Use this format for all review comments:
 
 ```markdown
 **[PRIORITY] Category: Brief title**
@@ -237,60 +193,22 @@ Explanation of the impact or reason for the suggestion.
 **Reference:** [link to relevant documentation or standard]
 ```
 
-### Example Comments
+### Examples
 
-#### Critical Issue
 ```markdown
 **🔴 CRITICAL - Security: SQL Injection Vulnerability**
 
-The query on line 45 concatenates user input directly into the SQL string,
-creating a SQL injection vulnerability.
+The query on line 45 concatenates user input directly into the SQL string.
 
 **Why this matters:**
-An attacker could manipulate the email parameter to execute arbitrary SQL commands,
-potentially exposing or deleting all database data.
+An attacker could execute arbitrary SQL commands, potentially exposing or deleting all database data.
 
 **Suggested fix:**
-```sql
--- Instead of:
-query = "SELECT * FROM users WHERE email = '" + email + "'"
-
--- Use:
-PreparedStatement stmt = conn.prepareStatement(
-    "SELECT * FROM users WHERE email = ?"
-);
-stmt.setString(1, email);
-```
+Use a parameterized query (see Security Review section above).
 
 **Reference:** OWASP SQL Injection Prevention Cheat Sheet
 ```
 
-#### Important Issue
-```markdown
-**🟡 IMPORTANT - Testing: Missing test coverage for critical path**
-
-The `processPayment()` function handles financial transactions but has no tests
-for the refund scenario.
-
-**Why this matters:**
-Refunds involve money movement and should be thoroughly tested to prevent
-financial errors or data inconsistencies.
-
-**Suggested fix:**
-Add test case:
-```javascript
-test('should process full refund when order is cancelled', () => {
-    const order = createOrder({ total: 100, status: 'cancelled' });
-
-    const result = processPayment(order, { type: 'refund' });
-
-    expect(result.refundAmount).toBe(100);
-    expect(result.status).toBe('refunded');
-});
-```
-```
-
-#### Suggestion
 ```markdown
 **🟢 SUGGESTION - Readability: Simplify nested conditionals**
 
@@ -300,34 +218,17 @@ The nested if statements on lines 30-40 make the logic hard to follow.
 Simpler code is easier to maintain, debug, and test.
 
 **Suggested fix:**
-```javascript
-// Instead of nested ifs:
-if (user) {
-    if (user.isActive) {
-        if (user.hasPermission('write')) {
-            // do something
-        }
-    }
-}
-
-// Consider guard clauses:
-if (!user || !user.isActive || !user.hasPermission('write')) {
-    return;
-}
+// Use guard clauses:
+if (!user || !user.isActive || !user.hasPermission('write')) return;
 // do something
-```
 ```
 
 ## Review Checklist
 
-When performing a code review, systematically verify:
-
 ### Code Quality
-- [ ] Code follows consistent style and conventions
 - [ ] Names are descriptive and follow naming conventions
 - [ ] Functions/methods are small and focused
 - [ ] No code duplication
-- [ ] Complex logic is broken into simpler parts
 - [ ] Error handling is appropriate
 - [ ] No commented-out code or TODO without tickets
 
@@ -336,61 +237,22 @@ When performing a code review, systematically verify:
 - [ ] Input validation on all user inputs
 - [ ] No SQL injection vulnerabilities
 - [ ] Authentication and authorization properly implemented
-- [ ] Dependencies are up-to-date and secure
 
 ### Testing
 - [ ] New code has appropriate test coverage
-- [ ] Tests are well-named and focused
-- [ ] Tests cover edge cases and error scenarios
+- [ ] Tests are well-named and cover edge cases
 - [ ] Tests are independent and deterministic
-- [ ] No tests that always pass or are commented out
 
 ### Performance
-- [ ] No obvious performance issues (N+1, memory leaks)
-- [ ] Appropriate use of caching
-- [ ] Efficient algorithms and data structures
+- [ ] No obvious N+1 queries or memory leaks
 - [ ] Proper resource cleanup
 
 ### Architecture
 - [ ] Follows established patterns and conventions
 - [ ] Proper separation of concerns
-- [ ] No architectural violations
 - [ ] Dependencies flow in correct direction
 
 ### Documentation
 - [ ] Public APIs are documented
 - [ ] Complex logic has explanatory comments
-- [ ] README is updated if needed
 - [ ] Breaking changes are documented
-
-## Project-Specific Customizations
-
-To customize this template for your project, add sections for:
-
-1. **Language/Framework specific checks**
-   - Example: "When performing a code review, verify React hooks follow rules of hooks"
-   - Example: "When performing a code review, check Spring Boot controllers use proper annotations"
-
-2. **Build and deployment**
-   - Example: "When performing a code review, verify CI/CD pipeline configuration is correct"
-   - Example: "When performing a code review, check database migrations are reversible"
-
-3. **Business logic rules**
-   - Example: "When performing a code review, verify pricing calculations include all applicable taxes"
-   - Example: "When performing a code review, check user consent is obtained before data processing"
-
-4. **Team conventions**
-   - Example: "When performing a code review, verify commit messages follow conventional commits format"
-   - Example: "When performing a code review, check branch names follow pattern: type/ticket-description"
-
-## Prompt Engineering Tips
-
-When performing a code review, apply these prompt engineering principles from the [GitHub Copilot documentation](https://docs.github.com/en/copilot/concepts/prompting/prompt-engineering):
-
-1. **Start General, Then Get Specific**: Begin with high-level architecture review, then drill into implementation details
-2. **Give Examples**: Reference similar patterns in the codebase when suggesting changes
-3. **Break Complex Tasks**: Review large PRs in logical chunks (security → tests → logic → style)
-4. **Avoid Ambiguity**: Be specific about which file, line, and issue you're addressing
-5. **Indicate Relevant Code**: Reference related code that might be affected by changes
-6. **Experiment and Iterate**: If initial review misses something, review again with focused questions
-
