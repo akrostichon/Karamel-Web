@@ -6,8 +6,6 @@ argument-hint: "Provide a markdown file, optional step number, and optional --wo
 
 You are implementing steps from the markdown file provided in context. Follow these instructions precisely.
 
-> **Branch and commit rules** are enforced globally by `.github/instructions/git-workflow.instructions.md` — do not re-state them here.
-
 ## Parameters
 
 | Parameter | Values | Default | Description |

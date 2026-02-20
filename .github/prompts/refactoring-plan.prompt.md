@@ -6,15 +6,6 @@ argument-hint: "Provide a markdown file with a detailed refactoring plan, and op
 
 You are implementing refactoring steps from the markdown file provided in context. Follow these instructions precisely.
 
-> **Branch and commit rules** are enforced globally by `.github/instructions/git-workflow.instructions.md` — do not re-state them here.
-
-## Rules
-
-1. **Clarification First**
-   - If requirements are ambiguous, ask for clarification before implementing
-   - If multiple valid approaches exist, present options and wait for user choice
-   - Never assume requirements
-
 ## Orchestration Steps
 
 Execute in order:
