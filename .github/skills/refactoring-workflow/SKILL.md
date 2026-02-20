@@ -11,7 +11,7 @@ Implements refactoring plan steps by **restructuring existing code** while keepi
 
 - Follow the plan strictly
 - Follow existing project patterns and architecture
-- If you encounter blockers or ambiguities, report them **immediately** before continuing
+- If you encounter blockers or ambiguities, report them **immediately** and ask whether you may continue.
 
 ### Special Rule: Splitting Files → Migrate Tests
 
@@ -24,12 +24,5 @@ If implementing the current step is blocked because a later step must be done fi
 ## Step 2 — Validate
 
 Run the validation checks required by the plan (typically the existing test suite and the build). Only run what the plan specifies — refactoring steps should not require the full suite unless explicitly requested.
-
-| Validation | Command |
-|---|---|
-| Build | `dotnet build` |
-| C# frontend / Blazor tests | `dotnet test Karamel.Web.Tests` |
-| JavaScript tests | `cd Karamel.Web/wwwroot && npm run test:run` (then `cd ../..`) |
-| C# backend tests | Ask the user to run `dotnet test Karamel.Backend.Tests -v minimal` manually |
 
 All existing tests must remain green after each refactoring step. A regression in the existing suite indicates the refactoring changed behavior — investigate before continuing.
