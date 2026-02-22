@@ -25,8 +25,10 @@ Open two tabs as admin and one as singer. Issue pause, resume and advance from t
 1. **Given** an active session, **when** the admin clicks “Pause”, **then** the client sets a paused flag, sends a SignalR broadcast (`ReceiveSessionPaused`) and all connected tabs suppress automatic progression until a Resume command is received.
 2. **Given** the session is paused and a singer adds songs, **when** the admin clicks “Resume”, **then** progression resumes normally and queued items are honoured.
 3. **Given** the session is in any state, **when** the admin clicks “Next”, **then** the same `AdvanceToNextSongAsync` call the player uses is invoked and the playlist advances immediately on all tabs.
-4. **Given** a non‑admin tab receives a pause/resume event, **then** it adjusts internal state but shows no notification or UI change (ignore silently).
-
+4. **Given** a non‑admin tab receives a pause/resume event, **then** it adjusts internal state but shows no notification or UI change (ignore silently).5. **Given** the session is paused and there is an `UpNext` song, **when** `NextSongView` is displayed (on load or after returning from `PlayerView`), **then** the countdown progress bar is **not** shown; no automatic advancement timer is started.
+6. **Given** the session is paused and `NextSongView` contains **no active in-flight countdown**, **when** the admin clicks "Resume", **then** the countdown progress bar appears immediately and begins counting down toward automatic advancement.
+7. **Given** the countdown in `NextSongView` is already visible and actively counting down, **when** a `ReceiveSessionPaused` event arrives, **then** the in-progress countdown is **immediately cancelled** (timers stopped, progress bar hidden); `NextSongView` reverts to the "Sing a Song" / QR-code layout. When the admin clicks "Resume" the full countdown restarts from the beginning. (Rationale: allowing the timer to fire while paused would invoke `AdvanceToNextSongAsync` which is suppressed under `IsPaused`, causing `CurrentSong` to never be set and playback to time out silently.)
+8. **Given** the session is paused and one or more songs are in the queue, **when** `NextSongView` is displayed, **then** the next-song card (artist name, song title, singer attribution) is **not** rendered; instead the view shows the same "Sing a Song!" / QR-code layout as the empty-queue state, giving no indication of what the next song is until the session is resumed.
 ---
 
 ### User Story 2 – Runtime configuration (Priority: P1)
@@ -94,6 +96,7 @@ On SingerView switch between Library and Playlist; confirm playlist items displa
 - There is only one admin; assume they will not open multiple admin tabs concurrently.
 - Two admins issue conflicting configuration updates simultaneously. (_Out of scope given single-admin assumption, but backend should handle last‑write‑wins gracefully if it occurs._)
 - Pause/resume events arrive while a tab is mid‑navigation or disconnected.
+- Pause event arrives while the `NextSongView` countdown is already in-flight: the ongoing countdown (and subsequent navigation to `PlayerView`) proceeds; on return the session is paused and the countdown must not restart.
 - Main tab closes while paused – other tabs should continue using their local flag; no backend state.
 - Admin attempts controls after session expiry – commands should fail silently or display error.
 

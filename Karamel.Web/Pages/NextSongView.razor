@@ -60,7 +60,7 @@
     }
     else
     {
-        @if (nextSong != null)
+        @if (nextSong != null && !SessionState.Value.IsPaused)
         {
             <div class="nextsong-container">
                 <div class="nextsong-content">
@@ -178,6 +178,7 @@
     private DateTime countdownStart;
     private TaskCompletionSource<bool>? _playlistUpdateAwaiter;
     private string? _currentNextSongId; // Track current next song to prevent timer resets
+    private bool _wasPaused; // Track previous IsPaused value to detect transitions
 
     private const int CountdownUpdateIntervalMs = 100;
 
@@ -205,6 +206,9 @@
 
         if (isSessionValid)
         {
+            // Capture initial pause state so OnSessionStateChanged can detect transitions
+            _wasPaused = SessionState.Value.IsPaused;
+
             // Initialize next song
             UpdateNextSong();
             // Start heartbeat immediately for NextSongView presence
@@ -249,10 +253,39 @@
             if (!isSessionValid && ValidateSession())
             {
                 isSessionValid = true;
+                _wasPaused = SessionState.Value.IsPaused;
                 // If session becomes valid later, initialize main-tab responsibilities
                 await InitializeMainTabAsync();
                 UpdateNextSong();
                 StartAutoAdvanceTimer();
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            if (isSessionValid)
+            {
+                var isPausedNow = SessionState.Value.IsPaused;
+
+                if (_wasPaused && !isPausedNow)
+                {
+                    // Session resumed: start countdown if an UpNext song is present and conditions allow.
+                    _wasPaused = false;
+                    StartAutoAdvanceTimer();
+                }
+                else if (!_wasPaused && isPausedNow)
+                {
+                    // Session paused mid-countdown: cancel the running timer so we don't
+                    // navigate to the player while paused (AdvanceToNextSongAction is suppressed
+                    // when IsPaused, so AdvanceToNextSongAsync would never be called and
+                    // CurrentSong would never be set, causing a timeout and broken playback).
+                    // When the session is resumed, OnSessionStateChanged calls
+                    // StartAutoAdvanceTimer() which restarts the full countdown from scratch.
+                    _wasPaused = true;
+                    isTimerActive = false;
+                    _currentNextSongId = null;
+                    StopAllTimers();
+                }
+
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -537,7 +570,8 @@
     {
         return nextSong != null 
             && IsValidNextSongStatus(nextSong.Status)
-            && SessionState.Value.CurrentSession?.PauseBetweenSongs == true;
+            && SessionState.Value.CurrentSession?.PauseBetweenSongs == true
+            && !SessionState.Value.IsPaused;
     }
 
     private bool IsValidNextSongStatus(int status)

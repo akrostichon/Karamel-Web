@@ -45,6 +45,9 @@
     {
         <h1 class="mb-4">Playlist</h1>
 
+    <!-- Admin Session Controls (admin tabs only) -->
+    <SessionControls IsAdminTab="_isAdminTab" />
+
     <!-- Now Playing Section -->
     @if (PlaylistState.Value.CurrentSong != null)
     {

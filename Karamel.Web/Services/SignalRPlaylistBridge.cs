@@ -156,6 +156,42 @@ public class SignalRPlaylistBridge : ISignalRPlaylistBridge
     }
 
     /// <summary>
+    /// Pause the session via SignalR hub (admin only).
+    /// </summary>
+    public async Task PauseSessionAsync()
+    {
+        var module = await _connectionManager.GetModuleAsync();
+        if (module == null) return;
+
+        try
+        {
+            await module.InvokeVoidAsync("pauseSession");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "pauseSession JS invoke failed");
+        }
+    }
+
+    /// <summary>
+    /// Resume the session via SignalR hub (admin only).
+    /// </summary>
+    public async Task ResumeSessionAsync()
+    {
+        var module = await _connectionManager.GetModuleAsync();
+        if (module == null) return;
+
+        try
+        {
+            await module.InvokeVoidAsync("resumeSession");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "resumeSession JS invoke failed");
+        }
+    }
+
+    /// <summary>
     /// Broadcast playlist updated event (main tab only)
     /// DEPRECATED: SignalR handles playlist synchronization now
     /// </summary>

@@ -1,23 +1,27 @@
 using Fluxor;
 using Karamel.Web.Contracts;
 using Karamel.Web.Services;
+using Karamel.Web.Store.Session;
 
 namespace Karamel.Web.Store.Playlist;
 
 public class PlaylistEffects
 {
     private readonly IState<PlaylistState> _playlistState;
+    private readonly IState<SessionState> _sessionState;
     private readonly ISignalRPlaylistBridge _signalRBridge;
     private readonly IDispatcher _dispatcher;
     private const int MaxSongsPerSinger = 10;
 
     public PlaylistEffects(
         IState<PlaylistState> playlistState,
+        IState<SessionState> sessionState,
         ISignalRPlaylistBridge signalRBridge,
         IPlaylistStateSynchronizer playlistStateSynchronizer,
         IDispatcher dispatcher)
     {
         _playlistState = playlistState;
+        _sessionState = sessionState;
         _signalRBridge = signalRBridge;
         _dispatcher = dispatcher;
         playlistStateSynchronizer.StateUpdateReceived += OnStateUpdateReceived;
@@ -95,6 +99,32 @@ public class PlaylistEffects
         await _signalRBridge.ClearQueueAsync();
     }
 
+    /// <summary>
+    /// When an admin initiates a pause, invoke the hub so all clients receive ReceiveSessionPaused.
+    /// Broadcast-triggered dispatches (IsAdminInitiated=false) skip the hub call to prevent loops.
+    /// </summary>
+    [EffectMethod]
+    public async Task HandlePauseSessionAction(PauseSessionAction action, IDispatcher dispatcher)
+    {
+        if (action.IsAdminInitiated)
+        {
+            await _signalRBridge.PauseSessionAsync();
+        }
+    }
+
+    /// <summary>
+    /// When an admin initiates a resume, invoke the hub so all clients receive ReceiveSessionResumed.
+    /// Broadcast-triggered dispatches (IsAdminInitiated=false) skip the hub call to prevent loops.
+    /// </summary>
+    [EffectMethod]
+    public async Task HandleResumeSessionAction(ResumeSessionAction action, IDispatcher dispatcher)
+    {
+        if (action.IsAdminInitiated)
+        {
+            await _signalRBridge.ResumeSessionAsync();
+        }
+    }
+
     [EffectMethod]
     public async Task HandleReorderPlaylistAction(ReorderPlaylistAction action, IDispatcher dispatcher)
     {
@@ -127,6 +157,10 @@ public class PlaylistEffects
     [EffectMethod]
     public async Task HandleAdvanceToNextSongAction(AdvanceToNextSongAction action, IDispatcher dispatcher)
     {
+        // Suppress automatic and manual advancement while session is paused
+        if (_sessionState.Value.IsPaused)
+            return;
+
         try
         {
             await _signalRBridge.AdvanceToNextSongAsync();
@@ -154,33 +188,43 @@ public class PlaylistEffects
 
     private void OnStateUpdateReceived(BroadcastStateUpdate update)
     {
-        if (update.Type != "playlist-updated" || update.Playlist is null)
+        switch (update.Type)
         {
-            return;
+            case "playlist-updated":
+                if (update.Playlist is null) return;
+
+                var itemDtos = update.Playlist.Queue.Select((song, index) => new PlaylistItemDto(
+                    Id: Guid.NewGuid().ToString(),
+                    SongId: song.Id.ToString(),
+                    Artist: song.Artist,
+                    Title: song.Title,
+                    SingerName: song.AddedBySinger,
+                    Position: index,
+                    Status: (int)SongStatus.Queued
+                )).ToList();
+
+                var currentSongDto = update.Playlist.CurrentSong is null
+                    ? null
+                    : new PlaylistItemDto(
+                        Id: Guid.NewGuid().ToString(),
+                        SongId: update.Playlist.CurrentSong.Id.ToString(),
+                        Artist: update.Playlist.CurrentSong.Artist,
+                        Title: update.Playlist.CurrentSong.Title,
+                        SingerName: update.Playlist.CurrentSong.AddedBySinger,
+                        Position: 0,
+                        Status: (int)SongStatus.NowPlaying
+                    );
+
+                _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));
+                break;
+
+            case "session-paused":
+                _dispatcher.Dispatch(new PauseSessionAction(IsAdminInitiated: false));
+                break;
+
+            case "session-resumed":
+                _dispatcher.Dispatch(new ResumeSessionAction(IsAdminInitiated: false));
+                break;
         }
-
-        var itemDtos = update.Playlist.Queue.Select((song, index) => new PlaylistItemDto(
-            Id: Guid.NewGuid().ToString(),
-            SongId: song.Id.ToString(),
-            Artist: song.Artist,
-            Title: song.Title,
-            SingerName: song.AddedBySinger,
-            Position: index,
-            Status: (int)SongStatus.Queued
-        )).ToList();
-
-        var currentSongDto = update.Playlist.CurrentSong is null
-            ? null
-            : new PlaylistItemDto(
-                Id: Guid.NewGuid().ToString(),
-                SongId: update.Playlist.CurrentSong.Id.ToString(),
-                Artist: update.Playlist.CurrentSong.Artist,
-                Title: update.Playlist.CurrentSong.Title,
-                SingerName: update.Playlist.CurrentSong.AddedBySinger,
-                Position: 0,
-                Status: (int)SongStatus.NowPlaying
-            );
-
-        _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));
     }
 }

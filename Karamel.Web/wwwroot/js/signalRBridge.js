@@ -135,6 +135,19 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 			}
 		});
 
+		// Wire session lifecycle events
+		hubConnection.on('ReceiveSessionPaused', () => {
+			logger.debug('Received ReceiveSessionPaused', { sessionId });
+			const event = new CustomEvent('session-state-updated', { detail: { type: 'session-paused', data: {} } });
+			window.dispatchEvent(event);
+		});
+
+		hubConnection.on('ReceiveSessionResumed', () => {
+			logger.debug('Received ReceiveSessionResumed', { sessionId });
+			const event = new CustomEvent('session-state-updated', { detail: { type: 'session-resumed', data: {} } });
+			window.dispatchEvent(event);
+		});
+
 		await hubConnection.start();
 		// Join session group
 		await hubConnection.invoke('JoinSession', sessionId);
@@ -514,6 +527,56 @@ export async function clearQueue() {
 
 export function isUsingSignalR() {
 	return !!usingSignalR && !!hubConnection && hubConnection.state === (window.signalR ? window.signalR.HubConnectionState?.Connected : 1);
+}
+
+/**
+ * Pause the session by invoking hub PauseSessionAsync.
+ * The hub broadcasts ReceiveSessionPaused to all clients.
+ * @returns {Promise<boolean>} True if hub invocation succeeded
+ */
+export async function pauseSession() {
+	if (!currentSessionId) {
+		logger.error('pauseSession: No current session ID', null, { operation: 'pauseSession' });
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('PauseSessionAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			logger.warn('PauseSessionAsync via SignalR failed', { error: e.message, sessionId: currentSessionId });
+			return false;
+		}
+	}
+
+	logger.warn('pauseSession: SignalR not connected, cannot pause session', { sessionId: currentSessionId });
+	return false;
+}
+
+/**
+ * Resume the session by invoking hub ResumeSessionAsync.
+ * The hub broadcasts ReceiveSessionResumed to all clients.
+ * @returns {Promise<boolean>} True if hub invocation succeeded
+ */
+export async function resumeSession() {
+	if (!currentSessionId) {
+		logger.error('resumeSession: No current session ID', null, { operation: 'resumeSession' });
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('ResumeSessionAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			logger.warn('ResumeSessionAsync via SignalR failed', { error: e.message, sessionId: currentSessionId });
+			return false;
+		}
+	}
+
+	logger.warn('resumeSession: SignalR not connected, cannot resume session', { sessionId: currentSessionId });
+	return false;
 }
 
 export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, search = null, sort = null) {

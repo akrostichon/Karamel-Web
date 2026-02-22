@@ -323,6 +323,11 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
                             currentSongUpdate));
                     }
                     break;
+                case "session-paused":
+                case "session-resumed":
+                    // Lifecycle events carry no payload – forward type only so Effects can dispatch
+                    StateUpdateReceived?.Invoke(new BroadcastStateUpdate(type, null, null, null));
+                    break;
                 default:
                     Console.WriteLine($"PlaylistStateSynchronizer: Unknown state update type: {type}");
                     break;

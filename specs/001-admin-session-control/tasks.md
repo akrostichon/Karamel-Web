@@ -26,11 +26,20 @@
 
 **Independent test criteria:** Open multiple admin tabs and one singer tab; sending pause/resume/next from any admin tab updates all clients appropriately; non-admin tab ignores pause/resume.
 
-- [ ] T011 Add UI buttons for pause (`▶️|`), resume (`▶️`), and next to `SessionControls` component (initially hidden). Buttons dispatch Fluxor actions or call hub methods.
-- [ ] T012 Implement effect handlers for pause/resume actions that invoke corresponding hub methods and update state when receiving broadcast events.
-- [ ] T013 Update playlist advancement logic (both automatic and manual) to check `SessionState.IsPaused` and suppress progression while paused.
-- [ ] T014 Write component tests in `Karamel.Web.Tests` validating that clicking the pause/resume buttons toggles icons, dispatches actions, and that non-admin tabs do not render the controls.
-- [ ] T015 Add cross-tab/integration test verifying pause/resume events propagate via SignalR and affect playlist advancement state.
+- [X] T011 Add UI buttons for pause (`▶️|`), resume (`▶️`), and next to `SessionControls` component (initially hidden). Buttons dispatch Fluxor actions or call hub methods.
+- [X] T012 Implement effect handlers for pause/resume actions that invoke corresponding hub methods and update state when receiving broadcast events.
+- [X] T013 Update playlist advancement logic (both automatic and manual) to check `SessionState.IsPaused` and suppress progression while paused.
+- [X] T014 Write component tests in `Karamel.Web.Tests` validating that clicking the pause/resume buttons toggles icons, dispatches actions, and that non-admin tabs do not render the controls.
+- [X] T015 Add cross-tab/integration test verifying pause/resume events propagate via SignalR and affect playlist advancement state.
+- [X] T035 Fix `NextSongView` progress-bar and advancement when session is paused:
+  - When the session is paused (either on load or after `ReceiveSessionPaused` is received), do **not** start the countdown timer and hide the progress bar.
+  - When `ResumeSessionAction` is dispatched (or `ReceiveSessionResumed` arrives), start the countdown timer and show the progress bar if an `UpNext` song is present.
+  - When a `ReceiveSessionPaused` event arrives **while a countdown is already actively running**, **cancel** the countdown immediately (stop timers, reset `isTimerActive`, clear `_currentNextSongId`). On resume, the full countdown restarts from scratch. (Allowing the timer to fire while paused would suppress `AdvanceToNextSongAsync`, leaving `CurrentSong` unset and causing a silent playback timeout.)
+  - Write/update component tests in `Karamel.Web.Tests` for each of these three sub-behaviors.
+- [X] T036 Hide next-song content in `NextSongView` while session is paused:
+  - When `SessionState.IsPaused` is `true`, render the empty-queue ("Sing a Song!" + QR code / link) layout regardless of how many songs are in the queue — change the render condition from `nextSong != null` to `nextSong != null && !SessionState.Value.IsPaused`.
+  - When the session is resumed, the next-song card reappears immediately (no additional action needed; `IsPaused` becomes `false` and re-render kicks in).
+  - Write component tests verifying: (a) when paused with a queued song, the song card is absent and the empty-queue layout is shown; (b) when not paused with a queued song, the song card is shown; (c) on session resume, the song card reappears.
 
 ## Phase 4: User Story 2 – Runtime configuration
 

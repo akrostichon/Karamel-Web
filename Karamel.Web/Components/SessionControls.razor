@@ -1,0 +1,70 @@
+@using Fluxor
+@using Fluxor.Blazor.Web.Components
+@using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Playlist
+@using Karamel.Web.Services
+@inherits FluxorComponent
+@inject IState<SessionState> SessionState
+@inject IDispatcher Dispatcher
+@inject ISignalRPlaylistBridge SignalRBridge
+
+@if (IsAdminTab)
+{
+    <div class="session-controls-panel">
+        <div class="session-controls-header">
+            <span class="session-controls-icon">⚙️</span>
+            <span class="session-controls-title">Session Controls</span>
+        </div>
+        <div class="session-controls-buttons">
+            @if (SessionState.Value.IsPaused)
+            {
+                <button class="btn btn-success session-control-btn btn-resume"
+                        @onclick="OnResumeClicked"
+                        title="Resume session – playlist will advance automatically">
+                    ▶️ Resume
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-warning session-control-btn btn-pause"
+                        @onclick="OnPauseClicked"
+                        title="Pause session after song – automatic playlist advancement will stop">
+                    ⏯️ Pause
+                </button>
+            }
+
+            <button class="btn btn-primary session-control-btn btn-next"
+                    @onclick="OnNextClicked"
+                    disabled="@SessionState.Value.IsPaused"
+                    title="@(SessionState.Value.IsPaused ? "Resume session before advancing" : "Advance to next song")">
+                ⏭️ Next
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// When true the session controls panel is rendered (admin tabs only).
+    /// </summary>
+    [Parameter]
+    public bool IsAdminTab { get; set; }
+
+    private void OnPauseClicked()
+    {
+        Dispatcher.Dispatch(new PauseSessionAction(IsAdminInitiated: true));
+    }
+
+    private void OnResumeClicked()
+    {
+        Dispatcher.Dispatch(new ResumeSessionAction(IsAdminInitiated: true));
+    }
+
+    private void OnNextClicked()
+    {
+        if (!SessionState.Value.IsPaused)
+        {
+            Dispatcher.Dispatch(new AdvanceToNextSongAction());
+        }
+    }
+}

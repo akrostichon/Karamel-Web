@@ -5,8 +5,16 @@ public record InitializeSessionAction(Models.Session Session);
 public record UpdateSessionSettingsAction(bool RequireSingerName, int PauseBetweenSongsSeconds, string FilenamePattern);
 
 // new actions for admin control
-public record PauseSessionAction();
-public record ResumeSessionAction();
+/// <summary>
+/// Pause the session. When IsAdminInitiated=true, the effect will also invoke the hub.
+/// Broadcast-triggered dispatches use the default (false) to prevent loops.
+/// </summary>
+public record PauseSessionAction(bool IsAdminInitiated = false);
+/// <summary>
+/// Resume the session. When IsAdminInitiated=true, the effect will also invoke the hub.
+/// Broadcast-triggered dispatches use the default (false) to prevent loops.
+/// </summary>
+public record ResumeSessionAction(bool IsAdminInitiated = false);
 
 /// <summary>
 /// Dispatched when session configuration fields are updated via SignalR or API.
