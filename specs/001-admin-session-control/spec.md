@@ -104,7 +104,7 @@ On SingerView switch between Library and Playlist; confirm playlist items displa
 - **FR-001**: System MUST broadcast pause/resume events to all connected clients via SignalR (`ReceiveSessionPaused`, `ReceiveSessionResumed`).
 - **FR-002**: Clients MUST maintain a transient “paused” flag in Fluxor state or module memory; no backend persistence.
 - **FR-003**: Admin clients MUST be able to invoke `AdvanceToNextSongAsync(sessionId)` from any page.
-- **FR-004**: Session DTO returned by the backend MUST include four runtime options: `singerNameRequired` (bool), `allowReorder` (bool), `pauseBetweenSongs` (int ≥ 0), and `theme` (string).
+- **FR-004**: Session DTO returned by the backend MUST include four runtime options: `singerNameRequired` (bool), `allowSingersToReorder` (bool) – note the host may always reorder regardless of this flag, `pauseBetweenSongs` (int ≥ 0), and `theme` (string).
 - **FR-005**: Clients MUST apply configuration changes immediately when received via SignalR or API response.
 - **FR-006**: New tabs/devices MUST fetch current configuration from the backend and apply it on load.
 - **FR-007**: PlaylistView for admin tabs MUST render a segmented control toggling between playlist and session controls.
@@ -116,7 +116,7 @@ On SingerView switch between Library and Playlist; confirm playlist items displa
 
 ### Key Entities
 
-- **SessionConfig**: carries runtime options to clients (`SingerNameRequired`, `AllowReorder`, `PauseBetweenSongs`, `Theme`).
+- **SessionConfig**: carries runtime options to clients (`SingerNameRequired`, `AllowSingersToReorder` (singers only), `PauseBetweenSongs`, `Theme`).
 - **SessionState**: extended with a `bool IsPaused` flag or separate `SessionControlState` slice.
 - **SignalR Events**: `ReceiveSessionPaused`, `ReceiveSessionResumed`, `ReceiveConfigUpdated` (may reuse existing settings broadcast mechanism).
 
