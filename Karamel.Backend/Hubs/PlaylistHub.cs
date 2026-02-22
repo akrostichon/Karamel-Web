@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Karamel.Backend.Contracts;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
 using System.Diagnostics;
@@ -665,6 +666,129 @@ namespace Karamel.Backend.Hubs
             finally
             {
                 sem.Release();
+            }
+        }
+
+        /// <summary>
+        /// Pause the session: broadcasts ReceiveSessionPaused to all clients in the session group.
+        /// The paused flag is transient (frontend-only); no database change is made.
+        /// Requires admin token (enforced by LinkTokenHubFilter).
+        /// </summary>
+        public async Task PauseSessionAsync(Guid sessionId)
+        {
+            try
+            {
+                _logger.LogInformation("Pausing session {SessionId}", sessionId);
+
+                var session = await _sessionRepo.GetByIdAsync(sessionId);
+                if (session == null)
+                {
+                    _logger.LogWarning("PauseSession failed: Session {SessionId} not found", sessionId);
+                    throw new HubException("Session not found");
+                }
+
+                var groupName = GetSessionGroupName(sessionId.ToString());
+                await Clients.Group(groupName).SendAsync("ReceiveSessionPaused");
+
+                _logger.LogInformation("Session {SessionId} paused – broadcast sent to group", sessionId);
+            }
+            catch (HubException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error pausing session {SessionId}", sessionId);
+                throw new HubException("Failed to pause session");
+            }
+        }
+
+        /// <summary>
+        /// Resume the session: broadcasts ReceiveSessionResumed to all clients in the session group.
+        /// The paused flag is transient (frontend-only); no database change is made.
+        /// Requires admin token (enforced by LinkTokenHubFilter).
+        /// </summary>
+        public async Task ResumeSessionAsync(Guid sessionId)
+        {
+            try
+            {
+                _logger.LogInformation("Resuming session {SessionId}", sessionId);
+
+                var session = await _sessionRepo.GetByIdAsync(sessionId);
+                if (session == null)
+                {
+                    _logger.LogWarning("ResumeSession failed: Session {SessionId} not found", sessionId);
+                    throw new HubException("Session not found");
+                }
+
+                var groupName = GetSessionGroupName(sessionId.ToString());
+                await Clients.Group(groupName).SendAsync("ReceiveSessionResumed");
+
+                _logger.LogInformation("Session {SessionId} resumed – broadcast sent to group", sessionId);
+            }
+            catch (HubException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resuming session {SessionId}", sessionId);
+                throw new HubException("Failed to resume session");
+            }
+        }
+
+        /// <summary>
+        /// Update runtime session configuration. Persists changes to the database and
+        /// broadcasts ReceiveConfigUpdated with the updated config to all clients.
+        /// Requires admin token (enforced by LinkTokenHubFilter).
+        /// </summary>
+        public async Task UpdateSessionConfigAsync(Guid sessionId, SessionConfigDto config)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Updating session config for {SessionId}: RequireSingerName={RequireSingerName}, AllowSingersToReorder={AllowSingersToReorder}, PauseBetweenSongsSeconds={PauseBetweenSongsSeconds}, Theme={Theme}",
+                    sessionId, config.RequireSingerName, config.AllowSingersToReorder, config.PauseBetweenSongsSeconds, config.Theme);
+
+                if (config.PauseBetweenSongsSeconds < 0)
+                {
+                    _logger.LogWarning("UpdateSessionConfig rejected for session {SessionId}: PauseBetweenSongsSeconds={Value} is negative",
+                        sessionId, config.PauseBetweenSongsSeconds);
+                    throw new HubException("PauseBetweenSongsSeconds must be non-negative");
+                }
+
+                var session = await _sessionRepo.GetByIdAsync(sessionId);
+                if (session == null)
+                {
+                    _logger.LogWarning("UpdateSessionConfig failed: Session {SessionId} not found", sessionId);
+                    throw new HubException("Session not found");
+                }
+
+                // Apply only the config fields exposed in the DTO; preserve PlaybackMode.
+                session.Config.RequireSingerName = config.RequireSingerName;
+                session.Config.AllowSingersToReorder = config.AllowSingersToReorder;
+                session.Config.PauseBetweenSongsSeconds = config.PauseBetweenSongsSeconds;
+                session.Config.Theme = config.Theme;
+
+                await _sessionRepo.UpdateAsync(session);
+
+                _logger.LogInformation("Session config persisted for {SessionId}", sessionId);
+
+                // Broadcast updated config to all clients
+                var updatedDto = SessionConfigDto.FromModel(session.Config);
+                var groupName = GetSessionGroupName(sessionId.ToString());
+                await Clients.Group(groupName).SendAsync("ReceiveConfigUpdated", updatedDto);
+
+                _logger.LogInformation("ReceiveConfigUpdated broadcast sent for session {SessionId}", sessionId);
+            }
+            catch (HubException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating session config for {SessionId}", sessionId);
+                throw new HubException("Failed to update session config");
             }
         }
 

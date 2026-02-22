@@ -15,10 +15,10 @@
 
 ## Phase 2: Foundational Tasks
 
-- [ ] T007 Implement new SignalR hub methods in `PlaylistHub`: `PauseSessionAsync`, `ResumeSessionAsync`, and `UpdateSessionConfigAsync`. Ensure each validates admin token and broadcasts corresponding client events (`ReceiveSessionPaused`, `ReceiveSessionResumed`, `ReceiveConfigUpdated`).
-- [ ] T008 Add server-side logging for the new hub methods and for config updates using structured logging.
-- [ ] T009 Implement backend repository method to update session configuration when `UpdateSessionConfigAsync` is called and persist to database.
-- [ ] T010 Add integration tests in `Karamel.Backend.Tests` for new hub methods (pause/resume/config) and repository behavior.
+- [X] T007 Implement new SignalR hub methods in `PlaylistHub`: `PauseSessionAsync`, `ResumeSessionAsync`, and `UpdateSessionConfigAsync`. Ensure each validates admin token and broadcasts corresponding client events (`ReceiveSessionPaused`, `ReceiveSessionResumed`, `ReceiveConfigUpdated`).
+- [X] T008 Add server-side logging for the new hub methods and for config updates using structured logging.
+- [X] T009 Implement backend repository method to update session configuration when `UpdateSessionConfigAsync` is called and persist to database.
+- [X] T010 Add integration tests in `Karamel.Backend.Tests` for new hub methods (pause/resume/config) and repository behavior.
 
 ## Phase 3: User Story 1 – Session lifecycle commands
 

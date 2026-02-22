@@ -822,6 +822,217 @@ namespace Karamel.Backend.Tests
             return songId;
         }
 
+        [Fact]
+        public async Task Hub_PauseSessionAsync_WithAdminToken_BroadcastsSessionPaused()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            await CreatePlaylistAsync(session.Id, session.linkToken);
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100);
+
+            var tcs = new TaskCompletionSource<bool>();
+            _connection.On("ReceiveSessionPaused", () => tcs.TrySetResult(true));
+
+            // Act
+            await _connection.InvokeAsync("PauseSessionAsync", session.Id);
+
+            // Assert
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = await tcs.Task.WaitAsync(cts.Token);
+            Assert.True(received);
+        }
+
+        [Fact]
+        public async Task Hub_PauseSessionAsync_WithoutToken_ThrowsHubException()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    // No token
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<HubException>(() =>
+                _connection.InvokeAsync("PauseSessionAsync", session.Id));
+            Assert.Contains("Missing X-Link-Token", exception.Message);
+        }
+
+        [Fact]
+        public async Task Hub_PauseSessionAsync_WithSingerToken_ThrowsHubException()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            Assert.NotNull(session.singerToken);
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.singerToken!);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<HubException>(() =>
+                _connection.InvokeAsync("PauseSessionAsync", session.Id));
+            Assert.Contains("admin permissions", exception.Message);
+        }
+
+        [Fact]
+        public async Task Hub_ResumeSessionAsync_WithAdminToken_BroadcastsSessionResumed()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            await CreatePlaylistAsync(session.Id, session.linkToken);
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100);
+
+            var tcs = new TaskCompletionSource<bool>();
+            _connection.On("ReceiveSessionResumed", () => tcs.TrySetResult(true));
+
+            // Act
+            await _connection.InvokeAsync("ResumeSessionAsync", session.Id);
+
+            // Assert
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = await tcs.Task.WaitAsync(cts.Token);
+            Assert.True(received);
+        }
+
+        [Fact]
+        public async Task Hub_UpdateSessionConfigAsync_WithAdminToken_PersistsAndBroadcasts()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            await CreatePlaylistAsync(session.Id, session.linkToken);
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+            await Task.Delay(100);
+
+            var tcs = new TaskCompletionSource<ConfigDto?>();
+            _connection.On<ConfigDto>("ReceiveConfigUpdated", dto => tcs.TrySetResult(dto));
+
+            // Act
+            var newConfig = new { requireSingerName = true, allowSingersToReorder = true, pauseBetweenSongsSeconds = 15, theme = "dark" };
+            await _connection.InvokeAsync("UpdateSessionConfigAsync", session.Id, newConfig);
+
+            // Assert – broadcast received
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = await tcs.Task.WaitAsync(cts.Token);
+            Assert.NotNull(received);
+            Assert.True(received!.requireSingerName);
+            Assert.True(received.allowSingersToReorder);
+            Assert.Equal(15, received.pauseBetweenSongsSeconds);
+            Assert.Equal("dark", received.theme);
+
+            // Assert – persisted in database
+            using var scope = _factory.Services.CreateScope();
+            var sessionRepo = scope.ServiceProvider.GetRequiredService<ISessionRepository>();
+            var persisted = await sessionRepo.GetByIdAsync(session.Id);
+            Assert.NotNull(persisted);
+            Assert.True(persisted!.Config.RequireSingerName);
+            Assert.True(persisted.Config.AllowSingersToReorder);
+            Assert.Equal(15, persisted.Config.PauseBetweenSongsSeconds);
+            Assert.Equal("dark", persisted.Config.Theme);
+        }
+
+        [Fact]
+        public async Task Hub_UpdateSessionConfigAsync_WithSingerToken_ThrowsHubException()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+            Assert.NotNull(session.singerToken);
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.singerToken!);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act & Assert
+            var config = new { requireSingerName = false, allowSingersToReorder = false, pauseBetweenSongsSeconds = 0, theme = (string?)null };
+            var exception = await Assert.ThrowsAsync<HubException>(() =>
+                _connection.InvokeAsync("UpdateSessionConfigAsync", session.Id, config));
+            Assert.Contains("admin permissions", exception.Message);
+        }
+
+        [Fact]
+        public async Task Hub_UpdateSessionConfigAsync_NegativePauseBetweenSongs_ThrowsHubException()
+        {
+            // Arrange
+            var session = await CreateSessionAsync();
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", session.linkToken);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", session.Id.ToString());
+
+            // Act & Assert: negative pauseBetweenSongsSeconds should be rejected
+            var invalidConfig = new { requireSingerName = false, allowSingersToReorder = false, pauseBetweenSongsSeconds = -1, theme = (string?)null };
+            var exception = await Assert.ThrowsAsync<HubException>(() =>
+                _connection.InvokeAsync("UpdateSessionConfigAsync", session.Id, invalidConfig));
+            Assert.Contains("non-negative", exception.Message);
+        }
+
         public async ValueTask DisposeAsync()
         {
             if (_connection != null)
@@ -831,9 +1042,10 @@ namespace Karamel.Backend.Tests
             _client.Dispose();
         }
 
-        private record CreateResponse(Guid Id, string linkToken);
+        private record CreateResponse(Guid Id, string linkToken, string? singerToken = null);
         private record PlaylistDto(Guid id, Guid sessionId);
         private record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId, int Status);
         private record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong, int PlaybackMode);
+        private record ConfigDto(bool requireSingerName, bool allowSingersToReorder, int pauseBetweenSongsSeconds, string? theme);
     }
 }
