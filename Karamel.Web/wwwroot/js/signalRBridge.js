@@ -137,13 +137,13 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 
 		// Wire session lifecycle events
 		hubConnection.on('ReceiveSessionPaused', () => {
-			logger.debug('Received ReceiveSessionPaused', { sessionId });
+			logger.info('Session paused – received from hub', { sessionId });
 			const event = new CustomEvent('session-state-updated', { detail: { type: 'session-paused', data: {} } });
 			window.dispatchEvent(event);
 		});
 
 		hubConnection.on('ReceiveSessionResumed', () => {
-			logger.debug('Received ReceiveSessionResumed', { sessionId });
+			logger.info('Session resumed – received from hub', { sessionId });
 			const event = new CustomEvent('session-state-updated', { detail: { type: 'session-resumed', data: {} } });
 			window.dispatchEvent(event);
 		});
