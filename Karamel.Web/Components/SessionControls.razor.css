@@ -1,0 +1,133 @@
+/* ── Session controls group box ─────────────────────────────────────────── */
+
+.session-controls-panel {
+    margin-bottom: 1rem;
+    border-left: 3px solid var(--color-primary);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.session-controls-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.625rem;
+    border-bottom: 1px solid var(--bs-border-color, rgba(0,0,0,0.1));
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.session-controls-icon {
+    font-size: 1.2rem;
+    /* Subtle spin on hover for the gear icon */
+    display: inline-block;
+    transition: transform 0.4s ease;
+}
+
+.session-controls-panel:hover .session-controls-icon {
+    transform: rotate(30deg);
+}
+
+.session-controls-title {
+    color: var(--color-primary);
+    letter-spacing: 0.02em;
+}
+
+/* ── Lifecycle buttons row ───────────────────────────────────────────────── */
+
+.session-controls-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.session-control-btn {
+    min-width: 6rem;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.session-control-btn:not(:disabled):active {
+    transform: translateY(1px);
+}
+
+.btn-pause {
+    /* Warm amber to signal caution without alarming */
+    --bs-btn-bg: #d97c00;
+    --bs-btn-border-color: #b86900;
+    --bs-btn-hover-bg: #b86900;
+    --bs-btn-hover-border-color: #9a5800;
+    --bs-btn-color: #fff;
+    --bs-btn-hover-color: #fff;
+}
+
+.btn-resume {
+    --bs-btn-bg: #28a745;
+    --bs-btn-border-color: #1e7e34;
+    --bs-btn-hover-bg: #218838;
+    --bs-btn-hover-border-color: #1e7e34;
+    --bs-btn-color: #fff;
+    --bs-btn-hover-color: #fff;
+}
+
+.btn-next {
+    /* Use caramel primary accent */
+    --bs-btn-bg: var(--color-primary);
+    --bs-btn-border-color: var(--color-primary-dark);
+    --bs-btn-hover-bg: var(--color-primary-dark);
+    --bs-btn-hover-border-color: var(--color-primary-dark);
+    --bs-btn-color: #1a1a1a;
+    --bs-btn-hover-color: #1a1a1a;
+    --bs-btn-disabled-opacity: 0.45;
+}
+
+/* ── Theme selector ────────────────────────────────────────────────────────── */
+.config-input-theme {
+    background-color: #292423;
+    border: 1px solid #3A241B;
+    border-radius: 8px;
+    color: var(--color-text, #F5E1C0);
+    padding: 0.625rem 2.25rem 0.625rem 1rem; /* keep space for the chevron */
+    transition: border-color 200ms ease-in-out, box-shadow 200ms ease-in-out;
+}
+
+.config-input-theme:focus {
+    border-color: #FFC254;
+    outline: 2px solid #FFC254;
+    outline-offset: 0;
+    box-shadow: 0 0 0 3px rgba(255, 194, 84, 0.25);
+}
+
+/* ── Config section layout ─────────────────────────────────────────────────── */
+
+.session-config-section {
+    margin-top: 0.25rem;
+}
+
+.session-config-divider {
+    border-color: var(--bs-border-color, rgba(0,0,0,0.1));
+    margin: 0.75rem 0;
+}
+
+.session-config-heading {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+}
+
+/* ── Mobile responsive ─────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .session-controls-buttons {
+        flex-direction: column;
+    }
+
+    .session-control-btn {
+        width: 100%;
+    }
+}

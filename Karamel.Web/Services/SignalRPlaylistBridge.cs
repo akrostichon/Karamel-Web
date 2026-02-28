@@ -156,6 +156,42 @@ public class SignalRPlaylistBridge : ISignalRPlaylistBridge
     }
 
     /// <summary>
+    /// Pause the session via SignalR hub (admin only).
+    /// </summary>
+    public async Task PauseSessionAsync()
+    {
+        var module = await _connectionManager.GetModuleAsync();
+        if (module == null) return;
+
+        try
+        {
+            await module.InvokeVoidAsync("pauseSession");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "pauseSession JS invoke failed");
+        }
+    }
+
+    /// <summary>
+    /// Resume the session via SignalR hub (admin only).
+    /// </summary>
+    public async Task ResumeSessionAsync()
+    {
+        var module = await _connectionManager.GetModuleAsync();
+        if (module == null) return;
+
+        try
+        {
+            await module.InvokeVoidAsync("resumeSession");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "resumeSession JS invoke failed");
+        }
+    }
+
+    /// <summary>
     /// Broadcast playlist updated event (main tab only)
     /// DEPRECATED: SignalR handles playlist synchronization now
     /// </summary>
@@ -212,5 +248,31 @@ public class SignalRPlaylistBridge : ISignalRPlaylistBridge
         };
 
         await module.InvokeVoidAsync("broadcastStateUpdate", "current-song", data);
+    }
+
+    /// <summary>
+    /// Send updated session configuration to the hub (admin only).
+    /// </summary>
+    public async Task<bool> UpdateSessionConfigAsync(bool requireSingerName, bool allowSingersToReorder, int pauseBetweenSongsSeconds, string? theme)
+    {
+        var module = await _connectionManager.GetModuleAsync();
+        if (module == null) return false;
+
+        try
+        {
+            var config = new
+            {
+                requireSingerName,
+                allowSingersToReorder,
+                pauseBetweenSongsSeconds,
+                theme
+            };
+            return await module.InvokeAsync<bool>("updateSessionConfig", config);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "updateSessionConfig JS invoke failed");
+            return false;
+        }
     }
 }

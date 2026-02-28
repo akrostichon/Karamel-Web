@@ -4,12 +4,11 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
 
 ## Dependencies
 
-- CDGraphics.js
  - CDGraphics.js
   - Version: included locally under `wwwroot/lib/cdgraphics` (cdgraphics v7.0.0)
-  - License: ISC
-  - Source: https://github.com/adrienjoly/cdgraphics
-  - Notes: Used client-side for CDG rendering. ISC is permissive and compatible with MIT.
+  - License: MIT
+  - Source: https://github.com/bhj/cdgraphics
+  - Notes: Used client-side for CDG rendering. MIT is permissive and compatible with this project.
 
 - jsmediatags
  - jsmediatags
@@ -79,6 +78,13 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
   - License: MIT
   - Source: https://github.com/github/awesome-copilot
   - Notes: Several instruction files in `.github/instructions/` directory were adapted from the Awesome GitHub Copilot community collection (code-review-generic.instructions.md, agents.instructions.md, agent-skills.instructions.md, instructions.instructions.md). These are development-time configuration files for GitHub Copilot customization.
+
+- Superpowers Skills Framework
+  - Version: brainstorming and systematic-debugging skills (with local modifications)
+  - License: MIT
+  - Source: https://github.com/obra/superpowers
+  - Author: Jesse Vincent (@obra) and contributors
+  - Notes: Two skills from the Superpowers framework are used in `.github/skills/`: brainstorming (for design and requirements exploration) and systematic-debugging (for root cause analysis). These are development-time configuration files for GitHub Copilot customization. The files have been adapted for Karamel-Web-specific patterns and workflows. MIT license allows use and modification with appropriate attribution.
 
 ## Redistribution notes
 

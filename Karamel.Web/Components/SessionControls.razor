@@ -1,0 +1,287 @@
+@using Fluxor
+@using Fluxor.Blazor.Web.Components
+@using Karamel.Web.Store.Session
+@using Karamel.Web.Store.Playlist
+@using Karamel.Web.Services
+@using Karamel.Web.Contracts
+@inherits FluxorComponent
+@inject IState<SessionState> SessionState
+@inject IState<PlaylistState> PlaylistState
+@inject IDispatcher Dispatcher
+@inject ISignalRPlaylistBridge SignalRBridge
+
+@if (IsAdminTab)
+{
+    <div class="card session-controls-panel">
+        <div class="card-body">
+        <div class="session-controls-header">
+            <span class="session-controls-icon">⚙️</span>
+            <span class="session-controls-title">Session Controls</span>
+        </div>
+        <div class="session-controls-buttons">
+            @if (SessionState.Value.IsPaused)
+            {
+                <button class="btn btn-success session-control-btn btn-resume"
+                        @onclick="OnResumeClicked"
+                        title="Resume session – playlist will advance automatically">
+                    ▶️ Resume
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-warning session-control-btn btn-pause"
+                        @onclick="OnPauseClicked"
+                        title="Pause session after song – automatic playlist advancement will stop">
+                    ⏯️ Pause
+                </button>
+            }
+
+            <button class="btn btn-primary session-control-btn btn-next"
+                    @onclick="OnNextClicked"
+                    disabled="@IsNextDisabled"
+                    title="@NextButtonTitle">
+                ⏭️ Next
+            </button>
+        </div>
+
+        @if (ConfigEnabled)
+        {
+            <!-- Session configuration inputs – enabled in iteration 3.2 -->
+            <div class="session-config-section">
+                <hr class="session-config-divider" />
+                <h6 class="session-config-heading">Session Settings</h6>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input config-input-require-singer-name"
+                           type="checkbox"
+                           id="requireSingerName"
+                           @bind="_requireSingerName" />
+                    <label class="form-check-label" for="requireSingerName">
+                        Require singer name
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input config-input-allow-reorder"
+                           type="checkbox"
+                           id="allowSingersToReorder"
+                           @bind="_allowSingersToReorder" />
+                    <label class="form-check-label" for="allowSingersToReorder">
+                        Allow singers to reorder
+                    </label>
+                </div>
+
+                <div class="mb-2">
+                    <label for="pauseBetweenSongs" class="form-label">
+                        Pause between songs (seconds, 0 = none)
+                    </label>
+                    <input type="number"
+                           class="form-control config-input-pause-seconds"
+                           id="pauseBetweenSongs"
+                           @bind="_pauseBetweenSongsSeconds"
+                           @bind:event="oninput"
+                           @onchange="OnPauseBetweenSongsChanged"
+                           min="0"
+                           max="90" />
+                    @if (!string.IsNullOrEmpty(_pauseValidationError))
+                    {
+                        <div class="text-danger small mt-1 config-pause-validation-error">
+                            @_pauseValidationError
+                        </div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <label for="themeSelector" class="form-label">Theme</label>
+                    <select class="form-select config-input-theme"
+                            id="themeSelector"
+                            @bind="_theme">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary btn-sm btn-save-config w-100"
+                        @onclick="OnSaveConfigClicked"
+                        disabled="@(!string.IsNullOrEmpty(_pauseValidationError))"
+                        title="Save session settings">
+                    Save Settings
+                </button>
+
+                @if (OnNavigateBack.HasDelegate)
+                {
+                    <button class="btn btn-outline-secondary btn-sm btn-back-to-playlist w-100 mt-2"
+                            @onclick="HandleNavigateBack">
+                        ← Back to Playlist
+                    </button>
+                }
+            </div>
+        }
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// When true the session controls panel is rendered (admin tabs only).
+    /// </summary>
+    [Parameter]
+    public bool IsAdminTab { get; set; }
+
+    /// <summary>
+    /// When true the configuration inputs section is visible and enabled (iteration 3.2).
+    /// Defaults to false (iteration 3.1 – lifecycle controls only).
+    /// </summary>
+    [Parameter]
+    public bool ConfigEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Optional callback fired when the user clicks "Back to Playlist".
+    /// Rendered only when <see cref="ConfigEnabled"/> is <c>true</c> (iteration 3.2)
+    /// and this delegate is provided by the parent (i.e., the segmented-control context).
+    /// </summary>
+    [Parameter]
+    public EventCallback OnNavigateBack { get; set; }
+
+    // ─── Computed properties ─────────────────────────────────────────────────
+
+    private bool HasNextSong =>
+        PlaylistState.Value.CurrentSong != null ||
+        PlaylistState.Value.Items.Any(i =>
+            i.Status == (int)SongStatus.UpNext ||
+            i.Status == (int)SongStatus.Queued);
+
+    private bool IsNextDisabled =>
+        SessionState.Value.IsPaused || !HasNextSong;
+
+    private string NextButtonTitle =>
+        SessionState.Value.IsPaused ? "Resume session before advancing" :
+        !HasNextSong ? "No songs queued" :
+        "Advance to next song";
+
+    // Local copies of config fields bound to the UI inputs
+    private bool _requireSingerName;
+    private bool _allowSingersToReorder;
+    private int _pauseBetweenSongsSeconds;
+    private string? _theme;
+    private string _pauseValidationError = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        SyncFromState();
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        SessionState.StateChanged += OnSessionStateChanged;
+    }
+
+    private void OnSessionStateChanged(object? sender, EventArgs e)
+    {
+        SyncFromState();
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Initialise local input fields from current session state so they reflect live updates
+    /// received via SignalR ReceiveConfigUpdated.
+    /// </summary>
+    private void SyncFromState()
+    {
+        var session = SessionState.Value.CurrentSession;
+        if (session is null) return;
+
+        _requireSingerName = session.RequireSingerName;
+        _allowSingersToReorder = session.AllowSingersToReorder;
+        _pauseBetweenSongsSeconds = session.PauseBetweenSongsSeconds;
+        _theme = session.Theme ?? "light";
+    }
+
+    private void OnPauseClicked()
+    {
+        Dispatcher.Dispatch(new PauseSessionAction(IsAdminInitiated: true));
+    }
+
+    private void OnResumeClicked()
+    {
+        Dispatcher.Dispatch(new ResumeSessionAction(IsAdminInitiated: true));
+    }
+
+    private void OnNextClicked()
+    {
+        if (IsNextDisabled) return;
+
+        if (PlaylistState.Value.CurrentSong != null)
+        {
+            // Song is playing: mark it completed. PlayerView detects CurrentSong → null
+            // via PlaylistState.StateChanged and navigates itself to NextSongView.
+            Dispatcher.Dispatch(new CompleteCurrentSongAction());
+        }
+        else
+        {
+            // Nothing playing but items are queued: promote next song to NowPlaying
+            // so it becomes available when the player is opened.
+            Dispatcher.Dispatch(new AdvanceToNextSongAction());
+        }
+    }
+
+    /// <summary>
+    /// Validates pause-between-songs value on change.
+    /// Rule: must be 0 (no pause) or between 5 and 90 inclusive.
+    /// </summary>
+    private void OnPauseBetweenSongsChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+        {
+            _pauseBetweenSongsSeconds = value;
+        }
+
+        ValidatePauseBetweenSongs();
+    }
+
+    private void ValidatePauseBetweenSongs()
+    {
+        if (_pauseBetweenSongsSeconds < 0)
+        {
+            _pauseValidationError = "Value cannot be negative.";
+        }
+        else if (_pauseBetweenSongsSeconds > 0 && _pauseBetweenSongsSeconds < 5)
+        {
+            _pauseValidationError = "Minimum pause is 5 seconds (or 0 to disable).";
+        }
+        else if (_pauseBetweenSongsSeconds > 90)
+        {
+            _pauseValidationError = "Maximum pause is 90 seconds.";
+        }
+        else
+        {
+            _pauseValidationError = string.Empty;
+        }
+    }
+
+    private Task HandleNavigateBack() => OnNavigateBack.InvokeAsync();
+
+    private void OnSaveConfigClicked()
+    {
+        ValidatePauseBetweenSongs();
+        if (!string.IsNullOrEmpty(_pauseValidationError))
+            return;
+
+        Dispatcher.Dispatch(new SaveSessionConfigAction(
+            RequireSingerName: _requireSingerName,
+            AllowSingersToReorder: _allowSingersToReorder,
+            PauseBetweenSongsSeconds: _pauseBetweenSongsSeconds,
+            Theme: string.IsNullOrEmpty(_theme) ? null : _theme));
+    }
+
+    protected override async ValueTask DisposeAsyncCore(bool disposing)
+    {
+        if (disposing)
+        {
+            SessionState.StateChanged -= OnSessionStateChanged;
+        }
+        await base.DisposeAsyncCore(disposing);
+    }
+}

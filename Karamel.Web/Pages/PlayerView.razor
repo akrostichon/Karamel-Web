@@ -175,11 +175,44 @@
     private bool _showAdminMenu = false;
     private IJSObjectReference? _protectionModule;
     private bool _isTransitioningToNextSong = false;
+    private PlaylistItemDto? _previousCurrentSong;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
         isSessionValid = ValidateSession();
+        _previousCurrentSong = PlaylistState.Value.CurrentSong;
+        PlaylistState.StateChanged += OnPlaylistStateChanged;
+    }
+
+    private async void OnPlaylistStateChanged(object? sender, EventArgs e)
+    {
+        var current = PlaylistState.Value.CurrentSong;
+
+        // Detect external song termination: admin clicked Next while PlayerView was showing a song.
+        // _isTransitioningToNextSong guards against double-navigation when OnSongEnded fires.
+        if (isInitialized && !_isTransitioningToNextSong
+            && _previousCurrentSong != null && current == null)
+        {
+            _isTransitioningToNextSong = true;
+            isPlaying = false;
+
+            try { if (playerModule != null) await playerModule.InvokeVoidAsync("stopPlayback"); }
+            catch { }
+
+            var sessionId = SessionState.Value.CurrentSession?.SessionId;
+            if (sessionId.HasValue)
+            {
+                var url = $"/nextsong?session={sessionId}";
+                if (!string.IsNullOrEmpty(TokenParam))
+                    url += $"&token={Uri.EscapeDataString(TokenParam)}";
+                await InvokeAsync(() => NavigationManager.NavigateTo(url));
+                return;
+            }
+        }
+
+        _previousCurrentSong = current;
+        await InvokeAsync(StateHasChanged);
     }
 
     private bool ValidateSession()
@@ -744,6 +777,8 @@
     {
         if (disposing)
         {
+            PlaylistState.StateChanged -= OnPlaylistStateChanged;
+
             if (playerModule != null)
             {
                 try

@@ -895,5 +895,192 @@ public class SingerViewTests : SessionTestBase
             Times.Once
         );
     }
+
+    // ── Phase 6: SingerView read-only playlist mode ────────────────────────────
+
+    [Fact]
+    public void ViewToggle_IsVisible_WhenSessionLoaded()
+    {
+        // Arrange
+        var sessionState = new SessionState
+        {
+            CurrentSession = _testSessionWithoutNameRequired,
+            IsInitialized = true
+        };
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
+
+        // Act
+        var cut = RenderSingerViewComponent(_testSessionWithoutNameRequired.SessionId);
+
+        // Assert: segmented toggle control is rendered
+        var toggleBar = cut.Find(".singer-view-toggle");
+        Assert.NotNull(toggleBar);
+
+        var buttons = toggleBar.QuerySelectorAll("button");
+        Assert.Equal(2, buttons.Length);
+        Assert.Contains("Library", buttons[0].TextContent);
+        Assert.Contains("Up Next", buttons[1].TextContent);
+    }
+
+    [Fact]
+    public void ViewToggle_DefaultView_ShowsLibrarySearch()
+    {
+        // Arrange
+        var sessionState = new SessionState
+        {
+            CurrentSession = _testSessionWithoutNameRequired,
+            IsInitialized = true
+        };
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState { Songs = _testSongs }, "singer", false);
+
+        // Act
+        var cut = RenderSingerViewComponent(_testSessionWithoutNameRequired.SessionId);
+
+        // Assert: Library tab is active and LibrarySearch is rendered
+        var activeToggle = cut.Find(".singer-toggle-btn.active");
+        Assert.Contains("Library", activeToggle.TextContent);
+
+        var librarySearch = cut.FindComponent<Karamel.Web.Components.LibrarySearch>();
+        Assert.NotNull(librarySearch);
+
+        // UpNextList should NOT be visible in library mode
+        Assert.Empty(cut.FindComponents<Karamel.Web.Components.UpNextList>());
+    }
+
+    [Fact]
+    public void ViewToggle_ClickingUpNextTab_ShowsUpNextList()
+    {
+        // Arrange
+        var sessionState = new SessionState
+        {
+            CurrentSession = _testSessionWithoutNameRequired,
+            IsInitialized = true
+        };
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
+
+        var cut = RenderSingerViewComponent(_testSessionWithoutNameRequired.SessionId);
+
+        // Act: click the "Up Next" tab button
+        var toggleBar = cut.Find(".singer-view-toggle");
+        var upNextBtn = toggleBar.QuerySelectorAll("button")
+            .First(b => b.TextContent.Contains("Up Next"));
+        upNextBtn.Click();
+
+        // Assert: UpNextList component is now rendered
+        var upNextList = cut.FindComponent<Karamel.Web.Components.UpNextList>();
+        Assert.NotNull(upNextList);
+
+        // LibrarySearch should no longer be rendered
+        Assert.Empty(cut.FindComponents<Karamel.Web.Components.LibrarySearch>());
+
+        // "Up Next" button should now be active
+        var activeToggle = cut.Find(".singer-toggle-btn.active");
+        Assert.Contains("Up Next", activeToggle.TextContent);
+    }
+
+    [Fact]
+    public void UpNextList_IsReadOnly_NoRemoveOrDragButtons()
+    {
+        // Arrange
+        var sessionGuid = _testSessionWithoutNameRequired.SessionId;
+        var sessionState = new SessionState
+        {
+            CurrentSession = _testSessionWithoutNameRequired,
+            IsInitialized = true
+        };
+
+        var queuedItems = new List<PlaylistItemDto>
+        {
+            new PlaylistItemDto(Id: Guid.NewGuid().ToString(), SongId: Guid.NewGuid().ToString(),
+                Artist: "Queen", Title: "Don't Stop Me Now", SingerName: "Alice", Position: 0, Status: (int)SongStatus.UpNext),
+            new PlaylistItemDto(Id: Guid.NewGuid().ToString(), SongId: Guid.NewGuid().ToString(),
+                Artist: "ABBA", Title: "Dancing Queen", SingerName: "Bob", Position: 1, Status: (int)SongStatus.Queued),
+        };
+        var playlistState = new PlaylistState { Items = queuedItems };
+
+        SetupTestWithSession(sessionState, playlistState, new LibraryState(), "singer", false);
+        var cut = RenderSingerViewComponent(sessionGuid);
+
+        // Switch to Up Next view
+        var upNextBtn = cut.Find(".singer-view-toggle").QuerySelectorAll("button")
+            .First(b => b.TextContent.Contains("Up Next"));
+        upNextBtn.Click();
+
+        // Assert: no remove buttons
+        var removeButtons = cut.FindAll(".btn-remove");
+        Assert.Empty(removeButtons);
+
+        // Assert: no draggable song items
+        var draggableItems = cut.FindAll("[draggable=\"true\"]");
+        Assert.Empty(draggableItems);
+    }
+
+    [Fact]
+    public void UpNextList_ShowsQueuedAndUpNextSongs()
+    {
+        // Arrange
+        var sessionGuid = _testSessionWithoutNameRequired.SessionId;
+        var sessionState = new SessionState
+        {
+            CurrentSession = _testSessionWithoutNameRequired,
+            IsInitialized = true
+        };
+
+        var currentSong = new PlaylistItemDto(Id: Guid.NewGuid().ToString(), SongId: Guid.NewGuid().ToString(),
+            Artist: "Beatles", Title: "Let It Be", SingerName: "Alice", Position: -1, Status: (int)SongStatus.NowPlaying);
+
+        var queuedItems = new List<PlaylistItemDto>
+        {
+            new PlaylistItemDto(Id: Guid.NewGuid().ToString(), SongId: Guid.NewGuid().ToString(),
+                Artist: "Queen", Title: "Bohemian Rhapsody", SingerName: "Bob", Position: 0, Status: (int)SongStatus.UpNext),
+            new PlaylistItemDto(Id: Guid.NewGuid().ToString(), SongId: Guid.NewGuid().ToString(),
+                Artist: "ABBA", Title: "Dancing Queen", SingerName: "Carol", Position: 1, Status: (int)SongStatus.Queued),
+        };
+        var playlistState = new PlaylistState { Items = queuedItems, CurrentSong = currentSong };
+
+        SetupTestWithSession(sessionState, playlistState, new LibraryState(), "singer", false);
+        var cut = RenderSingerViewComponent(sessionGuid);
+
+        // Switch to Up Next view
+        var upNextBtn = cut.Find(".singer-view-toggle").QuerySelectorAll("button")
+            .First(b => b.TextContent.Contains("Up Next"));
+        upNextBtn.Click();
+
+        // Assert: Now Playing section shows current song
+        var markup = cut.Markup;
+        Assert.Contains("Now Playing", markup);
+        Assert.Contains("Let It Be", markup);
+        Assert.Contains("Alice", markup);
+
+        // Assert: queued songs are displayed
+        Assert.Contains("Bohemian Rhapsody", markup);
+        Assert.Contains("Bob", markup);
+        Assert.Contains("Dancing Queen", markup);
+        Assert.Contains("Carol", markup);
+    }
+
+    [Fact]
+    public void UpNextList_EmptyQueue_ShowsEmptyState()
+    {
+        // Arrange
+        var sessionState = new SessionState
+        {
+            CurrentSession = _testSessionWithoutNameRequired,
+            IsInitialized = true
+        };
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+
+        SetupTestWithSession(sessionState, playlistState, new LibraryState(), "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithoutNameRequired.SessionId);
+
+        // Switch to Up Next view
+        var upNextBtn = cut.Find(".singer-view-toggle").QuerySelectorAll("button")
+            .First(b => b.TextContent.Contains("Up Next"));
+        upNextBtn.Click();
+
+        // Assert: empty state message is shown
+        var markup = cut.Markup;
+        Assert.Contains("No songs in queue", markup);
+    }
 }
 

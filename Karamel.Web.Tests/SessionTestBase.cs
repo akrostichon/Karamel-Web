@@ -30,18 +30,20 @@ public abstract class SessionTestBase : TestContext
     /// <param name="libraryState">The library state to use (optional, for SingerView)</param>
     /// <param name="view">The view name (e.g., "nextsong", "player", "playlist", "singer")</param>
     /// <param name="isMainTab">Whether this is the main tab (default: true)</param>
+    /// <param name="adminRole">When set to "admin", the JSRuntime.sessionStorage.getItem mock returns this role, making _isAdminTab true in Playlist.razor</param>
     /// <returns>Tuple of (IActionSubscriber mock, IDispatcher mock, FakeNavigationManager)</returns>
     protected (Mock<IActionSubscriber>, Mock<IDispatcher>, FakeNavigationManager) SetupTestWithSession(
         SessionState sessionState,
         PlaylistState playlistState,
         LibraryState? libraryState = null,
         string view = "nextsong",
-        bool isMainTab = true)
+        bool isMainTab = true,
+        string? adminRole = null)
     {
         var sessionId = sessionState.CurrentSession?.SessionId ?? Guid.Empty;
         var currentUri = $"http://localhost/{view}?session={sessionId}";
         
-        return SetupFluxorWithStates(sessionState, playlistState, libraryState, currentUri, isMainTab);
+        return SetupFluxorWithStates(sessionState, playlistState, libraryState, currentUri, isMainTab, adminRole);
     }
 
     /// <summary>
@@ -79,7 +81,8 @@ public abstract class SessionTestBase : TestContext
         PlaylistState playlistState,
         LibraryState? libraryState = null,
         string currentUri = "http://localhost/",
-        bool isMainTab = true)
+        bool isMainTab = true,
+        string? adminRole = null)
     {
         // Mock IState<SessionState>
         var mockSessionState = new Mock<IState<SessionState>>();
@@ -105,6 +108,12 @@ public abstract class SessionTestBase : TestContext
             It.IsAny<string>(),
             It.IsAny<object[]>()))
             .ReturnsAsync(mockJSModule.Object);
+
+        // Allow sessionStorage.getItem to return the admin role (needed by Playlist.razor _isAdminTab check)
+        mockJSRuntime.Setup(js => js.InvokeAsync<string?>(
+            "sessionStorage.getItem",
+            It.IsAny<object[]>()))
+            .ReturnsAsync(adminRole);
 
         // Create mock LibraryState
         var mockLibraryState = new Mock<IState<LibraryState>>();

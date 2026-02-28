@@ -44,8 +44,15 @@ public sealed record PlaylistBroadcastUpdate(
 
 public sealed record CurrentSongBroadcastUpdate(Song? Song, string? SingerName);
 
+public sealed record SessionConfigBroadcastUpdate(
+    bool RequireSingerName,
+    bool AllowSingersToReorder,
+    int PauseBetweenSongsSeconds,
+    string? Theme);
+
 public sealed record BroadcastStateUpdate(
     string Type,
     PlaylistBroadcastUpdate? Playlist,
     Session? Session,
-    CurrentSongBroadcastUpdate? CurrentSong);
+    CurrentSongBroadcastUpdate? CurrentSong,
+    SessionConfigBroadcastUpdate? Config = null);

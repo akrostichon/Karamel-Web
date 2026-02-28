@@ -1,4 +1,5 @@
 using Bunit;
+using Fluxor;
 using Karamel.Web.Models;
 using Karamel.Web.Tests.TestHelpers;
 using Karamel.Web.Pages;
@@ -415,6 +416,186 @@ public class NextSongViewTests : SessionTestBase
         // Assert
         Assert.Equal(duration, session.PauseBetweenSongsSeconds);
     }
+
+    // ─── Pause / Resume Progress-Bar Behavior (T035) ─────────────────────────
+
+    [Fact]
+    public void Component_WhenSessionIsPaused_DoesNotShowCountdownProgressBar()
+    {
+        // Arrange – session is paused on load; PauseBetweenSongs is enabled so the
+        // countdown WOULD start if the session were active, but must not when paused.
+        var session = new Session
+        {
+            SessionId = Guid.NewGuid(),
+            PauseBetweenSongs = true,
+            PauseBetweenSongsSeconds = 5
+        };
+        var sessionState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = true };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<NextSongView>();
+
+        // Assert – countdown-progress must be absent when the session is paused
+        var progressBars = cut.FindAll(".countdown-progress");
+        Assert.Empty(progressBars);
+    }
+
+    [Fact]
+    public void Component_WhenSessionResumedFromPaused_StartsCountdown()
+    {
+        // Arrange – start paused so no countdown appears on initial render
+        var session = new Session
+        {
+            SessionId = Guid.NewGuid(),
+            PauseBetweenSongs = true,
+            PauseBetweenSongsSeconds = 5
+        };
+        var sessionState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = true };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupJSRuntime();
+
+        var cut = RenderComponent<NextSongView>();
+
+        // Verify baseline: paused → no countdown shown
+        Assert.Empty(cut.FindAll(".countdown-progress"));
+
+        // Act – simulate receiving ResumeSessionAction result (IsPaused flips to false)
+        var resumedState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = false };
+        var mockSessionState = Mock.Get(Services.GetRequiredService<IState<SessionState>>());
+        mockSessionState.Setup(s => s.Value).Returns(resumedState);
+        mockSessionState.Raise(s => s.StateChanged += null, EventArgs.Empty);
+
+        // Assert – after resume the countdown timer starts and progress bar becomes visible
+        cut.WaitForAssertion(
+            () => Assert.NotEmpty(cut.FindAll(".countdown-progress")),
+            timeout: TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void Component_WhenPauseArrivesWhileCountdownRunning_CountdownIsCancelled()
+    {
+        // Arrange – start un-paused so the countdown begins immediately
+        var session = new Session
+        {
+            SessionId = Guid.NewGuid(),
+            PauseBetweenSongs = true,
+            PauseBetweenSongsSeconds = 10
+        };
+        var sessionState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = false };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupJSRuntime();
+
+        var cut = RenderComponent<NextSongView>();
+
+        // Wait for the countdown to begin (timer fires after ≤ 100 ms)
+        cut.WaitForAssertion(
+            () => Assert.NotEmpty(cut.FindAll(".countdown-progress")),
+            timeout: TimeSpan.FromSeconds(2));
+
+        // Act – host pauses while the countdown is already in-flight
+        var pausedState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = true };
+        var mockSessionState = Mock.Get(Services.GetRequiredService<IState<SessionState>>());
+        mockSessionState.Setup(s => s.Value).Returns(pausedState);
+        mockSessionState.Raise(s => s.StateChanged += null, EventArgs.Empty);
+
+        // Assert – the in-flight countdown MUST be cancelled when the session is paused,
+        // because AdvanceToNextSongAction is suppressed while IsPaused is true and the
+        // navigation to PlayerView would fail silently (CurrentSong never set → timeout).
+        // When the session is resumed, StartAutoAdvanceTimer() restarts the full countdown.
+        cut.WaitForAssertion(
+            () => Assert.Empty(cut.FindAll(".countdown-progress")),
+            timeout: TimeSpan.FromSeconds(2));
+    }
+
+    // ---- T036: hide next-song card when session is paused ------------------
+
+    [Fact]
+    public void Component_WhenSessionIsPaused_HidesSongCard_AndShowsEmptyQueueLayout()
+    {
+        // Arrange – session is paused, but a song is in the queue
+        var session = new Session
+        {
+            SessionId = Guid.NewGuid(),
+            PauseBetweenSongs = true,
+            PauseBetweenSongsSeconds = 10
+        };
+        var sessionState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = true };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<NextSongView>();
+
+        // Assert – next-song card must NOT be rendered
+        Assert.Empty(cut.FindAll(".artist-name"));
+        Assert.Empty(cut.FindAll(".nextsong-container"));
+
+        // Assert – empty-queue layout IS shown instead
+        Assert.NotEmpty(cut.FindAll(".empty-queue-container"));
+    }
+
+    [Fact]
+    public void Component_WhenSessionIsNotPaused_WithQueuedSong_ShowsSongCard()
+    {
+        // Arrange – session is active (not paused), a song is enqueued
+        var session = new Session
+        {
+            SessionId = Guid.NewGuid(),
+            PauseBetweenSongs = false,
+            PauseBetweenSongsSeconds = 0
+        };
+        var sessionState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = false };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
+        SetupTestWithSession(sessionState, playlistState, view: "nextsong");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<NextSongView>();
+
+        // Assert – next-song card IS rendered
+        Assert.NotEmpty(cut.FindAll(".artist-name"));
+        Assert.Empty(cut.FindAll(".empty-queue-container"));
+    }
+
+    [Fact]
+    public void Component_WhenSessionResumed_ShowsSongCardAgain()
+    {
+        // Arrange – start paused so the song card is hidden
+        var session = new Session
+        {
+            SessionId = Guid.NewGuid(),
+            PauseBetweenSongs = false,
+            PauseBetweenSongsSeconds = 0
+        };
+        var pausedState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = true };
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(_testSongs) };
+        SetupTestWithSession(pausedState, playlistState, view: "nextsong");
+        SetupJSRuntime();
+
+        var cut = RenderComponent<NextSongView>();
+
+        // Confirm card is hidden while paused
+        Assert.Empty(cut.FindAll(".artist-name"));
+
+        // Act – admin resumes the session
+        var resumedState = new SessionState { CurrentSession = session, IsInitialized = true, IsPaused = false };
+        var mockSessionState = Mock.Get(Services.GetRequiredService<IState<SessionState>>());
+        mockSessionState.Setup(s => s.Value).Returns(resumedState);
+        mockSessionState.Raise(s => s.StateChanged += null, EventArgs.Empty);
+
+        // Assert – song card is now visible
+        cut.WaitForAssertion(
+            () => Assert.NotEmpty(cut.FindAll(".artist-name")),
+            timeout: TimeSpan.FromSeconds(2));
+    }
+
+    // -----------------------------------------------------------------------
 
     private Mock<IJSObjectReference> SetupJSRuntime()
     {

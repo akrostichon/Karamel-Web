@@ -26,9 +26,12 @@ dotnet build
 **C# Frontend Tests** (xUnit + bUnit):
 ```powershell
 dotnet test Karamel.Web.Tests
-# Runs 104 tests in Karamel.Web.Tests (101 pass, 3 skipped by design)
+# Runs >=206 tests in Karamel.Web.Tests (9 skipped by design)
 # Test time: ~8-10 seconds
-# Known skipped tests: 2 in PlaylistPageTests (async JSInterop mocking limitations), 1 in PlayerViewTests (session validation changes)
+# Known skipped tests:
+#   - 5 in PlaylistPageTests (async JSInterop mocking limitations)
+#   - 3 in NextSongViewIntegrationTests (async JSInterop mocking limitations)
+#   - 1 in PlayerViewTests (session validation changes)
 ```
 
 **C# Backend Tests** (xUnit + Integration Tests):
@@ -42,7 +45,7 @@ dotnet test Karamel.Backend.Tests -v minimal
 ```powershell
 cd Karamel.Web\wwwroot
 npm run test:run    # Single run (NOT: npm test:run)
-# Runs 163 tests in 12 test files
+# Runs >=163 tests in >=12 test files
 # Test time: ~3-4 seconds
 # Watch mode: npm test
 Afterwards navigate back to solution root with `cd ..\..`
@@ -93,7 +96,7 @@ git push origin feature/your-feature-name
 
 ### After Making Changes
 1. Run `dotnet build` and resolve any errors
-2. Run `dotnet test Karamel.Web.Tests` and ensure at least 101 tests pass
+2. Run `dotnet test Karamel.Web.Tests` and ensure at least 197 tests pass (9 skipped is expected)
 3. For JavaScript changes: `cd Karamel.Web\wwwroot; npm run test:run`
 4. **For backend changes**: Request user to manually run `dotnet test .\Karamel.Backend.Tests\ -v minimal`
 5. Test the running application manually if UI changes were made
@@ -458,7 +461,7 @@ describe('moduleName', () => {
 ## Known Issues & Workarounds
 
 ### Test Failures
-- **C# tests**: 3 skipped tests (PlaylistPageTests x2, PlayerViewTests x1) due to bUnit async JSInterop limitations - this is intentional
+- **C# tests**: 9 skipped tests (PlaylistPageTests x5, NextSongViewIntegrationTests x3, PlayerViewTests x1) due to bUnit async JSInterop limitations - this is intentional
 
 ### Browser Compatibility
 - **File System Access API** requires Chrome/Edge (not supported in Firefox/Safari)
@@ -530,7 +533,7 @@ describe('moduleName', () => {
 
 ## Final Reminders
 1. **NEVER commit to `main`** - always use feature branches
-2. **Run tests before committing** - `dotnet test` must show 101+ passing
+2. **Run tests before committing** - `dotnet test` must show 197+ passing (9 skipped is expected)
 3. **Session parameter is mandatory** on all pages except Home.razor
 4. **Multi-session support**: Each session is isolated by GUID in URLs, channels, and storage
 5. **Trust these instructions** - only search the codebase if specific implementation details are unclear or need to be verified

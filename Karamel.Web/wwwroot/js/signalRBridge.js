@@ -135,6 +135,43 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 			}
 		});
 
+		// Wire session lifecycle events
+		hubConnection.on('ReceiveSessionPaused', () => {
+			logger.info('Session paused – received from hub', { sessionId });
+			const event = new CustomEvent('session-state-updated', { detail: { type: 'session-paused', data: {} } });
+			window.dispatchEvent(event);
+		});
+
+		hubConnection.on('ReceiveSessionResumed', () => {
+			logger.info('Session resumed – received from hub', { sessionId });
+			const event = new CustomEvent('session-state-updated', { detail: { type: 'session-resumed', data: {} } });
+			window.dispatchEvent(event);
+		});
+
+		hubConnection.on('ReceiveConfigUpdated', async (config) => {
+			logger.info('Received ReceiveConfigUpdated', { sessionId, theme: config?.theme ?? 'null' });
+			// Apply theme immediately in JS so all connected tabs update without waiting for Blazor
+			if (config && config.theme) {
+				try {
+					const themeModule = await import('./themeToggle.js');
+					themeModule.setTheme(config.theme);
+				} catch (e) {
+					logger.warn('Failed to apply theme from config update', { error: e.message });
+				}
+			}
+			// Re-broadcast via BroadcastChannel so same-device tabs (e.g. the main tab running
+			// NextSongView) receive the config update even if their own SignalR connection failed.
+			if (broadcastChannel) {
+				try {
+					broadcastChannel.postMessage({ type: 'config-updated', data: config || {}, timestamp: Date.now(), senderId: tabId });
+				} catch (e) {
+					logger.warn('Failed to re-broadcast config update via BroadcastChannel', { error: e.message });
+				}
+			}
+			const event = new CustomEvent('session-state-updated', { detail: { type: 'config-updated', data: config || {} } });
+			window.dispatchEvent(event);
+		});
+
 		await hubConnection.start();
 		// Join session group
 		await hubConnection.invoke('JoinSession', sessionId);
@@ -248,6 +285,21 @@ function handleBroadcastMessage(message) {
 				logger.warn('Error while attempting to apply theme from broadcast', { error: e.message });
 			});
 		}
+
+		// If config-updated includes a theme, apply it on this tab (handles main-tab
+		// re-broadcast from a secondary tab that received ReceiveConfigUpdated via SignalR)
+		if (message && message.type === 'config-updated' && message.data && message.data.theme) {
+			import('./themeToggle.js').then(module => {
+				try {
+					module.setTheme(message.data.theme);
+					logger.info('Applied theme from config-updated broadcast', { theme: message.data.theme });
+				} catch (e) {
+					logger.warn('Failed to apply theme from config-updated broadcast', { error: e.message });
+				}
+			}).catch(e => {
+				logger.warn('Error while attempting to apply theme from config-updated broadcast', { error: e.message });
+			});
+		}
 	} catch (e) {
 		logger.warn('Error in handleBroadcastMessage', { error: e.message, messageType: message?.type });
 	}
@@ -267,9 +319,14 @@ function saveToSessionStorage(type, data) {
 			case 'current-song':
 				sessionState.currentSong = data;
 				break;
+			case 'config-updated':
+			case 'session-paused':
+			case 'session-resumed':
+				// These are ephemeral events; no session-storage persistence needed.
+				return;
 			default:
-			logger.warn('Unknown state type', { type });
-			return;
+				logger.warn('Unknown state type', { type });
+				return;
 	}
 	sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(sessionState));
 	} catch (e) {
@@ -514,6 +571,82 @@ export async function clearQueue() {
 
 export function isUsingSignalR() {
 	return !!usingSignalR && !!hubConnection && hubConnection.state === (window.signalR ? window.signalR.HubConnectionState?.Connected : 1);
+}
+
+/**
+ * Pause the session by invoking hub PauseSessionAsync.
+ * The hub broadcasts ReceiveSessionPaused to all clients.
+ * @returns {Promise<boolean>} True if hub invocation succeeded
+ */
+export async function pauseSession() {
+	if (!currentSessionId) {
+		logger.error('pauseSession: No current session ID', null, { operation: 'pauseSession' });
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('PauseSessionAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			logger.warn('PauseSessionAsync via SignalR failed', { error: e.message, sessionId: currentSessionId });
+			return false;
+		}
+	}
+
+	logger.warn('pauseSession: SignalR not connected, cannot pause session', { sessionId: currentSessionId });
+	return false;
+}
+
+/**
+ * Resume the session by invoking hub ResumeSessionAsync.
+ * The hub broadcasts ReceiveSessionResumed to all clients.
+ * @returns {Promise<boolean>} True if hub invocation succeeded
+ */
+export async function resumeSession() {
+	if (!currentSessionId) {
+		logger.error('resumeSession: No current session ID', null, { operation: 'resumeSession' });
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('ResumeSessionAsync', currentSessionId);
+			return true;
+		} catch (e) {
+			logger.warn('ResumeSessionAsync via SignalR failed', { error: e.message, sessionId: currentSessionId });
+			return false;
+		}
+	}
+
+	logger.warn('resumeSession: SignalR not connected, cannot resume session', { sessionId: currentSessionId });
+	return false;
+}
+
+/**
+ * Send config update to hub UpdateSessionConfigAsync.
+ * The hub persists the config and broadcasts ReceiveConfigUpdated to all clients.
+ * @param {object} config - Config object with camelCase properties
+ * @returns {Promise<boolean>} True if hub invocation succeeded
+ */
+export async function updateSessionConfig(config) {
+	if (!currentSessionId) {
+		logger.error('updateSessionConfig: No current session ID', null, { operation: 'updateSessionConfig' });
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('UpdateSessionConfigAsync', currentSessionId, config);
+			return true;
+		} catch (e) {
+			logger.warn('UpdateSessionConfigAsync via SignalR failed', { error: e.message, sessionId: currentSessionId });
+			return false;
+		}
+	}
+
+	logger.warn('updateSessionConfig: SignalR not connected', { sessionId: currentSessionId });
+	return false;
 }
 
 export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, search = null, sort = null) {

@@ -93,6 +93,34 @@ See `.github/instructions/agent-skills.instructions.md` for authoring guidelines
 2. Applies Karamel-Web-specific refactoring rules (test migration when splitting files, combining blocked steps)
 3. Validates using existing tests — no new tests required unless behavior is added
 
+## brainstorming
+
+**File**: [`.github/skills/brainstorming/SKILL.md`](.github/skills/brainstorming/SKILL.md)
+
+**Purpose**: Explores user intent, requirements and design before any creative work (features, components, functionality, or behavior changes).
+
+**Activated by**: Before starting feature development, component creation, or behavior modifications.
+
+**How it works**:
+1. Explores and clarifies user intent and requirements
+2. Validates assumptions and edge cases
+3. Designs solution before implementation begins
+4. Documents decisions and alternatives
+
+## systematic-debugging
+
+**File**: [`.github/skills/systematic-debugging/SKILL.md`](.github/skills/systematic-debugging/SKILL.md)
+
+**Purpose**: Systematically identifies root causes of bugs, test failures, and unexpected behavior before attempting fixes.
+
+**Activated by**: When encountering any technical issue (test failures, bugs, unexpected behavior, build failures).
+
+**How it works**:
+1. Investigates root cause first (never proposes fixes without root cause analysis)
+2. Documents symptoms and their causes
+3. Verifies the fix actually resolves the root cause
+4. Validates there are no side effects
+
 ---
 
 ## Adding New Agents

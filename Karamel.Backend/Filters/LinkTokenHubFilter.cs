@@ -26,7 +26,10 @@ namespace Karamel.Backend.Filters
             "ClearQueueAsync",
             "SetSongStatusAsync",
             "CompleteCurrentSongAsync",
-            "AdvanceToNextSongAsync"
+            "AdvanceToNextSongAsync",
+            "PauseSessionAsync",
+            "ResumeSessionAsync",
+            "UpdateSessionConfigAsync"
         };
 
         private static readonly HashSet<string> ConditionalAdminMethods = new(StringComparer.Ordinal)
