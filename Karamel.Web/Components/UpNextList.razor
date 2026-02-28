@@ -1,0 +1,87 @@
+@using Fluxor
+@using Fluxor.Blazor.Web.Components
+@using Karamel.Web.Contracts
+@using Karamel.Web.Store.Playlist
+
+@inherits FluxorComponent
+
+@inject IState<PlaylistState> PlaylistState
+
+@{
+    var currentSong = PlaylistState.Value.CurrentSong;
+    var upNextSongs = PlaylistState.Value.Items
+        .Where(i => i.Status == (int)SongStatus.Queued || i.Status == (int)SongStatus.UpNext)
+        .OrderBy(i => i.Position)
+        .ToList();
+}
+
+<div class="up-next-list">
+
+    @if (currentSong != null)
+    {
+        <div class="up-next-now-playing card mb-3">
+            <div class="card-body py-2">
+                <h5 class="card-title mb-1">
+                    <i class="bi bi-play-circle-fill text-on-surface me-2"></i>Now Playing
+                </h5>
+                <div class="song-info">
+                    <span class="fw-bold">@currentSong.Artist</span> – @currentSong.Title
+                    @if (!string.IsNullOrEmpty(currentSong.SingerName))
+                    {
+                        <div class="small muted-on-surface mt-1">
+                            <i class="bi bi-person-fill"></i> @currentSong.SingerName
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!upNextSongs.Any() && currentSong == null)
+    {
+        <div class="up-next-empty text-center py-4 muted-on-surface">
+            <i class="bi bi-music-note-list fs-3 d-block mb-2"></i>
+            <p>No songs in queue yet. Add a song to get things started!</p>
+        </div>
+    }
+    else if (!upNextSongs.Any())
+    {
+        <div class="up-next-empty text-center py-3 muted-on-surface small">
+            <i class="bi bi-check-circle me-1"></i> No more songs queued after current.
+        </div>
+    }
+    else
+    {
+        <div class="up-next-header mb-2">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ol me-2"></i>Up Next (@upNextSongs.Count)
+            </h5>
+        </div>
+
+        <div class="up-next-song-list">
+            @for (int i = 0; i < upNextSongs.Count; i++)
+            {
+                var song = upNextSongs[i];
+                var position = i + 2; // position 1 = Now Playing
+
+                <div class="up-next-song-item">
+                    <div class="up-next-song-position">
+                        #@position
+                    </div>
+                    <div class="up-next-song-details flex-grow-1">
+                        <div class="up-next-song-title">
+                            <strong>@song.Artist</strong> – @song.Title
+                        </div>
+                        @if (!string.IsNullOrEmpty(song.SingerName))
+                        {
+                            <div class="small muted-on-surface">
+                                <i class="bi bi-person-fill"></i> @song.SingerName
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+</div>

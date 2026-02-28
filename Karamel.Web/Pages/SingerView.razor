@@ -100,23 +100,47 @@
                     @GetSongCount() / 10 songs in queue
                 </div>
             </div>
-            <LibrarySearch OnAddToQueue="HandleAddToQueue" />
 
-            <div class="d-flex justify-content-center mt-3">
-                @if (LibraryState.Value.HasMorePages)
-                {
-                    @if (LibraryState.Value.IsLoading)
-                    {
-                        <button class="btn k-btn-outline" disabled>
-                            <span class="spinner-border spinner-border-sm me-2"></span>Loading...
-                        </button>
-                    }
-                    else
-                    {
-                        <button class="btn k-btn-outline" @onclick="LoadMorePage">Load more</button>
-                    }
-                }
+            <!-- View toggle: Library search vs Up Next list -->
+            <div class="singer-view-toggle mb-3" role="tablist">
+                <button class="btn singer-toggle-btn @(_activeView == "library" ? "active" : "")"
+                        role="tab"
+                        aria-selected="@(_activeView == "library")"
+                        @onclick='() => _activeView = "library"'>
+                    🎵 Library
+                </button>
+                <button class="btn singer-toggle-btn @(_activeView == "upnext" ? "active" : "")"
+                        role="tab"
+                        aria-selected="@(_activeView == "upnext")"
+                        @onclick='() => _activeView = "upnext"'>
+                    📋 Up Next
+                </button>
             </div>
+
+            @if (_activeView == "library")
+            {
+                <LibrarySearch OnAddToQueue="HandleAddToQueue" />
+
+                <div class="d-flex justify-content-center mt-3">
+                    @if (LibraryState.Value.HasMorePages)
+                    {
+                        @if (LibraryState.Value.IsLoading)
+                        {
+                            <button class="btn k-btn-outline" disabled>
+                                <span class="spinner-border spinner-border-sm me-2"></span>Loading...
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn k-btn-outline" @onclick="LoadMorePage">Load more</button>
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                <UpNextList />
+            }
         </div>
     }
 
@@ -156,6 +180,7 @@
     private string toastIcon = string.Empty;
     private bool isSessionValid = false;
     private bool isInitializing = true;
+    private string _activeView = "library"; // "library" or "upnext"
     private IJSObjectReference? themeToggleModule;
 
     protected override void OnInitialized()

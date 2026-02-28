@@ -72,9 +72,9 @@
 
 **Independent test criteria:** Toggling between Library and Playlist shows the correct view; playlist has no remove/reorder controls.
 
-- [ ] T027 Add a toggle button on `SingerView.razor` that switches between the existing library search and an `UpNextList` component.
-- [ ] T028 Ensure `UpNextList` renders playlist items without drag handles or remove buttons when shown in singer mode.
-- [ ] T029 Write tests verifying the toggle works and that the list is read-only.
+- [X] T027 Add a toggle button on `SingerView.razor` that switches between the existing library search and an `UpNextList` component.
+- [X] T028 Ensure `UpNextList` renders playlist items without drag handles or remove buttons when shown in singer mode.
+- [X] T029 Write tests verifying the toggle works and that the list is read-only.
 
 ## Final Phase: Polish & cross-cutting concerns
 

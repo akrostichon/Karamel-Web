@@ -78,6 +78,37 @@ html[data-theme="dark"] .name-entry-card .form-control::placeholder {
     border-radius: 0.5rem;
 }
 
+/* View toggle (Library / Up Next segmented control) */
+.singer-view-toggle {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.25rem;
+    width: fit-content;
+}
+
+.singer-toggle-btn {
+    padding: 0.4rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: none;
+    transition: background 0.15s, color 0.15s;
+}
+
+.singer-toggle-btn.active {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary, #fff);
+}
+
+.singer-toggle-btn:hover:not(.active) {
+    background: rgba(var(--color-surface-contrast-rgb), 0.06);
+    color: var(--color-text);
+}
+
 /* QR pane styling: ensure generated QR canvas uses theme surface instead of white */
 .qr-container,
 div[id$="-qrcode"],
