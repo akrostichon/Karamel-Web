@@ -10,7 +10,8 @@
 
 @if (IsAdminTab)
 {
-    <div class="session-controls-panel">
+    <div class="card session-controls-panel">
+        <div class="card-body">
         <div class="session-controls-header">
             <span class="session-controls-icon">⚙️</span>
             <span class="session-controls-title">Session Controls</span>
@@ -93,7 +94,6 @@
                     <select class="form-select config-input-theme"
                             id="themeSelector"
                             @bind="_theme">
-                        <option value="">Default</option>
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
                     </select>
@@ -115,6 +115,7 @@
                 }
             </div>
         }
+        </div>
     </div>
 }
 
@@ -177,7 +178,7 @@
         _requireSingerName = session.RequireSingerName;
         _allowSingersToReorder = session.AllowSingersToReorder;
         _pauseBetweenSongsSeconds = session.PauseBetweenSongsSeconds;
-        _theme = session.Theme;
+        _theme = session.Theme ?? "light";
     }
 
     private void OnPauseClicked()

@@ -149,7 +149,7 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 		});
 
 		hubConnection.on('ReceiveConfigUpdated', async (config) => {
-			logger.debug('Received ReceiveConfigUpdated', { sessionId });
+			logger.info('Received ReceiveConfigUpdated', { sessionId, theme: config?.theme ?? 'null' });
 			// Apply theme immediately in JS so all connected tabs update without waiting for Blazor
 			if (config && config.theme) {
 				try {
@@ -157,6 +157,15 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 					themeModule.setTheme(config.theme);
 				} catch (e) {
 					logger.warn('Failed to apply theme from config update', { error: e.message });
+				}
+			}
+			// Re-broadcast via BroadcastChannel so same-device tabs (e.g. the main tab running
+			// NextSongView) receive the config update even if their own SignalR connection failed.
+			if (broadcastChannel) {
+				try {
+					broadcastChannel.postMessage({ type: 'config-updated', data: config || {}, timestamp: Date.now(), senderId: tabId });
+				} catch (e) {
+					logger.warn('Failed to re-broadcast config update via BroadcastChannel', { error: e.message });
 				}
 			}
 			const event = new CustomEvent('session-state-updated', { detail: { type: 'config-updated', data: config || {} } });
@@ -276,6 +285,21 @@ function handleBroadcastMessage(message) {
 				logger.warn('Error while attempting to apply theme from broadcast', { error: e.message });
 			});
 		}
+
+		// If config-updated includes a theme, apply it on this tab (handles main-tab
+		// re-broadcast from a secondary tab that received ReceiveConfigUpdated via SignalR)
+		if (message && message.type === 'config-updated' && message.data && message.data.theme) {
+			import('./themeToggle.js').then(module => {
+				try {
+					module.setTheme(message.data.theme);
+					logger.info('Applied theme from config-updated broadcast', { theme: message.data.theme });
+				} catch (e) {
+					logger.warn('Failed to apply theme from config-updated broadcast', { error: e.message });
+				}
+			}).catch(e => {
+				logger.warn('Error while attempting to apply theme from config-updated broadcast', { error: e.message });
+			});
+		}
 	} catch (e) {
 		logger.warn('Error in handleBroadcastMessage', { error: e.message, messageType: message?.type });
 	}
@@ -295,9 +319,14 @@ function saveToSessionStorage(type, data) {
 			case 'current-song':
 				sessionState.currentSong = data;
 				break;
+			case 'config-updated':
+			case 'session-paused':
+			case 'session-resumed':
+				// These are ephemeral events; no session-storage persistence needed.
+				return;
 			default:
-			logger.warn('Unknown state type', { type });
-			return;
+				logger.warn('Unknown state type', { type });
+				return;
 	}
 	sessionStorage.setItem(getSessionKey(currentSessionId), JSON.stringify(sessionState));
 	} catch (e) {

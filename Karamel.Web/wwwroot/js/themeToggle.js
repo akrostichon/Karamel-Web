@@ -15,10 +15,10 @@ export function setTheme(theme) {
       document.documentElement.setAttribute('data-theme', 'dark');
       localStorage.setItem(THEME_KEY, 'dark');
     } else if (theme === 'light') {
-      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', 'light');
       localStorage.setItem(THEME_KEY, 'light');
     } else {
-      // remove explicit preference
+      // remove explicit preference; OS decides
       document.documentElement.removeAttribute('data-theme');
       localStorage.removeItem(THEME_KEY);
     }
@@ -34,7 +34,7 @@ export function initTheme() {
     if (pref === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
     } else if (pref === 'light') {
-      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
     return pref || '';
   } catch (e) {

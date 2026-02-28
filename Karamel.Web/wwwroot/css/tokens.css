@@ -131,6 +131,45 @@
   --bs-border-color: rgba(255,255,255,0.06);
 }
 
+/* Explicit light theme via attribute – overrides OS-level dark preference when
+   the user selects light from session controls (data-theme="light" set by setTheme). */
+:root[data-theme="light"] {
+  --gradient-light: linear-gradient(35deg, var(--gradient-light-from), var(--gradient-light-to));
+  --gradient-dark: linear-gradient(35deg, var(--gradient-dark-from), var(--gradient-dark-to));
+
+  --color-primary: #EAAE63;
+  --color-primary-dark: #CB8F53;
+  --color-accent: #C95CA2;
+  --color-surface: linear-gradient(35deg, #FBE7D0, #F6C895);
+  --color-surface-contrast: #ffffff;
+  --color-surface-contrast-rgb: 255,255,255;
+  --color-bg: var(--gradient-light);
+  --color-text: #F5E1C0;
+  --color-text-border: var(--color-text);
+  --color-text-rgb: 245,225,192;
+  --color-text-secondary: #D6BFA5;
+  --color-highlight: #FFD25F;
+  --color-checkbox-checked: var(--gradient-light-from);
+
+  /* Bootstrap light mappings */
+  --bs-body-bg: var(--color-bg);
+  --bs-body-color: var(--color-text);
+  --bs-primary: var(--color-primary);
+  --bs-primary-text: var(--color-text);
+  --bs-accent: var(--color-accent);
+  --bs-success: var(--color-success);
+  --bs-danger: var(--color-error);
+  --bs-link-color: var(--color-accent);
+  --bs-card-bg: var(--color-surface);
+  --bs-border-color: rgba(0,0,0,0.08);
+}
+
+/* Bootstrap dropdown-menu cannot use a gradient via --bs-dropdown-bg (background-color only).
+   Override directly so light-theme dropdowns use the light gradient instead of white. */
+html[data-theme="light"] .dropdown-menu {
+  background: var(--gradient-light) !important;
+}
+
 /* Utility: ensure color scheme declared for form controls */
 html {
   color-scheme: light dark;

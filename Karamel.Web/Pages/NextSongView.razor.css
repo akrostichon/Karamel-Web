@@ -169,7 +169,8 @@
 .qrcode-large {
     width: 300px;
     height: 300px;
-    background: var(--color-surface-contrast);
+    background-color: #2A2A2A;
+    border: 1px solid #444444;
     padding: 1.5rem;
     border-radius: 1rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -311,6 +312,55 @@
 
 .admin-dropdown-item:hover {
     background-color: rgba(234, 174, 99, 0.2);
+}
+
+/* Dark theme via explicit data-theme toggle (responds to JS setTheme('dark'))
+   Required because the @media (prefers-color-scheme: dark) blocks above only fire
+   when the OS is in dark mode — not when the user toggles via session controls. */
+html[data-theme="dark"] .nextsong-view {
+    background: var(--gradient-dark) !important;
+}
+
+html[data-theme="dark"] .empty-queue-container {
+    background: var(--gradient-dark) !important;
+}
+
+html[data-theme="dark"] .countdown-progress {
+    background: rgba(41, 36, 35, 0.8) !important;
+    border: 2px solid rgba(234, 174, 99, 0.5) !important;
+}
+
+html[data-theme="dark"] .progress-bar {
+    background: linear-gradient(90deg, #FFB64C 0%, #FFA733 100%) !important;
+}
+
+html[data-theme="dark"] .qrcode-content {
+    background: var(--color-surface-contrast) !important;
+    color: var(--color-accent) !important;
+}
+
+/* Light theme: explicitly cancel dark @media rules when user sets light theme
+   (needed when OS is in dark mode but the session theme is set to light). */
+html[data-theme="light"] .nextsong-view {
+    background: var(--gradient-light) !important;
+}
+
+html[data-theme="light"] .empty-queue-container {
+    background: var(--gradient-light) !important;
+}
+
+html[data-theme="light"] .countdown-progress {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 2px solid rgba(234, 174, 99, 0.3) !important;
+}
+
+html[data-theme="light"] .progress-bar {
+    background: linear-gradient(90deg, #FFA733 0%, #FF8C33 100%) !important;
+}
+
+html[data-theme="light"] .qrcode-content {
+    background: var(--color-surface-contrast) !important;
+    color: var(--color-accent) !important;
 }
 
 /* Countdown progress bar */

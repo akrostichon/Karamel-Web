@@ -1,9 +1,5 @@
 .session-controls-panel {
-    border: 1px solid var(--bs-border-color, #dee2e6);
-    border-radius: 0.5rem;
-    padding: 1rem;
     margin-bottom: 1rem;
-    background: var(--bs-body-bg, #fff);
 }
 
 .session-controls-header {
@@ -31,4 +27,21 @@
 
 .session-control-btn {
     min-width: 6rem;
+}
+
+/* ── Theme selector ────────────────────────────────────────────────────────── */
+.config-input-theme {
+    background-color: #292423;
+    border: 1px solid #3A241B;
+    border-radius: 8px;
+    color: var(--color-text, #F5E1C0);
+    padding: 0.625rem 2.25rem 0.625rem 1rem; /* keep space for the chevron */
+    transition: border-color 200ms ease-in-out, box-shadow 200ms ease-in-out;
+}
+
+.config-input-theme:focus {
+    border-color: #FFC254;
+    outline: 2px solid #FFC254;
+    outline-offset: 0;
+    box-shadow: 0 0 0 3px rgba(255, 194, 84, 0.25);
 }

@@ -172,6 +172,7 @@
     private bool isFullscreen = false;
     private bool _showAdminMenu = false;
     private IJSObjectReference? _protectionModule;
+    private IJSObjectReference? _themeToggleModule;
     private double remainingSeconds;
     private bool isTimerActive;
     private int totalSeconds;
@@ -256,6 +257,7 @@
                 _wasPaused = SessionState.Value.IsPaused;
                 // If session becomes valid later, initialize main-tab responsibilities
                 await InitializeMainTabAsync();
+                await InvokeAsync(ApplySessionThemeAsync);
                 UpdateNextSong();
                 StartAutoAdvanceTimer();
                 await InvokeAsync(StateHasChanged);
@@ -286,7 +288,11 @@
                     StopAllTimers();
                 }
 
-                await InvokeAsync(StateHasChanged);
+                await InvokeAsync(async () =>
+                {
+                    await ApplySessionThemeAsync();
+                    StateHasChanged();
+                });
             }
         }
         catch (Exception ex)
@@ -391,10 +397,12 @@
         if (firstRender && isSessionValid && !isLocalhost)
         {
             await InitializeMainTabAsync();
+            await ApplySessionThemeAsync();
         }
         else if (firstRender && isSessionValid && isLocalhost)
         {
             await InitializeMainTabAsync();
+            await ApplySessionThemeAsync();
         }
         else if (!firstRender && isSessionValid)
         {
@@ -464,6 +472,26 @@
         StartAutoAdvanceTimer();
         // Ensure heartbeat timer is running while NextSongView is shown
         StartHeartbeatTimer();
+    }
+
+    private async Task ApplySessionThemeAsync()
+    {
+        try
+        {
+            var theme = SessionState.Value.CurrentSession?.Theme;
+#if DEBUG
+            Console.WriteLine($"[NextSongView] ApplySessionThemeAsync: theme='{theme ?? "null"}'");
+#endif
+            if (!string.IsNullOrWhiteSpace(theme))
+            {
+                _themeToggleModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/themeToggle.js");
+                await _themeToggleModule.InvokeVoidAsync("setTheme", theme);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NextSongView: Failed to apply theme: {ex.Message}");
+        }
     }
 
     private async Task SendHeartbeatAsync()
@@ -822,6 +850,18 @@
                 {
                     await fullscreenModule.InvokeVoidAsync("dispose");
                     await fullscreenModule.DisposeAsync();
+                }
+                catch
+                {
+                    // Ignore disposal errors
+                }
+            }
+
+            if (_themeToggleModule != null)
+            {
+                try
+                {
+                    await _themeToggleModule.DisposeAsync();
                 }
                 catch
                 {
