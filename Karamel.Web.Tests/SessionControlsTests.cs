@@ -1,5 +1,6 @@
 using Bunit;
 using Karamel.Web.Components;
+using Karamel.Web.Contracts;
 using Karamel.Web.Models;
 using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
@@ -35,13 +36,14 @@ namespace Karamel.Web.Tests
         // ─── Helpers ─────────────────────────────────────────────────────────────
 
         private (Mock<IDispatcher> dispatcher, Mock<ISignalRPlaylistBridge> bridge) SetupServices(
-            SessionState sessionState)
+            SessionState sessionState,
+            PlaylistState? playlistState = null)
         {
             var mockSessionState = new Mock<IState<SessionState>>();
             mockSessionState.Setup(s => s.Value).Returns(sessionState);
 
             var mockPlaylistState = new Mock<IState<PlaylistState>>();
-            mockPlaylistState.Setup(s => s.Value).Returns(new PlaylistState());
+            mockPlaylistState.Setup(s => s.Value).Returns(playlistState ?? new PlaylistState());
 
             var mockDispatcher = new Mock<IDispatcher>();
             var mockActionSubscriber = new Mock<IActionSubscriber>();
@@ -55,6 +57,9 @@ namespace Karamel.Web.Tests
 
             return (mockDispatcher, mockBridge);
         }
+
+        private static PlaylistItemDto MakeItem(string id, SongStatus status) =>
+            new(id, null, "Artist", "Title", null, 0, (int)status);
 
         // ─── Visibility ───────────────────────────────────────────────────────────
 
@@ -134,16 +139,49 @@ namespace Karamel.Web.Tests
         }
 
         [Fact]
-        public void SessionControls_ClickNextButton_WhenNotPaused_DispatchesAdvanceToNextSongAction()
+        public void SessionControls_ClickNextButton_WhenNowPlayingExists_DispatchesCompleteCurrentSong()
         {
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
-            var (mockDispatcher, _) = SetupServices(sessionState);
+            // CurrentSong (not Items) represents the actively playing song
+            var playlistState = new PlaylistState
+            {
+                CurrentSong = MakeItem("item-1", SongStatus.NowPlaying)
+            };
+            var (mockDispatcher, _) = SetupServices(sessionState, playlistState);
 
             var cut = RenderComponent<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             cut.Find(".btn-next").Click();
 
+            // Should mark current song completed; PlayerView handles navigation itself
+            mockDispatcher.Verify(
+                d => d.Dispatch(It.IsAny<CompleteCurrentSongAction>()),
+                Times.Once);
+            mockDispatcher.Verify(
+                d => d.Dispatch(It.IsAny<AdvanceToNextSongAction>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public void SessionControls_ClickNextButton_WhenNoNowPlayingButQueuedExists_DispatchesAdvanceToNextSong()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            var playlistState = new PlaylistState
+            {
+                Items = [MakeItem("item-1", SongStatus.UpNext)]
+            };
+            var (mockDispatcher, _) = SetupServices(sessionState, playlistState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true));
+
+            cut.Find(".btn-next").Click();
+
+            // No song playing: promote next queued song to NowPlaying
+            mockDispatcher.Verify(
+                d => d.Dispatch(It.IsAny<CompleteCurrentSongAction>()),
+                Times.Never);
             mockDispatcher.Verify(
                 d => d.Dispatch(It.IsAny<AdvanceToNextSongAction>()),
                 Times.Once);
@@ -168,13 +206,29 @@ namespace Karamel.Web.Tests
         public void SessionControls_WhenNotPaused_NextButtonIsEnabled()
         {
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
-            SetupServices(sessionState);
+            // Need at least one queued/upnext song for the button to be enabled
+            var playlistState = new PlaylistState { Items = [MakeItem("item-1", SongStatus.UpNext)] };
+            SetupServices(sessionState, playlistState);
 
             var cut = RenderComponent<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             var nextBtn = cut.Find(".btn-next");
             Assert.False(nextBtn.HasAttribute("disabled"));
+        }
+
+        [Fact]
+        public void SessionControls_WhenQueueEmpty_NextButtonIsDisabled()
+        {
+            // No items in the playlist → nothing to advance to
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState, new PlaylistState());
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true));
+
+            var nextBtn = cut.Find(".btn-next");
+            Assert.True(nextBtn.HasAttribute("disabled"));
         }
 
         // ─── Config section visibility ────────────────────────────────────────────

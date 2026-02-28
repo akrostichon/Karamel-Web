@@ -3,8 +3,10 @@
 @using Karamel.Web.Store.Session
 @using Karamel.Web.Store.Playlist
 @using Karamel.Web.Services
+@using Karamel.Web.Contracts
 @inherits FluxorComponent
 @inject IState<SessionState> SessionState
+@inject IState<PlaylistState> PlaylistState
 @inject IDispatcher Dispatcher
 @inject ISignalRPlaylistBridge SignalRBridge
 
@@ -36,8 +38,8 @@
 
             <button class="btn btn-primary session-control-btn btn-next"
                     @onclick="OnNextClicked"
-                    disabled="@SessionState.Value.IsPaused"
-                    title="@(SessionState.Value.IsPaused ? "Resume session before advancing" : "Advance to next song")">
+                    disabled="@IsNextDisabled"
+                    title="@NextButtonTitle">
                 ⏭️ Next
             </button>
         </div>
@@ -141,6 +143,22 @@
     [Parameter]
     public EventCallback OnNavigateBack { get; set; }
 
+    // ─── Computed properties ─────────────────────────────────────────────────
+
+    private bool HasNextSong =>
+        PlaylistState.Value.CurrentSong != null ||
+        PlaylistState.Value.Items.Any(i =>
+            i.Status == (int)SongStatus.UpNext ||
+            i.Status == (int)SongStatus.Queued);
+
+    private bool IsNextDisabled =>
+        SessionState.Value.IsPaused || !HasNextSong;
+
+    private string NextButtonTitle =>
+        SessionState.Value.IsPaused ? "Resume session before advancing" :
+        !HasNextSong ? "No songs queued" :
+        "Advance to next song";
+
     // Local copies of config fields bound to the UI inputs
     private bool _requireSingerName;
     private bool _allowSingersToReorder;
@@ -193,8 +211,18 @@
 
     private void OnNextClicked()
     {
-        if (!SessionState.Value.IsPaused)
+        if (IsNextDisabled) return;
+
+        if (PlaylistState.Value.CurrentSong != null)
         {
+            // Song is playing: mark it completed. PlayerView detects CurrentSong → null
+            // via PlaylistState.StateChanged and navigates itself to NextSongView.
+            Dispatcher.Dispatch(new CompleteCurrentSongAction());
+        }
+        else
+        {
+            // Nothing playing but items are queued: promote next song to NowPlaying
+            // so it becomes available when the player is opened.
             Dispatcher.Dispatch(new AdvanceToNextSongAction());
         }
     }
