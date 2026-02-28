@@ -60,11 +60,11 @@
 
 **Independent test criteria:** Admin tab shows segmented control; switching to session control displays appropriate UI for iteration; non-admin tabs do not show control.
 
-- [ ] T022 Modify `Playlist.razor` to render segmented control when `_isAdminTab` true and handle selection state.
-- [ ] T023 Create new `SessionControls.razor` component to host the group box with gear icon header and the buttons/inputs from previous tasks.
-- [ ] T024 In iteration 3.1, disable configuration inputs and hide the back-to-playlist button; ensure only pause/resume/next are active.
-- [ ] T025 In iteration 3.2, enable inputs and add a "Back to playlist" button that switches the segment.
-- [ ] T026 Add component tests confirming the segmented control appears only for admin, segments toggle content, and iteration-specific behaviour works.
+- [X] T022 Modify `Playlist.razor` to render segmented control when `_isAdminTab` true and handle selection state.
+- [X] T023 Create new `SessionControls.razor` component to host the group box with gear icon header and the buttons/inputs from previous tasks.
+- [X] T024 In iteration 3.1, disable configuration inputs and hide the back-to-playlist button; ensure only pause/resume/next are active.
+- [X] T025 In iteration 3.2, enable inputs and add a "Back to playlist" button that switches the segment.
+- [X] T026 Add component tests confirming the segmented control appears only for admin, segments toggle content, and iteration-specific behaviour works.
 
 ## Phase 6: User Story 4 – SingerView read‑only playlist mode
 

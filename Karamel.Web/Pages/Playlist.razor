@@ -45,8 +45,34 @@
     {
         <h1 class="mb-4">Playlist</h1>
 
-    <!-- Admin Session Controls (admin tabs only) -->
-    <SessionControls IsAdminTab="_isAdminTab" />
+    <!-- Segmented control: visible only for admin tabs -->
+    @if (_isAdminTab)
+    {
+        <div class="playlist-segment-control mb-3" role="tablist">
+            <button class="btn segment-btn @(_activeSegment == "playlist" ? "active" : "")"
+                    role="tab"
+                    aria-selected="@(_activeSegment == "playlist")"
+                    @onclick='() => _activeSegment = "playlist"'>
+                🎵 Playlist
+            </button>
+            <button class="btn segment-btn segment-btn-session @(_activeSegment == "session-controls" ? "active" : "")"
+                    role="tab"
+                    aria-selected="@(_activeSegment == "session-controls")"
+                    @onclick='() => _activeSegment = "session-controls"'>
+                ⚙️ Session Controls
+            </button>
+        </div>
+    }
+
+    <!-- Session Controls panel (admin, session-controls segment) -->
+    @if (_isAdminTab && _activeSegment == "session-controls")
+    {
+        <SessionControls IsAdminTab="true" ConfigEnabled="true" OnNavigateBack="NavigateBackToPlaylist" />
+    }
+
+    <!-- Playlist content (always visible for non-admin; visible for admin when playlist segment active) -->
+    @if (!_isAdminTab || _activeSegment == "playlist")
+    {
 
     <!-- Now Playing Section -->
     @if (PlaylistState.Value.CurrentSong != null)
@@ -151,6 +177,7 @@
             </div>
         }
     }
+    }
 </div>
 
 @code {
@@ -167,6 +194,7 @@
     private bool isSessionValid = false;
     private bool isInitializing = true;
     private bool _isAdminTab = false; // NEW: Track if current tab has admin privileges
+    private string _activeSegment = "playlist"; // "playlist" or "session-controls"
     private IJSObjectReference? themeToggleModule;
     
 
@@ -344,6 +372,11 @@
         {
             Dispatcher.Dispatch(new RemoveSongAction(guid));
         }
+    }
+
+    private void NavigateBackToPlaylist()
+    {
+        _activeSegment = "playlist";
     }
 
     private async Task ClearPlaylist()

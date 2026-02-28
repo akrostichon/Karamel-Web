@@ -5,6 +5,7 @@ using Karamel.Web.Store.Session;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Tests.TestHelpers;
 using Karamel.Web.Services;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Fluxor;
 using Moq;
@@ -380,6 +381,71 @@ namespace Karamel.Web.Tests
 
             var saveBtn = cut.Find(".btn-save-config");
             Assert.False(saveBtn.HasAttribute("disabled"));
+        }
+
+        // ─── Back-to-playlist button (T025 / T026) ───────────────────────────────
+
+        [Fact]
+        public void SessionControls_WhenConfigDisabled_BackToPlaylistButton_NotRendered()
+        {
+            // Iteration 3.1: ConfigEnabled=false → back button must not appear
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, false));
+
+            Assert.Throws<ElementNotFoundException>(() => cut.Find(".btn-back-to-playlist"));
+        }
+
+        [Fact]
+        public void SessionControls_WhenConfigEnabled_WithoutNavigateBackCallback_BackToPlaylistButton_NotRendered()
+        {
+            // ConfigEnabled=true but no callback provided → button must not appear
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+            // OnNavigateBack not added → HasDelegate is false
+
+            Assert.Throws<ElementNotFoundException>(() => cut.Find(".btn-back-to-playlist"));
+        }
+
+        [Fact]
+        public void SessionControls_WhenConfigEnabled_WithNavigateBackCallback_BackToPlaylistButton_Rendered()
+        {
+            // Iteration 3.2: ConfigEnabled=true + callback → button appears
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true)
+                .Add(x => x.OnNavigateBack, EventCallback.Factory.Create(this, () => { })));
+
+            Assert.NotNull(cut.Find(".btn-back-to-playlist"));
+        }
+
+        [Fact]
+        public void SessionControls_BackToPlaylistButton_WhenClicked_InvokesCallback()
+        {
+            // Clicking the back button must invoke the provided callback
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var callbackInvoked = false;
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true)
+                .Add(x => x.OnNavigateBack, EventCallback.Factory.Create(this, () => { callbackInvoked = true; })));
+
+            cut.Find(".btn-back-to-playlist").Click();
+
+            Assert.True(callbackInvoked);
         }
     }
 }

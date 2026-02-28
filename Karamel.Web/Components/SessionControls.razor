@@ -105,6 +105,14 @@
                         title="Save session settings">
                     Save Settings
                 </button>
+
+                @if (OnNavigateBack.HasDelegate)
+                {
+                    <button class="btn btn-outline-secondary btn-sm btn-back-to-playlist w-100 mt-2"
+                            @onclick="HandleNavigateBack">
+                        ← Back to Playlist
+                    </button>
+                }
             </div>
         }
     </div>
@@ -123,6 +131,14 @@
     /// </summary>
     [Parameter]
     public bool ConfigEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Optional callback fired when the user clicks "Back to Playlist".
+    /// Rendered only when <see cref="ConfigEnabled"/> is <c>true</c> (iteration 3.2)
+    /// and this delegate is provided by the parent (i.e., the segmented-control context).
+    /// </summary>
+    [Parameter]
+    public EventCallback OnNavigateBack { get; set; }
 
     // Local copies of config fields bound to the UI inputs
     private bool _requireSingerName;
@@ -215,6 +231,8 @@
             _pauseValidationError = string.Empty;
         }
     }
+
+    private Task HandleNavigateBack() => OnNavigateBack.InvokeAsync();
 
     private void OnSaveConfigClicked()
     {

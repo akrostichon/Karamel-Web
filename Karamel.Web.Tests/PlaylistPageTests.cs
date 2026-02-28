@@ -470,6 +470,172 @@ public class PlaylistPageTests : SessionTestBase
         Assert.Contains("Alice", upNextSection.TextContent); // ABBA song
         Assert.Contains("Charlie", upNextSection.TextContent);
     }
+
+    // ─── Segmented control (T022 / T026) ─────────────────────────────────────────
+
+    [Fact]
+    public void Playlist_NonAdminTab_SegmentedControlNotRendered()
+    {
+        // Arrange – non-admin tab (default role = null which means not admin)
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist"); // no adminRole
+
+        // Act
+        var cut = RenderComponent<Playlist>();
+
+        // Assert – segmented control must not be rendered for non-admin
+        Assert.Throws<ElementNotFoundException>(() => cut.Find(".playlist-segment-control"));
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_SegmentedControlRendered()
+    {
+        // Arrange – admin tab
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        // Act
+        var cut = RenderComponent<Playlist>();
+
+        // Assert – segmented control must be visible
+        Assert.NotNull(cut.Find(".playlist-segment-control"));
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_SegmentedControl_HasBothSegmentButtons()
+    {
+        // Arrange – admin tab
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Assert – both segment buttons exist
+        var buttons = cut.FindAll(".segment-btn");
+        Assert.Equal(2, buttons.Count);
+        Assert.Contains("Playlist", buttons[0].TextContent);
+        Assert.Contains("Session Controls", buttons[1].TextContent);
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_DefaultSegmentIsPlaylist()
+    {
+        // Arrange – admin tab
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Assert – "Playlist" segment button is active by default
+        var playlistBtn = cut.FindAll(".segment-btn")[0];
+        Assert.Contains("active", playlistBtn.GetAttribute("class") ?? string.Empty);
+
+        // The session-controls panel must NOT be visible
+        Assert.Throws<ElementNotFoundException>(() => cut.Find(".session-controls-panel"));
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_ClickingSessionControlsSegment_ShowsSessionControlsPanel()
+    {
+        // Arrange – admin tab
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Act – click "Session Controls" segment button
+        var sessionControlsBtn = cut.FindAll(".segment-btn")[1];
+        sessionControlsBtn.Click();
+
+        // Assert – session controls panel is now rendered
+        Assert.NotNull(cut.Find(".session-controls-panel"));
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_ClickingSessionControlsSegment_HidesPlaylistContent()
+    {
+        // Arrange – admin tab with songs in queue
+        var queue = new Queue<Song>(_testSongs);
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Confirm playlist content is visible initially
+        Assert.NotNull(cut.Find(".up-next"));
+
+        // Act – switch to session controls segment
+        cut.FindAll(".segment-btn")[1].Click();
+
+        // Assert – playlist content is now hidden
+        Assert.Throws<ElementNotFoundException>(() => cut.Find(".up-next"));
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_ClickingPlaylistSegment_RestoresPlaylistContent()
+    {
+        // Arrange – admin tab with songs in queue
+        var queue = new Queue<Song>(_testSongs);
+        var playlistState = new PlaylistState { Items = TestDataFactory.CreatePlaylistItems(queue.ToArray()) };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Switch to session controls
+        cut.FindAll(".segment-btn")[1].Click();
+        Assert.Throws<ElementNotFoundException>(() => cut.Find(".up-next"));
+
+        // Act – switch back to playlist
+        cut.FindAll(".segment-btn")[0].Click();
+
+        // Assert – playlist content is visible again
+        Assert.NotNull(cut.Find(".up-next"));
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_SessionControlsPanel_HasBackToPlaylistButton()
+    {
+        // Arrange – admin tab (ConfigEnabled=true is passed when in segmented view)
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Switch to session controls
+        cut.FindAll(".segment-btn")[1].Click();
+
+        // Assert – back button is present (ConfigEnabled=true + OnNavigateBack callback provided)
+        Assert.NotNull(cut.Find(".btn-back-to-playlist"));
+    }
+
+    [Fact]
+    public void Playlist_AdminTab_ClickingBackToPlaylist_ReturnToPlaylistSegment()
+    {
+        // Arrange – admin tab
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto>() };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Switch to session controls
+        cut.FindAll(".segment-btn")[1].Click();
+        Assert.NotNull(cut.Find(".session-controls-panel")); // confirm we're on session controls
+
+        // Act – click "Back to Playlist" button
+        cut.Find(".btn-back-to-playlist").Click();
+
+        // Assert – playlist segment is now active, session controls panel is gone
+        Assert.Throws<ElementNotFoundException>(() => cut.Find(".session-controls-panel"));
+        var playlistBtn = cut.FindAll(".segment-btn")[0];
+        Assert.Contains("active", playlistBtn.GetAttribute("class") ?? string.Empty);
+    }
 }
-
-
