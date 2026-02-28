@@ -78,11 +78,11 @@
 
 ## Final Phase: Polish & cross-cutting concerns
 
-- [ ] T030 Add styling for the session settings group box with a gear icon header; ensure icons match design (`▶️|` pause, `▶️` resume).
-- [ ] T031 Add documentation updates (README or comments) describing the admin link and controls.
-- [ ] T032 Run full test suites (`dotnet test` for both projects and `npm run test:run`) and fix any failures.
-- [ ] T033 Manually verify multi-tab scenarios and update any telemetry/logging as needed.
-- [ ] T034 Review and commit changes on a feature branch following git workflow rules.
+- [X] T030 Add styling for the session settings group box with a gear icon header; ensure icons match design (`▶️|` pause, `▶️` resume).
+- [X] T031 Add documentation updates (README or comments) describing the admin link and controls.
+- [X] T032 Run full test suites (`dotnet test` for both projects and `npm run test:run`) and fix any failures.
+- [X] T033 Manually verify multi-tab scenarios and update any telemetry/logging as needed.
+- [X] T034 Review and commit changes on a feature branch following git workflow rules.
 
 ### Dependencies
 
