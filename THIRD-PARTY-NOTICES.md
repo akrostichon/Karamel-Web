@@ -4,12 +4,11 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
 
 ## Dependencies
 
-- CDGraphics.js
  - CDGraphics.js
   - Version: included locally under `wwwroot/lib/cdgraphics` (cdgraphics v7.0.0)
-  - License: ISC
-  - Source: https://github.com/adrienjoly/cdgraphics
-  - Notes: Used client-side for CDG rendering. ISC is permissive and compatible with MIT.
+  - License: MIT
+  - Source: https://github.com/bhj/cdgraphics
+  - Notes: Used client-side for CDG rendering. MIT is permissive and compatible with this project.
 
 - jsmediatags
  - jsmediatags

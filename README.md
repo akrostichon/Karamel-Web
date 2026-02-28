@@ -13,7 +13,7 @@ Karamel-Web supports cdg+mp3 files either zipped or unzipped (one song and cdg p
 
 This project uses the following third-party libraries. See THIRD-PARTY-NOTICES.md for details and license information.
 
-- CDGraphics.js — CDG rendering (ISC). https://github.com/adrienjoly/cdgraphics
+- CDGraphics.js — CDG rendering (MIT). https://github.com/bhj/cdgraphics
 - jsmediatags — ID3 tag extraction (LGPL-3.0). https://github.com/aadsm/jsmediatags
 - QRCode.js — QR code generation (MIT). https://github.com/davidshimjs/qrcodejs
 - Fluxor — Flux pattern state management for Blazor (MIT). https://github.com/mrpmorris/Fluxor
