@@ -22,3 +22,9 @@ public record ResumeSessionAction(bool IsAdminInitiated = false);
 /// frontend can update its local state accordingly.
 /// </summary>
 public record SessionConfigUpdatedAction(bool RequireSingerName, bool AllowSingersToReorder, int PauseBetweenSongsSeconds, string? Theme);
+
+/// <summary>
+/// Dispatched by admin when saving runtime configuration via the SessionControls UI.
+/// The effect will call the SignalR hub UpdateSessionConfigAsync.
+/// </summary>
+public record SaveSessionConfigAction(bool RequireSingerName, bool AllowSingersToReorder, int PauseBetweenSongsSeconds, string? Theme);

@@ -148,6 +148,21 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 			window.dispatchEvent(event);
 		});
 
+		hubConnection.on('ReceiveConfigUpdated', async (config) => {
+			logger.debug('Received ReceiveConfigUpdated', { sessionId });
+			// Apply theme immediately in JS so all connected tabs update without waiting for Blazor
+			if (config && config.theme) {
+				try {
+					const themeModule = await import('./themeToggle.js');
+					themeModule.setTheme(config.theme);
+				} catch (e) {
+					logger.warn('Failed to apply theme from config update', { error: e.message });
+				}
+			}
+			const event = new CustomEvent('session-state-updated', { detail: { type: 'config-updated', data: config || {} } });
+			window.dispatchEvent(event);
+		});
+
 		await hubConnection.start();
 		// Join session group
 		await hubConnection.invoke('JoinSession', sessionId);
@@ -576,6 +591,32 @@ export async function resumeSession() {
 	}
 
 	logger.warn('resumeSession: SignalR not connected, cannot resume session', { sessionId: currentSessionId });
+	return false;
+}
+
+/**
+ * Send config update to hub UpdateSessionConfigAsync.
+ * The hub persists the config and broadcasts ReceiveConfigUpdated to all clients.
+ * @param {object} config - Config object with camelCase properties
+ * @returns {Promise<boolean>} True if hub invocation succeeded
+ */
+export async function updateSessionConfig(config) {
+	if (!currentSessionId) {
+		logger.error('updateSessionConfig: No current session ID', null, { operation: 'updateSessionConfig' });
+		return false;
+	}
+
+	if (usingSignalR && hubConnection) {
+		try {
+			await hubConnection.invoke('UpdateSessionConfigAsync', currentSessionId, config);
+			return true;
+		} catch (e) {
+			logger.warn('UpdateSessionConfigAsync via SignalR failed', { error: e.message, sessionId: currentSessionId });
+			return false;
+		}
+	}
+
+	logger.warn('updateSessionConfig: SignalR not connected', { sessionId: currentSessionId });
 	return false;
 }
 

@@ -205,7 +205,12 @@
     {
         // Recompute validity when SessionState changes and re-render
         isSessionValid = ValidateSession();
-        InvokeAsync(StateHasChanged);
+        // Apply theme in case config was updated remotely via ReceiveConfigUpdated
+        _ = InvokeAsync(async () =>
+        {
+            await ApplySessionThemeAsync();
+            StateHasChanged();
+        });
     }
 
     private void OnPlaylistStateChanged(object? sender, EventArgs e)

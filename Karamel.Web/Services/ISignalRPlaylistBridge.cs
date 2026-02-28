@@ -71,4 +71,10 @@ public interface ISignalRPlaylistBridge
     /// Broadcast current song change (main tab only)
     /// </summary>
     Task BroadcastCurrentSongAsync(Song? song, string? singerName);
+
+    /// <summary>
+    /// Send updated session configuration to the hub (admin only).
+    /// Hub persists the config and broadcasts ReceiveConfigUpdated to all clients.
+    /// </summary>
+    Task<bool> UpdateSessionConfigAsync(bool requireSingerName, bool allowSingersToReorder, int pauseBetweenSongsSeconds, string? theme);
 }

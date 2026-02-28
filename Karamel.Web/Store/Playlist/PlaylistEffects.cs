@@ -32,7 +32,15 @@ public class PlaylistEffects
     {
         var state = _playlistState.Value;
         var singerName = action.SingerName ?? "Unknown";
-        
+
+        // Enforce singer-name requirement when the session flag is enabled
+        if ((_sessionState.Value.CurrentSession?.RequireSingerName ?? false)
+            && string.IsNullOrWhiteSpace(action.SingerName))
+        {
+            dispatcher.Dispatch(new AddToPlaylistFailureAction("Singer name is required to add a song."));
+            return Task.CompletedTask;
+        }
+
         // Calculate current count on-demand from Items
         var currentCount = state.Items.Count(i => i.SingerName == singerName && i.Status != 3); // 3=Completed
 
@@ -123,6 +131,20 @@ public class PlaylistEffects
         {
             await _signalRBridge.ResumeSessionAsync();
         }
+    }
+
+    /// <summary>
+    /// When an admin saves the session configuration, invoke the hub UpdateSessionConfigAsync.
+    /// The hub persists the config and broadcasts ReceiveConfigUpdated to all clients.
+    /// </summary>
+    [EffectMethod]
+    public async Task HandleSaveSessionConfigAction(SaveSessionConfigAction action, IDispatcher dispatcher)
+    {
+        await _signalRBridge.UpdateSessionConfigAsync(
+            action.RequireSingerName,
+            action.AllowSingersToReorder,
+            action.PauseBetweenSongsSeconds,
+            action.Theme);
     }
 
     [EffectMethod]
@@ -224,6 +246,17 @@ public class PlaylistEffects
 
             case "session-resumed":
                 _dispatcher.Dispatch(new ResumeSessionAction(IsAdminInitiated: false));
+                break;
+
+            case "config-updated":
+                if (update.Config is not null)
+                {
+                    _dispatcher.Dispatch(new SessionConfigUpdatedAction(
+                        update.Config.RequireSingerName,
+                        update.Config.AllowSingersToReorder,
+                        update.Config.PauseBetweenSongsSeconds,
+                        update.Config.Theme));
+                }
                 break;
         }
     }

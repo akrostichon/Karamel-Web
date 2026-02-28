@@ -40,6 +40,73 @@
                 ⏭️ Next
             </button>
         </div>
+
+        @if (ConfigEnabled)
+        {
+            <!-- Session configuration inputs – enabled in iteration 3.2 -->
+            <div class="session-config-section">
+                <hr class="session-config-divider" />
+                <h6 class="session-config-heading">Session Settings</h6>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input config-input-require-singer-name"
+                           type="checkbox"
+                           id="requireSingerName"
+                           @bind="_requireSingerName" />
+                    <label class="form-check-label" for="requireSingerName">
+                        Require singer name
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input config-input-allow-reorder"
+                           type="checkbox"
+                           id="allowSingersToReorder"
+                           @bind="_allowSingersToReorder" />
+                    <label class="form-check-label" for="allowSingersToReorder">
+                        Allow singers to reorder
+                    </label>
+                </div>
+
+                <div class="mb-2">
+                    <label for="pauseBetweenSongs" class="form-label">
+                        Pause between songs (seconds, 0 = none)
+                    </label>
+                    <input type="number"
+                           class="form-control config-input-pause-seconds"
+                           id="pauseBetweenSongs"
+                           @bind="_pauseBetweenSongsSeconds"
+                           @bind:event="oninput"
+                           @onchange="OnPauseBetweenSongsChanged"
+                           min="0"
+                           max="90" />
+                    @if (!string.IsNullOrEmpty(_pauseValidationError))
+                    {
+                        <div class="text-danger small mt-1 config-pause-validation-error">
+                            @_pauseValidationError
+                        </div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <label for="themeSelector" class="form-label">Theme</label>
+                    <select class="form-select config-input-theme"
+                            id="themeSelector"
+                            @bind="_theme">
+                        <option value="">Default</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary btn-sm btn-save-config w-100"
+                        @onclick="OnSaveConfigClicked"
+                        disabled="@(!string.IsNullOrEmpty(_pauseValidationError))"
+                        title="Save session settings">
+                    Save Settings
+                </button>
+            </div>
+        }
     </div>
 }
 
@@ -49,6 +116,53 @@
     /// </summary>
     [Parameter]
     public bool IsAdminTab { get; set; }
+
+    /// <summary>
+    /// When true the configuration inputs section is visible and enabled (iteration 3.2).
+    /// Defaults to false (iteration 3.1 – lifecycle controls only).
+    /// </summary>
+    [Parameter]
+    public bool ConfigEnabled { get; set; } = false;
+
+    // Local copies of config fields bound to the UI inputs
+    private bool _requireSingerName;
+    private bool _allowSingersToReorder;
+    private int _pauseBetweenSongsSeconds;
+    private string? _theme;
+    private string _pauseValidationError = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        SyncFromState();
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        SessionState.StateChanged += OnSessionStateChanged;
+    }
+
+    private void OnSessionStateChanged(object? sender, EventArgs e)
+    {
+        SyncFromState();
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Initialise local input fields from current session state so they reflect live updates
+    /// received via SignalR ReceiveConfigUpdated.
+    /// </summary>
+    private void SyncFromState()
+    {
+        var session = SessionState.Value.CurrentSession;
+        if (session is null) return;
+
+        _requireSingerName = session.RequireSingerName;
+        _allowSingersToReorder = session.AllowSingersToReorder;
+        _pauseBetweenSongsSeconds = session.PauseBetweenSongsSeconds;
+        _theme = session.Theme;
+    }
 
     private void OnPauseClicked()
     {
@@ -66,5 +180,61 @@
         {
             Dispatcher.Dispatch(new AdvanceToNextSongAction());
         }
+    }
+
+    /// <summary>
+    /// Validates pause-between-songs value on change.
+    /// Rule: must be 0 (no pause) or between 5 and 90 inclusive.
+    /// </summary>
+    private void OnPauseBetweenSongsChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+        {
+            _pauseBetweenSongsSeconds = value;
+        }
+
+        ValidatePauseBetweenSongs();
+    }
+
+    private void ValidatePauseBetweenSongs()
+    {
+        if (_pauseBetweenSongsSeconds < 0)
+        {
+            _pauseValidationError = "Value cannot be negative.";
+        }
+        else if (_pauseBetweenSongsSeconds > 0 && _pauseBetweenSongsSeconds < 5)
+        {
+            _pauseValidationError = "Minimum pause is 5 seconds (or 0 to disable).";
+        }
+        else if (_pauseBetweenSongsSeconds > 90)
+        {
+            _pauseValidationError = "Maximum pause is 90 seconds.";
+        }
+        else
+        {
+            _pauseValidationError = string.Empty;
+        }
+    }
+
+    private void OnSaveConfigClicked()
+    {
+        ValidatePauseBetweenSongs();
+        if (!string.IsNullOrEmpty(_pauseValidationError))
+            return;
+
+        Dispatcher.Dispatch(new SaveSessionConfigAction(
+            RequireSingerName: _requireSingerName,
+            AllowSingersToReorder: _allowSingersToReorder,
+            PauseBetweenSongsSeconds: _pauseBetweenSongsSeconds,
+            Theme: string.IsNullOrEmpty(_theme) ? null : _theme));
+    }
+
+    protected override async ValueTask DisposeAsyncCore(bool disposing)
+    {
+        if (disposing)
+        {
+            SessionState.StateChanged -= OnSessionStateChanged;
+        }
+        await base.DisposeAsyncCore(disposing);
     }
 }

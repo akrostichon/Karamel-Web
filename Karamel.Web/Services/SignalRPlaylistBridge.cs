@@ -249,4 +249,30 @@ public class SignalRPlaylistBridge : ISignalRPlaylistBridge
 
         await module.InvokeVoidAsync("broadcastStateUpdate", "current-song", data);
     }
+
+    /// <summary>
+    /// Send updated session configuration to the hub (admin only).
+    /// </summary>
+    public async Task<bool> UpdateSessionConfigAsync(bool requireSingerName, bool allowSingersToReorder, int pauseBetweenSongsSeconds, string? theme)
+    {
+        var module = await _connectionManager.GetModuleAsync();
+        if (module == null) return false;
+
+        try
+        {
+            var config = new
+            {
+                requireSingerName,
+                allowSingersToReorder,
+                pauseBetweenSongsSeconds,
+                theme
+            };
+            return await module.InvokeAsync<bool>("updateSessionConfig", config);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "updateSessionConfig JS invoke failed");
+            return false;
+        }
+    }
 }

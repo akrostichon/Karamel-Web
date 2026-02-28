@@ -47,12 +47,12 @@
 
 **Independent test criteria:** Modify each config option and verify existing and new tabs see the change and behavior enforces it (e.g. singer name required blocks adds, reorder toggles, pause delay applied, theme changes).
 
-- [ ] T016 Extend `SessionControls` UI with four inputs: singer-name-required checkbox, allow-reorder checkbox, numeric input for pause-between-songs, theme selector. Initially disabled until iteration 3.2.
-- [ ] T017 Implement validation for the pause-between-songs field (integer ≥5 ≤90, default 0 if empty); enforce on save and in backend DTO.
-- [ ] T018 Add Fluxor effect to send config updates to the hub via `UpdateSessionConfigAsync` when admin saves; handle `ReceiveConfigUpdated` broadcast to update state.
-- [ ] T019 Modify client logic to enforce new flags: block song addition when `RequireSingerName` true; hide/disable drag handles for singers when `AllowSingersToReorder` false; apply theme changes immediately by updating `localStorage` or service.
-- [ ] T020 Write component/unit tests verifying that toggling each setting updates state, sends hub call, and that other clients receive and react to the update.
-- [ ] T021 Add backend API or hub integration tests ensuring config persistence and broadcast behavior.
+- [X] T016 Extend `SessionControls` UI with four inputs: singer-name-required checkbox, allow-reorder checkbox, numeric input for pause-between-songs, theme selector. Initially disabled until iteration 3.2.
+- [X] T017 Implement validation for the pause-between-songs field (integer ≥5 ≤90, default 0 if empty); enforce on save and in backend DTO.
+- [X] T018 Add Fluxor effect to send config updates to the hub via `UpdateSessionConfigAsync` when admin saves; handle `ReceiveConfigUpdated` broadcast to update state.
+- [X] T019 Modify client logic to enforce new flags: block song addition when `RequireSingerName` true; hide/disable drag handles for singers when `AllowSingersToReorder` false; apply theme changes immediately by updating `localStorage` or service.
+- [X] T020 Write component/unit tests verifying that toggling each setting updates state, sends hub call, and that other clients receive and react to the update.
+- [X] T021 Add backend API or hub integration tests ensuring config persistence and broadcast behavior.
 
 ## Phase 5: User Story 3 – Admin UI placement & phased activation
 

@@ -328,6 +328,13 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
                     // Lifecycle events carry no payload – forward type only so Effects can dispatch
                     StateUpdateReceived?.Invoke(new BroadcastStateUpdate(type, null, null, null));
                     break;
+                case "config-updated":
+                    var configUpdate = HandleConfigUpdate(data);
+                    if (configUpdate is not null)
+                    {
+                        StateUpdateReceived?.Invoke(new BroadcastStateUpdate(type, null, null, null, configUpdate));
+                    }
+                    break;
                 default:
                     Console.WriteLine($"PlaylistStateSynchronizer: Unknown state update type: {type}");
                     break;
@@ -432,6 +439,30 @@ public class PlaylistStateSynchronizer : IPlaylistStateSynchronizer, IAsyncDispo
                 ? theme.GetString()
                 : null
         };
+    }
+
+    /// <summary>
+    /// Handle runtime config update from SignalR ReceiveConfigUpdated broadcast.
+    /// The payload matches the backend SessionConfigDto shape (camelCase JSON).
+    /// </summary>
+    private SessionConfigBroadcastUpdate? HandleConfigUpdate(JsonElement data)
+    {
+        if (data.ValueKind == JsonValueKind.Null || data.ValueKind == JsonValueKind.Undefined)
+            return null;
+
+        var requireSingerName = data.TryGetProperty("requireSingerName", out var rsn)
+            && rsn.ValueKind == JsonValueKind.True;
+        var allowSingersToReorder = !data.TryGetProperty("allowSingersToReorder", out var asr)
+            || asr.ValueKind != JsonValueKind.False;
+        var pauseBetweenSongsSeconds = data.TryGetProperty("pauseBetweenSongsSeconds", out var pbs)
+            && pbs.ValueKind == JsonValueKind.Number
+            ? pbs.GetInt32()
+            : 0;
+        var theme = data.TryGetProperty("theme", out var themeEl) && themeEl.ValueKind == JsonValueKind.String
+            ? themeEl.GetString()
+            : null;
+
+        return new SessionConfigBroadcastUpdate(requireSingerName, allowSingersToReorder, pauseBetweenSongsSeconds, theme);
     }
 
     /// <summary>

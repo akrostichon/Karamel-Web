@@ -175,5 +175,211 @@ namespace Karamel.Web.Tests
             var nextBtn = cut.Find(".btn-next");
             Assert.False(nextBtn.HasAttribute("disabled"));
         }
+
+        // ─── Config section visibility ────────────────────────────────────────────
+
+        [Fact]
+        public void SessionControls_WhenConfigDisabled_DoesNotRenderConfigSection()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, false));
+
+            // Config section must be absent when ConfigEnabled=false
+            Assert.Throws<ElementNotFoundException>(() => cut.Find(".session-config-section"));
+        }
+
+        [Fact]
+        public void SessionControls_WhenConfigEnabled_RendersAllFourInputs()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            // All four config inputs must be visible
+            Assert.NotNull(cut.Find(".config-input-require-singer-name"));
+            Assert.NotNull(cut.Find(".config-input-allow-reorder"));
+            Assert.NotNull(cut.Find(".config-input-pause-seconds"));
+            Assert.NotNull(cut.Find(".config-input-theme"));
+        }
+
+        [Fact]
+        public void SessionControls_WhenConfigEnabled_InputsPopulatedFromSessionState()
+        {
+            var session = new Session
+            {
+                SessionId = _testSession.SessionId,
+                RequireSingerName = true,
+                AllowSingersToReorder = true,
+                PauseBetweenSongsSeconds = 30,
+                Theme = "dark"
+            };
+            var sessionState = new SessionState { CurrentSession = session, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            var requireCheck = cut.Find(".config-input-require-singer-name");
+            Assert.True(requireCheck.HasAttribute("checked") || requireCheck.GetAttribute("checked") != null
+                || requireCheck.ToMarkup().Contains("checked"));
+
+            var pauseInput = cut.Find(".config-input-pause-seconds");
+            Assert.Equal("30", pauseInput.GetAttribute("value"));
+
+            var themeSelect = cut.Find(".config-input-theme");
+            Assert.Equal("dark", themeSelect.GetAttribute("value") ?? themeSelect.InnerHtml);
+        }
+
+        [Fact]
+        public void SessionControls_WhenConfigEnabled_SaveButton_DispatchesSaveSessionConfigAction()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            var (mockDispatcher, _) = SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            // Click Save
+            cut.Find(".btn-save-config").Click();
+
+            mockDispatcher.Verify(
+                d => d.Dispatch(It.IsAny<SaveSessionConfigAction>()),
+                Times.Once);
+        }
+
+        // ─── Pause-between-songs validation ──────────────────────────────────────
+
+        [Fact]
+        public void SessionControls_PauseBetweenSongs_NegativeValue_ShowsValidationError()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            cut.Find(".config-input-pause-seconds").Change("-1");
+
+            Assert.NotNull(cut.Find(".config-pause-validation-error"));
+        }
+
+        [Fact]
+        public void SessionControls_PauseBetweenSongs_BetweenOneAndFour_ShowsValidationError()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            cut.Find(".config-input-pause-seconds").Change("3");
+
+            Assert.NotNull(cut.Find(".config-pause-validation-error"));
+        }
+
+        [Fact]
+        public void SessionControls_PauseBetweenSongs_AboveNinety_ShowsValidationError()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            cut.Find(".config-input-pause-seconds").Change("91");
+
+            Assert.NotNull(cut.Find(".config-pause-validation-error"));
+        }
+
+        [Fact]
+        public void SessionControls_PauseBetweenSongs_Zero_NoValidationError()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            cut.Find(".config-input-pause-seconds").Change("0");
+
+            Assert.Throws<ElementNotFoundException>(() => cut.Find(".config-pause-validation-error"));
+        }
+
+        [Fact]
+        public void SessionControls_PauseBetweenSongs_ValidValueFive_NoValidationError()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            cut.Find(".config-input-pause-seconds").Change("5");
+
+            Assert.Throws<ElementNotFoundException>(() => cut.Find(".config-pause-validation-error"));
+        }
+
+        [Fact]
+        public void SessionControls_PauseBetweenSongs_ValidValueNinety_NoValidationError()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            cut.Find(".config-input-pause-seconds").Change("90");
+
+            Assert.Throws<ElementNotFoundException>(() => cut.Find(".config-pause-validation-error"));
+        }
+
+        [Fact]
+        public void SessionControls_SaveButton_DisabledWhenPauseValidationError()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            // Trigger a validation error
+            cut.Find(".config-input-pause-seconds").Change("3");
+
+            var saveBtn = cut.Find(".btn-save-config");
+            Assert.True(saveBtn.HasAttribute("disabled"));
+        }
+
+        [Fact]
+        public void SessionControls_SaveButton_EnabledWhenPauseValueIsValid()
+        {
+            var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
+            SetupServices(sessionState);
+
+            var cut = RenderComponent<SessionControls>(p => p
+                .Add(x => x.IsAdminTab, true)
+                .Add(x => x.ConfigEnabled, true));
+
+            // Valid value – no error
+            cut.Find(".config-input-pause-seconds").Change("10");
+
+            var saveBtn = cut.Find(".btn-save-config");
+            Assert.False(saveBtn.HasAttribute("disabled"));
+        }
     }
 }
