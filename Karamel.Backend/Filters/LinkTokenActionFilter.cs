@@ -36,23 +36,19 @@ namespace Karamel.Backend.Filters
                 return;
             }
 
-            // Generate expected token for comparison and logging
-            var expectedToken = tokenService.GenerateLinkToken(sessionId);
-            
-            // Log token details for Application Insights diagnostics (mask tokens for security)
+            // Log token details for Application Insights diagnostics (mask token for security)
             var receivedTokenMasked = token.Length > 8 ? $"{token.Substring(0, 8)}..." : "***";
-            var expectedTokenMasked = expectedToken.Length > 8 ? $"{expectedToken.Substring(0, 8)}..." : "***";
             
             logger?.LogInformation(
-                "Token validation for session {SessionId}: ReceivedLength={ReceivedLength}, ExpectedLength={ExpectedLength}, ReceivedPrefix={ReceivedPrefix}, ExpectedPrefix={ExpectedPrefix}",
-                sessionId, token.Length, expectedToken.Length, receivedTokenMasked, expectedTokenMasked);
+                "Token validation for session {SessionId}: ReceivedLength={ReceivedLength}, ReceivedPrefix={ReceivedPrefix}",
+                sessionId, token.Length, receivedTokenMasked);
             
-            var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(token);
-            if (!isValid || tokenSessionId != sessionId)
+            var (_, isValid) = tokenService.ValidateLinkToken(token, sessionId);
+            if (!isValid)
             {
                 logger?.LogWarning(
-                    "Invalid link token for session {SessionId} from {RemoteIP}. ReceivedToken={ReceivedToken}, ExpectedToken={ExpectedToken}", 
-                    sessionId, context.HttpContext.Connection.RemoteIpAddress, receivedTokenMasked, expectedTokenMasked);
+                    "Invalid link token for session {SessionId} from {RemoteIP}. ReceivedToken={ReceivedToken}", 
+                    sessionId, context.HttpContext.Connection.RemoteIpAddress, receivedTokenMasked);
                 context.Result = new UnauthorizedObjectResult(new { error = "Invalid or expired link token" });
                 return;
             }

@@ -100,9 +100,9 @@ namespace Karamel.Backend.Filters
 
         private string ValidateTokenAndExtractRole(string token, Guid sessionId, HubInvocationContext invocationContext)
         {
-            var (tokenSessionId, role, isValid) = _tokenService.ValidateLinkToken(token);
+            var (role, isValid) = _tokenService.ValidateLinkToken(token, sessionId);
 
-            if (!isValid || tokenSessionId != sessionId)
+            if (!isValid)
             {
                 _logger.LogWarning("Invalid link token for session {SessionId} in hub method {MethodName} from connection {ConnectionId}", 
                     sessionId, invocationContext.HubMethodName, invocationContext.Context.ConnectionId);
