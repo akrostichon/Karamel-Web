@@ -50,11 +50,10 @@ namespace Karamel.Backend.Tests
             var token = tokenService.GenerateLinkToken(sessionId);
 
             // Act
-            var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(token);
+            var (_, isValid) = tokenService.ValidateLinkToken(token, sessionId);
 
             // Assert
             Assert.True(isValid);
-            Assert.Equal(sessionId, tokenSessionId);
         }
 
         [Fact]
@@ -62,10 +61,9 @@ namespace Karamel.Backend.Tests
         {
             // Arrange
             var tokenService = new TokenService(TestSecret);
-            var sessionId = Guid.NewGuid();
 
             // Act
-            var (_, _, isValid) = tokenService.ValidateLinkToken("invalid-token");
+            var (_, isValid) = tokenService.ValidateLinkToken("invalid-token", Guid.NewGuid());
 
             // Assert
             Assert.False(isValid);
@@ -76,11 +74,10 @@ namespace Karamel.Backend.Tests
         {
             // Arrange
             var tokenService = new TokenService(TestSecret);
-            var sessionId = Guid.NewGuid();
 
             // Act & Assert
-            var (_, _, isValid1) = tokenService.ValidateLinkToken(null!);
-            var (_, _, isValid2) = tokenService.ValidateLinkToken("");
+            var (_, isValid1) = tokenService.ValidateLinkToken(null!, Guid.NewGuid());
+            var (_, isValid2) = tokenService.ValidateLinkToken("", Guid.NewGuid());
             Assert.False(isValid1);
             Assert.False(isValid2);
         }
@@ -95,12 +92,10 @@ namespace Karamel.Backend.Tests
             var token = tokenService.GenerateLinkToken(sessionId1);
 
             // Act
-            var (tokenSessionId, _, isValid) = tokenService.ValidateLinkToken(token);
+            var (_, isValid) = tokenService.ValidateLinkToken(token, sessionId2);
 
-            // Assert
-            Assert.True(isValid);
-            Assert.Equal(sessionId1, tokenSessionId);
-            Assert.NotEqual(sessionId2, tokenSessionId);
+            // Assert - token was generated for sessionId1 but validated with sessionId2
+            Assert.False(isValid);
         }
 
         [Fact]
@@ -115,7 +110,7 @@ namespace Karamel.Backend.Tests
             var standardBase64Token = urlSafeToken.Replace('-', '+').Replace('_', '/');
 
             // Act
-            var (_, _, isValid) = tokenService.ValidateLinkToken(standardBase64Token);
+            var (_, isValid) = tokenService.ValidateLinkToken(standardBase64Token, Guid.NewGuid());
 
             // Assert - if the token contained + or /, this should fail
             // (only passes if the original token happened to have no + or / characters)
@@ -135,10 +130,10 @@ namespace Karamel.Backend.Tests
             // Act
             var token = tokenService.GenerateLinkToken(sessionId);
 
-            // Assert - New format: {sessionId}|{role}|{hmac} base64 encoded
-            // GUID (36) + "|" (1) + "admin" (5) + "|" (1) + HMAC (43) = ~115 chars after base64 encoding
-            Assert.True(token.Length > 100, $"Token length {token.Length} should be > 100 for role-based tokens");
-            Assert.True(token.Length < 200, $"Token length {token.Length} should be < 200");
+            // Assert - New format: {role}|{hmac} base64 encoded (no sessionId in payload)
+            // "admin" (5) + "|" (1) + HMAC_base64url (43) = ~49 chars → base64 ≈ 68 chars
+            Assert.True(token.Length > 60, $"Token length {token.Length} should be > 60");
+            Assert.True(token.Length < 120, $"Token length {token.Length} should be < 120");
         }
 
         [Fact]
@@ -210,11 +205,10 @@ namespace Karamel.Backend.Tests
             var token = tokenService.GenerateLinkToken(sessionId, "admin");
 
             // Act
-            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(token);
+            var (role, isValid) = tokenService.ValidateLinkToken(token, sessionId);
 
             // Assert
             Assert.True(isValid);
-            Assert.Equal(sessionId, returnedSessionId);
             Assert.Equal("admin", role);
         }
 
@@ -227,11 +221,10 @@ namespace Karamel.Backend.Tests
             var token = tokenService.GenerateLinkToken(sessionId, "singer");
 
             // Act
-            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(token);
+            var (role, isValid) = tokenService.ValidateLinkToken(token, sessionId);
 
             // Assert
             Assert.True(isValid);
-            Assert.Equal(sessionId, returnedSessionId);
             Assert.Equal("singer", role);
         }
 
@@ -244,23 +237,23 @@ namespace Karamel.Backend.Tests
             var adminToken = tokenService.GenerateLinkToken(sessionId, "admin");
             
             // Decode the token and tamper with the role
+            // New format is 2-part: {role}|{hmac}
             var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(
                 adminToken.Replace('-', '+').Replace('_', '/').PadRight(adminToken.Length + (4 - adminToken.Length % 4) % 4, '=')));
             var parts = decoded.Split('|');
             
-            // Tamper: change "admin" to "singer" but keep the HMAC
-            var tamperedPayload = $"{parts[0]}|singer|{parts[2]}";
+            // Tamper: change "admin" to "singer" but keep the original HMAC
+            var tamperedPayload = $"singer|{parts[1]}";
             var tamperedToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(tamperedPayload))
                 .TrimEnd('=')
                 .Replace('+', '-')
                 .Replace('/', '_');
 
             // Act
-            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(tamperedToken);
+            var (role, isValid) = tokenService.ValidateLinkToken(tamperedToken, sessionId);
 
             // Assert - HMAC should not match because role was changed
             Assert.False(isValid);
-            Assert.Equal(Guid.Empty, returnedSessionId);
             Assert.Equal("", role);
         }
 
@@ -271,11 +264,10 @@ namespace Karamel.Backend.Tests
             var tokenService = new TokenService(TestSecret);
 
             // Act
-            var (sessionId, role, isValid) = tokenService.ValidateLinkToken("invalid-token");
+            var (role, isValid) = tokenService.ValidateLinkToken("invalid-token", Guid.NewGuid());
 
             // Assert
             Assert.False(isValid);
-            Assert.Equal(Guid.Empty, sessionId);
             Assert.Equal("", role);
         }
 
@@ -286,11 +278,10 @@ namespace Karamel.Backend.Tests
             var tokenService = new TokenService(TestSecret);
 
             // Act
-            var (sessionId, role, isValid) = tokenService.ValidateLinkToken(null!);
+            var (role, isValid) = tokenService.ValidateLinkToken(null!, Guid.NewGuid());
 
             // Assert
             Assert.False(isValid);
-            Assert.Equal(Guid.Empty, sessionId);
             Assert.Equal("", role);
         }
 
@@ -303,11 +294,49 @@ namespace Karamel.Backend.Tests
 
             // Act - call without role parameter
             var token = tokenService.GenerateLinkToken(sessionId);
-            var (returnedSessionId, role, isValid) = tokenService.ValidateLinkToken(token);
+            var (role, isValid) = tokenService.ValidateLinkToken(token, sessionId);
 
             // Assert - should default to "admin" for backward compatibility
             Assert.True(isValid);
             Assert.Equal("admin", role);
+        }
+
+        [Fact]
+        public void ValidateLinkToken_WithWrongSessionId_ReturnsFalse()
+        {
+            // Arrange - generate token for sessionId1 but validate with sessionId2
+            var tokenService = new TokenService(TestSecret);
+            var sessionId1 = Guid.NewGuid();
+            var sessionId2 = Guid.NewGuid();
+            var token = tokenService.GenerateLinkToken(sessionId1, "admin");
+
+            // Act
+            var (role, isValid) = tokenService.ValidateLinkToken(token, sessionId2);
+
+            // Assert - HMAC is bound to sessionId1 so sessionId2 must be rejected
+            Assert.False(isValid);
+            Assert.Equal("", role);
+        }
+
+        [Fact]
+        public void ValidateLinkToken_OldThreePartFormat_IsRejected()
+        {
+            // Arrange - manually construct a token in the OLD 3-part format: {sessionId}|{role}|{hmac}
+            var tokenService = new TokenService(TestSecret);
+            var sessionId = Guid.NewGuid();
+            var fakeHmac = "fakehmacsignaturepadding0000000000000000000";
+            var oldPayload = $"{sessionId}|admin|{fakeHmac}";
+            var oldToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(oldPayload))
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var (role, isValid) = tokenService.ValidateLinkToken(oldToken, sessionId);
+
+            // Assert - 3-part format has parts.Length == 3, not 2, so it must be rejected
+            Assert.False(isValid);
+            Assert.Equal("", role);
         }
     }
 }

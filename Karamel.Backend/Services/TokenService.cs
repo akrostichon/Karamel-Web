@@ -15,16 +15,17 @@ namespace Karamel.Backend.Services
 
         /// <summary>
         /// Generates a role-based link token.
-        /// Token format: Base64({sessionId}|{role}|{hmac})
+        /// Token format: Base64url({role}|{hmac})
+        /// HMAC is computed over "{sessionId}:{role}" so the token is bound to the sessionId
+        /// without embedding it in the token payload.
         /// </summary>
         public string GenerateLinkToken(Guid sessionId, string role = "admin")
         {
-            // Create payload: sessionId|role
-            var payload = $"{sessionId}|{role}";
-            var hmac = ComputeHmac(payload);
+            // HMAC input binds token to sessionId using ':' separator (distinct from '|' in payload)
+            var hmac = ComputeHmac($"{sessionId}:{role}");
             
-            // Combine payload and HMAC
-            var tokenData = $"{payload}|{hmac}";
+            // Token payload: role|hmac (no sessionId — caller already has it in the URL)
+            var tokenData = $"{role}|{hmac}";
             
             // Use URL-safe base64 encoding
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(tokenData))
@@ -34,13 +35,15 @@ namespace Karamel.Backend.Services
         }
 
         /// <summary>
-        /// Validates a link token and extracts session ID and role.
-        /// Returns (sessionId, role, isValid) tuple.
+        /// Validates a link token using the provided sessionId (supplied by caller from URL).
+        /// Token format: Base64url({role}|{hmac})
+        /// HMAC is verified over "{sessionId}:{role}" to bind the token to the session.
+        /// Returns (role, isValid) tuple.
         /// </summary>
-        public (Guid sessionId, string role, bool isValid) ValidateLinkToken(string token)
+        public (string role, bool isValid) ValidateLinkToken(string token, Guid sessionId)
         {
             if (string.IsNullOrEmpty(token))
-                return (Guid.Empty, "", false);
+                return ("", false);
 
             try
             {
@@ -53,28 +56,24 @@ namespace Karamel.Backend.Services
                 var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
                 var parts = decoded.Split('|');
                 
-                // Expected format: {sessionId}|{role}|{hmac}
-                if (parts.Length != 3)
-                    return (Guid.Empty, "", false);
+                // Expected format: {role}|{hmac}
+                if (parts.Length != 2)
+                    return ("", false);
                 
-                if (!Guid.TryParse(parts[0], out var sessionId))
-                    return (Guid.Empty, "", false);
+                var role = parts[0];
+                var providedHmac = parts[1];
                 
-                var role = parts[1];
-                var providedHmac = parts[2];
-                
-                // Verify HMAC
-                var payload = $"{sessionId}|{role}";
-                var expectedHmac = ComputeHmac(payload);
+                // Verify HMAC: bound to sessionId via ':' separator
+                var expectedHmac = ComputeHmac($"{sessionId}:{role}");
                 
                 if (!AreEqualConstantTime(expectedHmac, providedHmac))
-                    return (Guid.Empty, "", false);
+                    return ("", false);
                 
-                return (sessionId, role, true);
+                return (role, true);
             }
             catch
             {
-                return (Guid.Empty, "", false);
+                return ("", false);
             }
         }
 
