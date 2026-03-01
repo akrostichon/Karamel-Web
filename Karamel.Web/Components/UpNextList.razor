@@ -1,6 +1,7 @@
 @using Fluxor
 @using Fluxor.Blazor.Web.Components
 @using Karamel.Web.Contracts
+@using Karamel.Web.Helpers
 @using Karamel.Web.Store.Playlist
 
 @inherits FluxorComponent
@@ -24,13 +25,19 @@
                 <h5 class="card-title mb-1">
                     <i class="bi bi-play-circle-fill text-on-surface me-2"></i>Now Playing
                 </h5>
-                <div class="song-info">
-                    <span class="fw-bold">@currentSong.Artist</span> – @currentSong.Title
-                    @if (!string.IsNullOrEmpty(currentSong.SingerName))
+                <div class="song-info d-flex align-items-start justify-content-between">
+                    <div class="flex-grow-1">
+                        <span class="fw-bold">@currentSong.Artist</span> – @currentSong.Title
+                        @if (!string.IsNullOrEmpty(currentSong.SingerName))
+                        {
+                            <div class="small muted-on-surface mt-1">
+                                <i class="bi bi-person-fill"></i> @currentSong.SingerName
+                            </div>
+                        }
+                    </div>
+                    @if (DurationFormatter.Format(currentSong.DurationSeconds) is { } npDuration)
                     {
-                        <div class="small muted-on-surface mt-1">
-                            <i class="bi bi-person-fill"></i> @currentSong.SingerName
-                        </div>
+                        <span class="up-next-song-duration ms-2">@npDuration</span>
                     }
                 </div>
             </div>
@@ -79,6 +86,10 @@
                             </div>
                         }
                     </div>
+                    @if (DurationFormatter.Format(song.DurationSeconds) is { } songDuration)
+                    {
+                        <span class="up-next-song-duration">@songDuration</span>
+                    }
                 </div>
             }
         </div>

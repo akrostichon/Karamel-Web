@@ -47,8 +47,8 @@
 
 **Independent test**: Open Singer View with ≥1 queued song; verify each UpNextList row shows a duration value.
 
-- [ ] T012 [US2] Add right-aligned duration display to each row (Now Playing card and queue items) in `Karamel.Web/Components/UpNextList.razor` using `DurationFormatter.Format()`; add `.up-next-song-duration` flex-shrink scoped style in `Karamel.Web/Components/UpNextList.razor.css`
-- [ ] T013 [P] [US2] Add bUnit tests for `UpNextList` duration rendering (song with `DurationSeconds=215` → `"3:35"` visible; song with `DurationSeconds=0` → duration element absent) in new `Karamel.Web.Tests/UpNextListTests.cs`
+- [X] T012 [US2] Add right-aligned duration display to each row (Now Playing card and queue items) in `Karamel.Web/Components/UpNextList.razor` using `DurationFormatter.Format()`; add `.up-next-song-duration` flex-shrink scoped style in `Karamel.Web/Components/UpNextList.razor.css`
+- [X] T013 [P] [US2] Add bUnit tests for `UpNextList` duration rendering (song with `DurationSeconds=215` → `"3:35"` visible; song with `DurationSeconds=0` → duration element absent) in new `Karamel.Web.Tests/UpNextListTests.cs`
 
 ---
 
