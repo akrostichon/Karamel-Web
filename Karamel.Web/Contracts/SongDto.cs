@@ -20,7 +20,8 @@ public record SongDto(
     [property: JsonPropertyName("zipEntryMp3Path")] string? ZipEntryMp3Path,
     [property: JsonPropertyName("zipEntryCdgPath")] string? ZipEntryCdgPath,
     [property: JsonPropertyName("zipFilePath")] string? ZipFilePath,
-    [property: JsonPropertyName("addedBySinger")] string? AddedBySinger
+    [property: JsonPropertyName("addedBySinger")] string? AddedBySinger,
+    [property: JsonPropertyName("durationSeconds")] int DurationSeconds = 0
 );
 
 public static class SongConverters
@@ -82,7 +83,8 @@ public static class SongConverters
         ZipEntryMp3Path: s.ZipEntryMp3Path,
         ZipEntryCdgPath: s.ZipEntryCdgPath,
         ZipFilePath: s.ZipFilePath,
-        AddedBySinger: s.AddedBySinger
+        AddedBySinger: s.AddedBySinger,
+        DurationSeconds: s.DurationSeconds
     );
 
     /// <summary>
@@ -149,6 +151,15 @@ public static class SongConverters
             }
         }
         
+        // Fallback: read durationSeconds directly from root element (for flat SignalR playlist items
+        // that don't carry metadataJson but do carry a top-level durationSeconds field)
+        if (durationSeconds == 0 &&
+            s.TryGetProperty("durationSeconds", out var directDurationProp) &&
+            directDurationProp.ValueKind == JsonValueKind.Number)
+        {
+            durationSeconds = directDurationProp.GetInt32();
+        }
+
         var artist = s.GetProperty("artist").GetString() ?? string.Empty;
         var title = s.GetProperty("title").GetString() ?? string.Empty;
 
@@ -186,6 +197,9 @@ public static class SongConverters
                 mediaType = MediaType.Video;
             }
         }
+#if DEBUG
+        Console.WriteLine($"[SongDto] ConvertDtoToSong: title='{dto.Title}' DurationSeconds={dto.DurationSeconds}");
+#endif
 
         return new Song
         {
@@ -204,7 +218,8 @@ public static class SongConverters
             ZipEntryMp3Path = dto.ZipEntryMp3Path,
             ZipEntryCdgPath = dto.ZipEntryCdgPath,
             ZipFilePath = dto.ZipFilePath,
-            AddedBySinger = dto.AddedBySinger
+            AddedBySinger = dto.AddedBySinger,
+            DurationSeconds = dto.DurationSeconds
         };
     }
 

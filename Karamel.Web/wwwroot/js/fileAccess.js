@@ -25,17 +25,34 @@ async function extractDuration(fileOrBlob, elementType = 'audio') {
         const blob = fileOrBlob instanceof ArrayBuffer
             ? new Blob([fileOrBlob], { type: elementType === 'video' ? 'video/mp4' : 'audio/mpeg' })
             : fileOrBlob;
+        const inputDesc = fileOrBlob instanceof ArrayBuffer
+            ? `ArrayBuffer (${fileOrBlob.byteLength} bytes)`
+            : `${fileOrBlob.constructor?.name} name=${fileOrBlob.name ?? '?'} size=${fileOrBlob.size ?? '?'}`;
+        logger.debug('extractDuration: start', { elementType, input: inputDesc });
         url = URL.createObjectURL(blob);
         const el = document.createElement(elementType);
         const duration = await new Promise((resolve) => {
-            const timer = setTimeout(() => resolve(NaN), 3000);
-            el.addEventListener('loadedmetadata', () => { clearTimeout(timer); resolve(el.duration); }, { once: true });
-            el.addEventListener('error', () => { clearTimeout(timer); resolve(NaN); }, { once: true });
+            const timer = setTimeout(() => {
+                logger.debug('extractDuration: timed out after 3s', { elementType, input: inputDesc });
+                resolve(NaN);
+            }, 3000);
+            el.addEventListener('loadedmetadata', () => {
+                clearTimeout(timer);
+                logger.debug('extractDuration: loadedmetadata fired', { elementType, rawDuration: el.duration });
+                resolve(el.duration);
+            }, { once: true });
+            el.addEventListener('error', () => {
+                clearTimeout(timer);
+                logger.debug('extractDuration: error event fired', { elementType, errorCode: el.error?.code });
+                resolve(NaN);
+            }, { once: true });
             el.src = url;
         });
-        if (!Number.isFinite(duration) || duration <= 0) return 0;
-        return Math.round(duration);
-    } catch {
+        const result = (!Number.isFinite(duration) || duration <= 0) ? 0 : Math.round(duration);
+        logger.debug('extractDuration: result', { elementType, rawDuration: duration, resultSeconds: result });
+        return result;
+    } catch (ex) {
+        logger.debug('extractDuration: caught exception', { elementType, error: ex?.message });
         return 0;
     } finally {
         if (url) URL.revokeObjectURL(url);
@@ -51,6 +68,8 @@ async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
     const baseName = fileObj.name.slice(0, -4);
     const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
     const metadata = await extractMetadata(fileObj, fullPath, filenamePattern);
+    const durationSeconds = await extractDuration(fileObj, 'audio');
+    logger.debug('buildDirectorySong: built song', { mp3FileName: `${baseName}.mp3`, durationSeconds });
     return {
         id: crypto.randomUUID(),
         artist: metadata.artist,
@@ -59,7 +78,7 @@ async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
         cdgFileName: `${baseName}.cdg`,
         path: relativePath,
         fullPath: fullPath,
-        durationSeconds: await extractDuration(fileObj, 'audio')
+        durationSeconds
     };
 }
 
@@ -73,6 +92,8 @@ async function buildVideoSong(videoFileData, relativePath, filenamePattern) {
     // Use existing extractMetadata to parse artist/title from filename
     const metadata = await extractMetadata(fileObj, fullPath, filenamePattern);
     
+    const durationSeconds = await extractDuration(fileObj, 'video');
+    logger.debug('buildVideoSong: built song', { videoFileName: fileObj.name, durationSeconds });
     return {
         id: crypto.randomUUID(),
         artist: metadata.artist,
@@ -84,7 +105,7 @@ async function buildVideoSong(videoFileData, relativePath, filenamePattern) {
         cdgFileName: null,
         path: relativePath,
         fullPath: fullPath,
-        durationSeconds: await extractDuration(fileObj, 'video')
+        durationSeconds
     };
 }
 
@@ -103,8 +124,9 @@ async function buildZipSong(zip, zipFileName, zipFilePath, mp3EntryPath, cdgEntr
         artist = md.artist; title = md.title;
         durationSeconds = await extractDuration(metaFile, 'audio');
     } catch (e) {
-        // ignore metadata/duration extraction errors
+        logger.debug('buildZipSong: metadata/duration extraction error', { mp3EntryPath, error: e?.message });
     }
+    logger.debug('buildZipSong: built song', { mp3EntryPath, durationSeconds });
 
     return {
         id: crypto.randomUUID(),

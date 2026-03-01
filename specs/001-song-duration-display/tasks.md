@@ -58,11 +58,11 @@
 
 **Independent test**: Play a song, hover over the lower player area; verify the progress bar appears and advances every ~1 s.
 
-- [ ] T014 [US4] Add `export function getPlaybackPosition()` to `Karamel.Web/wwwroot/js/player.js` — returns `audioElement.currentTime` in CDG mode, `videoElement.currentTime` in video mode, `0` otherwise
-- [ ] T015 [US4] Add progress bar markup (`.playback-progress-bar-container` + `.playback-progress-bar-fill` with `style="width:@percent%"`) above the controls buttons, plus `_progressTimer`, `playbackProgressPercent`, `playbackDurationSeconds` fields, and 1 s `PollPlaybackProgress()` in `Karamel.Web/Pages/PlayerView.razor`; start/stop timer in `ShowControls()`/`HideControls()`
-- [ ] T016 [P] [US4] Add `.playback-progress-bar-container` and `.playback-progress-bar-fill` CSS (4 px height, `pointer-events: none`, caramel `--k-primary` fill) to `Karamel.Web/Pages/PlayerView.razor.css`
-- [ ] T017 [P] [US4] Add Vitest test for `getPlaybackPosition()` in `Karamel.Web/wwwroot/js/player.test.js` — returns `audioElement.currentTime` in CDG mode, `videoElement.currentTime` in video mode, `0` with no active element
-- [ ] T018 [P] [US4] Add bUnit test for PlayerView progress bar presence (`DurationSeconds > 0` + `showControls=true` → bar present; `DurationSeconds=0` → bar absent) in `Karamel.Web.Tests/PlayerViewTests.cs`
+- [X] T014 [US4] Add `export function getPlaybackPosition()` to `Karamel.Web/wwwroot/js/player.js` — returns `audioElement.currentTime` in CDG mode, `videoElement.currentTime` in video mode, `0` otherwise
+- [X] T015 [US4] Add progress bar markup (`.playback-progress-bar-container` + `.playback-progress-bar-fill` with `style="width:@percent%"`) above the controls buttons, plus `_progressTimer`, `playbackProgressPercent`, `playbackDurationSeconds` fields, and 1 s `PollPlaybackProgress()` in `Karamel.Web/Pages/PlayerView.razor`; start/stop timer in `ShowControls()`/`HideControls()`
+- [X] T016 [P] [US4] Add `.playback-progress-bar-container` and `.playback-progress-bar-fill` CSS (4 px height, `pointer-events: none`, caramel `--k-primary` fill) to `Karamel.Web/Pages/PlayerView.razor.css`
+- [X] T017 [P] [US4] Add Vitest test for `getPlaybackPosition()` in `Karamel.Web/wwwroot/js/player.test.js` — returns `audioElement.currentTime` in CDG mode, `videoElement.currentTime` in video mode, `0` with no active element
+- [X] T018 [P] [US4] Add bUnit test for PlayerView progress bar presence (`DurationSeconds > 0` + `showControls=true` → bar present; `DurationSeconds=0` → bar absent) in `Karamel.Web.Tests/PlayerViewTests.cs`
 
 ---
 
@@ -72,15 +72,15 @@
 
 **Independent test**: Open Playlist Manager with ≥2 songs queued; verify each row shows a duration.
 
-- [ ] T019 [US3] Add right-aligned duration cell to each queue row in `Karamel.Web/Pages/Playlist.razor` using `DurationFormatter.Format()` (show `—` when null); add scoped duration column style to `Karamel.Web/Pages/Playlist.razor.css`
-- [ ] T020 [P] [US3] Add bUnit test for Playlist Manager queue duration rendering (song with `DurationSeconds=180` → `"3:00"` visible; song with `DurationSeconds=0` → shows `—` or no duration cell) in `Karamel.Web.Tests/PlaylistPageTests.cs`
+- [X] T019 [US3] Add right-aligned duration cell to each queue row in `Karamel.Web/Pages/Playlist.razor` using `DurationFormatter.Format()` (show `—` when null); add scoped duration column style to `Karamel.Web/Pages/Playlist.razor.css`
+- [X] T020 [P] [US3] Add bUnit test for Playlist Manager queue duration rendering (song with `DurationSeconds=180` → `"3:00"` visible; song with `DurationSeconds=0` → shows `—` or no duration cell) in `Karamel.Web.Tests/PlaylistPageTests.cs`
 
 ---
 
 ## Final Phase: Polish & Validation
 
-- [ ] T021 [P] Run `dotnet test Karamel.Web.Tests` and confirm ≥ 197 passing (9 skipped expected); fix any regressions
-- [ ] T022 [P] Run `cd Karamel.Web/wwwroot; npm run test:run` and confirm zero JS test failures; fix any regressions
+- [X] T021 [P] Run `dotnet test Karamel.Web.Tests` and confirm ≥ 197 passing (9 skipped expected); fix any regressions
+- [X] T022 [P] Run `cd Karamel.Web/wwwroot; npm run test:run` and confirm zero JS test failures; fix any regressions
 - [ ] T023 Request user to run `dotnet test Karamel.Backend.Tests -v minimal` (~40 s) and confirm PlaylistHub projection tests pass
 
 ---

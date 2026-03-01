@@ -40,6 +40,11 @@ public record Song
     public string? ZipEntryCdgPath { get; init; }
 
     /// <summary>
+    /// Duration of the audio/video in whole seconds. Zero means unknown or unavailable.
+    /// </summary>
+    public int DurationSeconds { get; init; } = 0;
+
+    /// <summary>
     /// Validates that all required fields are set based on MediaType
     /// </summary>
     public bool IsValid()

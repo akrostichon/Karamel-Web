@@ -3,6 +3,7 @@ using Karamel.Backend.Contracts;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace Karamel.Backend.Hubs
 {
@@ -79,7 +80,8 @@ namespace Karamel.Backend.Hubs
                 // Only send initial state if session exists (best-effort initialization)
                 if (playlist != null && session != null)
                 {
-                    var dto = BuildPlaylistDto(playlist, session);
+                    var songMetadata = await LoadSongMetadataAsync(sessionGuid, playlist);
+                    var dto = BuildPlaylistDto(playlist, session, songMetadata);
                     
                     _logger.LogInformation("Sending initial playlist state to newly joined client for session {SessionId}: {ActiveCount} active items",
                         sessionGuid, dto.Items.Count);
@@ -797,7 +799,7 @@ namespace Karamel.Backend.Hubs
         /// Filters out Completed items, includes CurrentSong (first NowPlaying item).
         /// Read-only operation - does NOT modify playlist state.
         /// </summary>
-        private PlaylistUpdatedDto BuildPlaylistDto(Playlist playlist, Session session)
+        private PlaylistUpdatedDto BuildPlaylistDto(Playlist playlist, Session session, Dictionary<Guid, string?> songMetadata)
         {
             // Filter out Completed and NowPlaying items (NowPlaying goes to CurrentSong)
             var activeItems = playlist.Items
@@ -815,7 +817,8 @@ namespace Karamel.Backend.Hubs
                     currentSongItem.SingerName,
                     currentSongItem.Position,
                     currentSongItem.SongId,
-                    (int)currentSongItem.Status)
+                    (int)currentSongItem.Status,
+                    ParseDuration(currentSongItem.SongId.HasValue ? songMetadata.GetValueOrDefault(currentSongItem.SongId.Value) : null))
                 : null;
             
             return new PlaylistUpdatedDto(
@@ -828,11 +831,47 @@ namespace Karamel.Backend.Hubs
                     i.SingerName,
                     i.Position,
                     i.SongId,
-                    (int)i.Status
+                    (int)i.Status,
+                    ParseDuration(i.SongId.HasValue ? songMetadata.GetValueOrDefault(i.SongId.Value) : null)
                 )).ToList(),
                 currentSong,
                 (int)session.Config.PlaybackMode
             );
+        }
+
+        /// <summary>
+        /// Parses durationSeconds from a song's MetadataJson. Returns 0 if absent or invalid.
+        /// </summary>
+        private static int ParseDuration(string? metadataJson)
+        {
+            if (string.IsNullOrWhiteSpace(metadataJson)) return 0;
+            try
+            {
+                using var doc = JsonDocument.Parse(metadataJson);
+                return doc.RootElement.TryGetProperty("durationSeconds", out var p)
+                       && p.TryGetInt32(out var d) ? d : 0;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>
+        /// Loads MetadataJson for all songs referenced by playlist items.
+        /// Returns a dictionary from SongId to MetadataJson (null means song not found or no metadata).
+        /// </summary>
+        private async Task<Dictionary<Guid, string?>> LoadSongMetadataAsync(Guid sessionId, Playlist playlist)
+        {
+            var result = new Dictionary<Guid, string?>();
+            var songIds = playlist.Items
+                .Where(i => i.SongId.HasValue)
+                .Select(i => i.SongId!.Value)
+                .Distinct();
+
+            foreach (var songId in songIds)
+            {
+                var song = await _songRepo.GetByIdAsync(sessionId, songId);
+                result[songId] = song?.MetadataJson;
+            }
+            return result;
         }
 
         /// <summary>
@@ -868,7 +907,8 @@ namespace Karamel.Backend.Hubs
             }
             
             // Build DTO and broadcast to all clients in session
-            var dto = BuildPlaylistDto(playlist, session);
+            var songMetadata = await LoadSongMetadataAsync(sessionId, playlist);
+            var dto = BuildPlaylistDto(playlist, session, songMetadata);
             
             // Log current playlist state for diagnostics
             _logger.LogInformation("Broadcasting playlist update for session {SessionId}: {ActiveCount} active items (Queued: {QueuedCount}, UpNext: {UpNextCount}), CurrentSong: {HasCurrentSong}",
@@ -931,6 +971,6 @@ namespace Karamel.Backend.Hubs
     }
 
     // DTOs for hub payloads (shared with controller for now)
-    public record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId, int Status);
+    public record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId, int Status, int DurationSeconds = 0);
     public record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong, int PlaybackMode);
 }

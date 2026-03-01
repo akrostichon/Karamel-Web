@@ -84,6 +84,12 @@
         <div class="controls-overlay" @onmouseenter="ShowControls" @onmouseleave="HideControls">
             @if (showControls)
             {
+                @if (playbackDurationSeconds > 0)
+                {
+                    <div class="playback-progress-bar-container">
+                        <div class="playback-progress-bar-fill" style="width:@(playbackProgressPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                    </div>
+                }
                 <div class="controls">
                     <button class="btn btn-control" @onclick="TogglePlayPause">
                         <i class="bi @(isPlaying ? "bi-pause-circle" : "bi-play-circle")"></i>
@@ -176,6 +182,9 @@
     private IJSObjectReference? _protectionModule;
     private bool _isTransitioningToNextSong = false;
     private PlaylistItemDto? _previousCurrentSong;
+    private Timer? _progressTimer;
+    private double playbackProgressPercent = 0;
+    private int playbackDurationSeconds = 0;
 
     protected override void OnInitialized()
     {
@@ -626,13 +635,33 @@
     private void ShowControls()
     {
         showControls = true;
+        playbackDurationSeconds = GetCurrentSong()?.DurationSeconds ?? 0;
+        if (playbackDurationSeconds > 0 && playerModule != null)
+        {
+            _progressTimer?.Dispose();
+            _progressTimer = new Timer(async _ => await PollPlaybackProgress(), null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        }
         StateHasChanged();
     }
 
     private void HideControls()
     {
         showControls = false;
+        _progressTimer?.Dispose();
+        _progressTimer = null;
         StateHasChanged();
+    }
+
+    private async Task PollPlaybackProgress()
+    {
+        if (playerModule == null || playbackDurationSeconds <= 0) return;
+        try
+        {
+            var position = await playerModule.InvokeAsync<double>("getPlaybackPosition");
+            playbackProgressPercent = Math.Min(100, position / playbackDurationSeconds * 100);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { }
     }
 
     private async Task ToggleFullscreen()
@@ -778,6 +807,8 @@
         if (disposing)
         {
             PlaylistState.StateChanged -= OnPlaylistStateChanged;
+            _progressTimer?.Dispose();
+            _progressTimer = null;
 
             if (playerModule != null)
             {

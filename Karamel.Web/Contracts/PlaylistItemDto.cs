@@ -15,7 +15,8 @@ public record PlaylistItemDto(
     [property: JsonPropertyName("title")] string Title,        // For display when Song not in library
     [property: JsonPropertyName("singerName")] string? SingerName,  // Who added to playlist
     [property: JsonPropertyName("position")] int Position,     // Order in playlist
-    [property: JsonPropertyName("status")] int Status          // 0=Queued, 1=UpNext, 2=NowPlaying, 3=Completed
+    [property: JsonPropertyName("status")] int Status,         // 0=Queued, 1=UpNext, 2=NowPlaying, 3=Completed
+    [property: JsonPropertyName("durationSeconds")] int DurationSeconds = 0  // Duration in seconds; 0 = unknown
 );
 
 /// <summary>

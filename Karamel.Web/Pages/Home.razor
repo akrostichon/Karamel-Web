@@ -283,6 +283,14 @@
             {
                 // Convert DTOs to Song instances to avoid enum JSON issues
                 var songs = result.Songs?.Select(s => Karamel.Web.Contracts.SongConverters.ConvertDtoToSong(s)).ToList() ?? new List<Song>();
+#if DEBUG
+                var withDuration = songs.Count(s => s.DurationSeconds > 0);
+                Console.WriteLine($"[Home] Library loaded: {songs.Count} songs, {withDuration} have DurationSeconds > 0");
+                foreach (var s in songs.Take(3))
+                {
+                    Console.WriteLine($"[Home] Sample song: title='{s.Title}' DurationSeconds={s.DurationSeconds}");
+                }
+#endif
                 _librarySelected = true;
                 _songCount = songs.Count;
                 _selectedSongs = songs;
