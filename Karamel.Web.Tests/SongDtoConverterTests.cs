@@ -481,4 +481,176 @@ public class SongDtoConverterTests
     }
 
     #endregion
+
+    #region Duration Tests
+
+    [Fact]
+    public void ConvertSongToUploadDto_Mp3CdgSongWithDuration_IncludesDurationInMetadata()
+    {
+        // Arrange
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Duration Artist",
+            Title = "Duration Song",
+            MediaType = MediaType.Mp3Cdg,
+            Mp3FileName = "song.mp3",
+            CdgFileName = "song.cdg",
+            DurationSeconds = 175
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert
+        Assert.NotNull(dto.MetadataJson);
+        var metadata = JsonDocument.Parse(dto.MetadataJson).RootElement;
+        Assert.Equal(175, metadata.GetProperty("durationSeconds").GetInt32());
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_Mp3CdgSongWithZeroDuration_HasNullMetadata()
+    {
+        // Arrange - DurationSeconds == 0 means unknown, no metadata should be emitted
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Artist",
+            Title = "Title",
+            MediaType = MediaType.Mp3Cdg,
+            Mp3FileName = "song.mp3",
+            CdgFileName = "song.cdg",
+            DurationSeconds = 0
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert
+        Assert.Null(dto.MetadataJson);
+    }
+
+    [Fact]
+    public void ConvertSongToUploadDto_VideoSongWithDuration_IncludesDurationInMetadata()
+    {
+        // Arrange
+        var song = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Video Artist",
+            Title = "Video Title",
+            MediaType = MediaType.Video,
+            VideoFileName = "video.mp4",
+            VideoExtension = ".mp4",
+            DurationSeconds = 175
+        };
+
+        // Act
+        var dto = SongConverters.ConvertSongToUploadDto(song);
+
+        // Assert
+        Assert.NotNull(dto.MetadataJson);
+        var metadata = JsonDocument.Parse(dto.MetadataJson).RootElement;
+        Assert.Equal("video", metadata.GetProperty("mediaType").GetString());
+        Assert.Equal(".mp4", metadata.GetProperty("extension").GetString());
+        Assert.Equal(175, metadata.GetProperty("durationSeconds").GetInt32());
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithDurationInMetadata_SetsDurationSeconds()
+    {
+        // Arrange
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Duration Artist",
+            "title": "Duration Title",
+            "metadataJson": "{\"durationSeconds\":175}"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert
+        Assert.Equal(175, song.DurationSeconds);
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithVideoDurationInMetadata_SetsDurationSeconds()
+    {
+        // Arrange
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Video Artist",
+            "title": "Video Title",
+            "metadataJson": "{\"mediaType\":\"video\",\"extension\":\".mp4\",\"durationSeconds\":175}"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert
+        Assert.Equal(MediaType.Video, song.MediaType);
+        Assert.Equal(175, song.DurationSeconds);
+    }
+
+    [Fact]
+    public void ConvertJsonToSong_WithoutDurationInMetadata_DefaultsToZero()
+    {
+        // Arrange
+        var json = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "artist": "Artist",
+            "title": "Title"
+        }
+        """;
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+
+        // Act
+        var song = SongConverters.ConvertJsonToSong(jsonElement);
+
+        // Assert
+        Assert.Equal(0, song.DurationSeconds);
+    }
+
+    [Fact]
+    public void DurationSeconds_RoundTrip_PreservesValue()
+    {
+        // Arrange - Full round-trip: Song → UploadDto (MetadataJson) → ConvertJsonToSong
+        var original = new Song
+        {
+            Id = Guid.Parse("12345678-1234-1234-1234-123456789012"),
+            Artist = "Round-trip Artist",
+            Title = "Round-trip Title",
+            MediaType = MediaType.Mp3Cdg,
+            Mp3FileName = "song.mp3",
+            CdgFileName = "song.cdg",
+            DurationSeconds = 175
+        };
+
+        // Act - Simulate upload serialization then server-side JSON response
+        var uploadDto = SongConverters.ConvertSongToUploadDto(original);
+        var simulatedBackendJson = $$"""
+        {
+            "id": "{{original.Id}}",
+            "artist": "{{original.Artist}}",
+            "title": "{{original.Title}}",
+            "metadataJson": {{JsonSerializer.Serialize(uploadDto.MetadataJson)}}
+        }
+        """;
+        var restored = SongConverters.ConvertJsonToSong(JsonDocument.Parse(simulatedBackendJson).RootElement);
+
+        // Assert
+        Assert.Equal(original.DurationSeconds, restored.DurationSeconds);
+        Assert.Equal(original.Artist, restored.Artist);
+        Assert.Equal(original.Title, restored.Title);
+    }
+
+    #endregion
 }

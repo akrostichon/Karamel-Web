@@ -32,18 +32,28 @@ public static class SongConverters
     public static SongUploadDto ConvertSongToUploadDto(Song s)
     {
         string? metadataJson = null;
-        
-        // Only include metadata for video songs (Mp3Cdg songs use null for backward compatibility)
+
         if (s.MediaType == MediaType.Video)
         {
-            var metadata = new
+            // Video songs always include mediaType and extension; add durationSeconds when available
+            if (s.DurationSeconds > 0)
             {
-                mediaType = "video",  // FIXED: Send as string to match backend validation
-                extension = s.VideoExtension
-            };
+                var metadata = new { mediaType = "video", extension = s.VideoExtension, durationSeconds = s.DurationSeconds };
+                metadataJson = JsonSerializer.Serialize(metadata);
+            }
+            else
+            {
+                var metadata = new { mediaType = "video", extension = s.VideoExtension };
+                metadataJson = JsonSerializer.Serialize(metadata);
+            }
+        }
+        else if (s.DurationSeconds > 0)
+        {
+            // Mp3Cdg songs: only include metadata when duration is known
+            var metadata = new { durationSeconds = s.DurationSeconds };
             metadataJson = JsonSerializer.Serialize(metadata);
         }
-        
+
         return new SongUploadDto(
             Id: s.Id.ToString(),
             Artist: s.Artist,
@@ -82,9 +92,10 @@ public static class SongConverters
     /// </summary>
     public static Song ConvertJsonToSong(JsonElement s)
     {
-        // Parse metadata to extract MediaType and VideoExtension
+        // Parse metadata to extract MediaType, VideoExtension, and DurationSeconds
         var mediaType = MediaType.Mp3Cdg; // Default for backward compatibility
         string? videoExtension = null;
+        int durationSeconds = 0;
         
         if (s.TryGetProperty("metadataJson", out var metadataJsonProp) && 
             metadataJsonProp.ValueKind == JsonValueKind.String)
@@ -123,6 +134,13 @@ public static class SongConverters
                     {
                         videoExtension = extensionProp.GetString();
                     }
+
+                    // Extract durationSeconds
+                    if (metadata.TryGetProperty("durationSeconds", out var durationProp) &&
+                        durationProp.ValueKind == JsonValueKind.Number)
+                    {
+                        durationSeconds = durationProp.GetInt32();
+                    }
                 }
                 catch
                 {
@@ -152,7 +170,8 @@ public static class SongConverters
             ZipEntryMp3Path = null,
             ZipEntryCdgPath = null,
             ZipFilePath = null,
-            AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null
+            AddedBySinger = s.TryGetProperty("addedBySinger", out var singer) ? singer.GetString() : null,
+            DurationSeconds = durationSeconds
         };
     }
 
