@@ -103,16 +103,16 @@ description: "Task list for removing deprecated methods and properties"
 
 #### Update Log Messages
 
-- [ ] T027 [US2] Search Karamel.Backend for log messages containing "LinkToken" and update to use "AdminToken" instead
+- [X] T027 [US2] Search Karamel.Backend for log messages containing "LinkToken" and update to use "AdminToken" instead
 
 #### Verification
 
-- [ ] T028 [US2] Build solution with `dotnet build` and verify zero errors/warnings
-- [ ] T029 [US2] Run `dotnet test Karamel.Backend.Tests -v minimal` and verify all tests pass
-- [ ] T030 [US2] Run `dotnet test Karamel.Web.Tests` and verify ≥251 passing, 9 skipped
-- [ ] T031 [US2] Search Karamel.Backend for "LinkToken" and verify zero results (except in Migrations/ history)
-- [ ] T032 [US2] Manual test: Start backend, POST to /api/sessions, verify response has adminToken/singerToken but NOT linkToken
-- [ ] T033 [US2] Commit changes: "Remove deprecated LinkToken property and database column"
+- [X] T028 [US2] Build solution with `dotnet build` and verify zero errors/warnings
+- [X] T029 [US2] Run `dotnet test Karamel.Backend.Tests -v minimal` and verify all tests pass
+- [X] T030 [US2] Run `dotnet test Karamel.Web.Tests` and verify ≥251 passing, 9 skipped
+- [X] T031 [US2] Search Karamel.Backend for "LinkToken" and verify zero results (except in Migrations/ history)
+- [X] T032 [US2] Manual test: Start backend, POST to /api/sessions, verify response has adminToken/singerToken but NOT linkToken
+- [X] T033 [US2] Commit changes: "Remove deprecated LinkToken property and database column"
 
 **Checkpoint**: User Story 2 complete - LinkToken fully removed from backend
 
@@ -128,37 +128,37 @@ description: "Task list for removing deprecated methods and properties"
 
 #### Update ISignalRConnectionManager
 
-- [ ] T034 [US3] Remove `string? linkToken` parameter from `InitializeAsync` method signature in Karamel.Web/Services/ISignalRConnectionManager.cs
-- [ ] T035 [US3] Update `InitializeAsync` implementation in Karamel.Web/Services/SignalRConnectionManager.cs to match new signature (remove parameter)
-- [ ] T036 [US3] Search for all `InitializeAsync` call sites and remove linkToken argument (typically in Karamel.Web/Pages/Home.razor)
+- [X] T034 [US3] Remove `string? linkToken` parameter from `InitializeAsync` method signature in Karamel.Web/Services/ISignalRConnectionManager.cs (renamed to `token`)
+- [X] T035 [US3] Update `InitializeAsync` implementation in Karamel.Web/Services/SignalRConnectionManager.cs to match new signature (renamed to `token`)
+- [X] T036 [US3] Search for all `InitializeAsync` call sites and remove linkToken argument (typically in Karamel.Web/Pages/Home.razor)
 
 #### Update ISessionApiClient
 
-- [ ] T037 [US3] Remove `string? linkToken` parameter from `UploadLibraryToServerAsync` method signature in Karamel.Web/Services/ISessionApiClient.cs
-- [ ] T038 [US3] Update `UploadLibraryToServerAsync` implementation in Karamel.Web/Services/SessionApiClient.cs to match new signature (remove parameter)
-- [ ] T039 [US3] Search for all `UploadLibraryToServerAsync` call sites and remove linkToken argument
+- [X] T037 [US3] Remove `string? linkToken` parameter from `UploadLibraryToServerAsync` method signature in Karamel.Web/Services/ISessionApiClient.cs (renamed to `token`)
+- [X] T038 [US3] Update `UploadLibraryToServerAsync` implementation in Karamel.Web/Services/SessionApiClient.cs to match new signature (renamed to `token`)
+- [X] T039 [US3] Search for all `UploadLibraryToServerAsync` call sites and remove linkToken argument
 
 #### Update ISessionStorageService
 
-- [ ] T040 [US3] Remove `string? linkToken` parameter from `GenerateSessionUrlAsync` method signature in Karamel.Web/Services/ISessionStorageService.cs
-- [ ] T041 [US3] Update `GenerateSessionUrlAsync` implementation in Karamel.Web/Services/SessionStorageService.cs to match new signature (remove parameter)
-- [ ] T042 [US3] Search for all `GenerateSessionUrlAsync` call sites and remove linkToken argument
+- [X] T040 [US3] Remove `string? linkToken` parameter from `GenerateSessionUrlAsync` method signature in Karamel.Web/Services/ISessionStorageService.cs (renamed to `token`)
+- [X] T041 [US3] Update `GenerateSessionUrlAsync` implementation in Karamel.Web/Services/SessionStorageService.cs to match new signature (renamed to `token`)
+- [X] T042 [US3] Search for all `GenerateSessionUrlAsync` call sites and remove linkToken argument
 
 #### Remove Backward Compatibility Code
 
-- [ ] T043 [US3] In Karamel.Web/Pages/Home.razor, remove code that reads `linkToken` from session JSON (backward compatibility block)
-- [ ] T044 [US3] Remove any other references to `linkToken` variable in Home.razor
+- [X] T043 [US3] In Karamel.Web/Pages/Home.razor, remove code that reads `linkToken` from session JSON (backward compatibility block)
+- [X] T044 [US3] Remove any other references to `linkToken` variable in Home.razor
 
 #### Update XML Documentation
 
-- [ ] T045 [P] [US3] Search Karamel.Web for XML docs (///) containing "LinkToken" or "linkToken" and update to reference "AdminToken" or remove if irrelevant
+- [X] T045 [P] [US3] Search Karamel.Web for XML docs (///) containing "LinkToken" or "linkToken" and update to reference "AdminToken" or remove if irrelevant
 
 #### Verification
 
-- [ ] T046 [US3] Build solution with `dotnet build` and verify zero errors/warnings
-- [ ] T047 [US3] Run `dotnet test Karamel.Web.Tests` and verify ≥251 passing, 9 skipped
-- [ ] T048 [US3] Run `npm run test:run` in Karamel.Web/wwwroot and verify ≥222 tests pass
-- [ ] T049 [US3] Search Karamel.Web for "linkToken" (camelCase) and verify zero results (except this tasks.md)
+- [X] T046 [US3] Build solution with `dotnet build` and verify zero errors/warnings
+- [X] T047 [US3] Run `dotnet test Karamel.Web.Tests` and verify ≥251 passing, 9 skipped
+- [X] T048 [US3] Run `npm run test:run` in Karamel.Web/wwwroot and verify ≥222 tests pass
+- [X] T049 [US3] Search Karamel.Web for "linkToken" (camelCase) and verify zero results (except this tasks.md)
 - [ ] T050 [US3] Manual test: Run app, create session, verify QR code URL format is `?session={guid}&token={token}` (no linkToken)
 - [ ] T051 [US3] Commit changes: "Remove deprecated linkToken parameters from frontend services"
 

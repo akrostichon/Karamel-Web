@@ -464,11 +464,6 @@
             ? singerTokenProp.GetString() 
             : null;
         
-        // Backward compatibility: linkToken is now adminToken
-        if (adminToken == null && json.TryGetProperty("linkToken", out var tokenProp))
-        {
-            adminToken = tokenProp.GetString();
-        }
 
         // CRITICAL: Extract backend's authoritative session ID
         if (!json.TryGetProperty("id", out var sidProp))

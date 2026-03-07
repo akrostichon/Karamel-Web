@@ -13,9 +13,9 @@ public interface ISessionStorageService
     Task<JsonElement> ReadSessionStorageAsync(Guid sessionId);
 
     /// <summary>
-    /// Generate session URL with SessionId and LinkToken query parameters
+    /// Generate session URL with SessionId and Token query parameters
     /// </summary>
-    Task<string> GenerateSessionUrlAsync(string path, Guid sessionId, string? linkToken = null);
+    Task<string> GenerateSessionUrlAsync(string path, Guid sessionId, string? token = null);
 
     /// <summary>
     /// Get SessionId from current URL query parameter

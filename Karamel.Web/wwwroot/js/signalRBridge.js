@@ -13,7 +13,7 @@ let tabId = null;
 let hubConnection = null;
 let usingSignalR = false;
 let backendBaseUrl = null;
-let currentLinkToken = null;
+let currentToken = null;
 
 function getChannelName(sessionId) {
 	return `karamel-session-${sessionId}`;
@@ -59,17 +59,17 @@ async function ensureSignalRLoaded() {
 	});
 }
 
-async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
+async function tryConnectSignalR(sessionId, token, backendUrl) {
 	try {
 		const ok = await ensureSignalRLoaded();
 		if (!ok) return false;
 
-		// Build connection to hub. If a linkToken is provided, prefer accessTokenFactory
+		// Build connection to hub. If a token is provided, prefer accessTokenFactory
 		// and also include X-Link-Token header for transports that use headers.
 		const urlOptions = {};
-		if (linkToken) {
-			urlOptions.accessTokenFactory = () => linkToken;
-			urlOptions.headers = { 'X-Link-Token': linkToken };
+		if (token) {
+			urlOptions.accessTokenFactory = () => token;
+			urlOptions.headers = { 'X-Link-Token': token };
 		}
 
 		// Use backend URL if provided, otherwise use relative path
@@ -190,22 +190,22 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 /**
  * Initialize session bridge (SignalR preferred, BroadcastChannel fallback)
  */
-export function initializeSession(sessionId, asMainTab, linkToken, backendUrl) {
+export function initializeSession(sessionId, asMainTab, token, backendUrl) {
 	if (!sessionId) throw new Error('sessionId is required');
 
 	logger.debug('initializeSession called', { 
 		sessionId, 
 		asMainTab, 
-		hasLinkToken: !!linkToken, 
+		hasToken: !!token, 
 		backendUrl 
 	});
 
 	currentSessionId = sessionId;
 	isMainTab = !!asMainTab;
 	backendBaseUrl = backendUrl || null;
-	currentLinkToken = linkToken || null;
+	currentToken = token || null;
 
-	logger.debug('Stored currentLinkToken', { hasToken: !!currentLinkToken, sessionId });
+	logger.debug('Stored currentToken', { hasToken: !!currentToken, sessionId });
 	try {
 		tabId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('tab-' + Math.random().toString(36).slice(2));
 	} catch (e) {
@@ -259,7 +259,7 @@ export function initializeSession(sessionId, asMainTab, linkToken, backendUrl) {
 	}
 
 	// Attempt SignalR connection in background; do not block initialization
-	tryConnectSignalR(sessionId, linkToken, backendUrl).catch(() => {});
+	tryConnectSignalR(sessionId, token, backendUrl).catch(() => {});
 
 	logger.info('Session bridge initialized', { 
 		role: isMainTab ? 'MAIN' : 'SECONDARY', 
@@ -665,8 +665,8 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		sort: sort || 'null',
 		usingSignalR,
 		hubConnectionState: hubConnection?.state,
-		hasLinkToken: !!currentLinkToken,
-		linkTokenLength: currentLinkToken?.length
+		hasToken: !!currentToken,
+		tokenLength: currentToken?.length
 	});
 
 	// Prefer SignalR RPC when connected
@@ -705,15 +705,15 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		
 		const headers = { 'Accept': 'application/json' };
 		
-		if (currentLinkToken) {
-			headers['X-Link-Token'] = currentLinkToken;
+		if (currentToken) {
+			headers['X-Link-Token'] = currentToken;
 			logger.debug(`[DIAG:${correlationId}] REST request with X-Link-Token`, { 
 				url, 
-				tokenLength: currentLinkToken.length 
+				tokenLength: currentToken.length 
 			});
 		} else {
 			// CRITICAL: This will track in Application Insights as an error
-			logger.error(`[ERROR:${correlationId}] NO currentLinkToken available - request will likely fail`, { 
+			logger.error(`[ERROR:${correlationId}] NO currentToken available - request will likely fail`, { 
 				sessionId, 
 				url,
 				operation: 'fetchLibraryPage'
@@ -790,8 +790,8 @@ export async function searchLibrary(sessionId, query, maxResults = 10) {
 		const baseUrl = backendBaseUrl || '';
 		const url = `${baseUrl}/api/sessions/${sessionId}/library?${params.toString()}`;
 		const headers = {};
-		if (currentLinkToken) {
-			headers['X-Link-Token'] = currentLinkToken;
+		if (currentToken) {
+			headers['X-Link-Token'] = currentToken;
 		}
 		const resp = await fetch(url, { headers });
 		if (!resp.ok) return [];
@@ -811,11 +811,11 @@ export async function uploadLibraryToServer(sessionId, libraryData, options = {}
 		const url = `${baseUrl}/api/sessions/${sessionId}/library/bulk`;
 		const headers = { 'Content-Type': 'application/json' };
 		
-		// Use provided token or fall back to stored currentLinkToken
-		const tokenToUse = options.linkToken || currentLinkToken;
+		// Use provided token or fall back to stored currentToken
+		const tokenToUse = options.token || options.linkToken || currentToken;
 		logger.debug('uploadLibraryToServer token resolution', { 
-			hasOptionsToken: !!options.linkToken, 
-			hasCurrentToken: !!currentLinkToken, 
+			hasOptionsToken: !!(options.token || options.linkToken), 
+			hasCurrentToken: !!currentToken, 
 			usingToken: !!tokenToUse, 
 			sessionId 
 		});
@@ -895,11 +895,11 @@ export function clearSessionState() {
 	}
 }
 
-export function generateSessionUrl(path, sessionId, linkToken = null) {
+export function generateSessionUrl(path, sessionId, token = null) {
 	const url = new URL(path, window.location.origin);
 	url.searchParams.set('session', sessionId);
-	if (linkToken) {
-		url.searchParams.set('token', linkToken);
+	if (token) {
+		url.searchParams.set('token', token);
 	}
 	return url.toString();
 }

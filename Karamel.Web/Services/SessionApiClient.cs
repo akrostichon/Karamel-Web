@@ -39,7 +39,7 @@ public class SessionApiClient : ISessionApiClient
     /// Upload sanitized library to server-side API for paginated listing (main tab only)
     /// PRIVACY: Uses ConvertSongToUploadDto which excludes file paths
     /// </summary>
-    public async Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null)
+    public async Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? token = null)
     {
         var module = await GetModuleAsync();
         
@@ -50,7 +50,7 @@ public class SessionApiClient : ISessionApiClient
 
         try
         {
-            return await module.InvokeAsync<bool>("uploadLibraryToServer", sessionId.ToString(), data, new { linkToken });
+            return await module.InvokeAsync<bool>("uploadLibraryToServer", sessionId.ToString(), data, new { token });
         }
         catch (Exception ex)
         {

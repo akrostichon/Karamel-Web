@@ -794,7 +794,7 @@ describe('signalRBridge', () => {
                 ]
             };
 
-            await uploadLibraryToServer('session-123', libraryData, { linkToken: 'test-token' });
+            await uploadLibraryToServer('session-123', libraryData, { token: 'test-token' });
 
             // Verify fetch was called
             expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -831,7 +831,7 @@ describe('signalRBridge', () => {
                 ]
             };
 
-            await uploadLibraryToServer('session-123', libraryData, { linkToken: 'test-token' });
+            await uploadLibraryToServer('session-123', libraryData, { token: 'test-token' });
 
             const callArgs = fetchMock.mock.calls[0];
             const requestBody = JSON.parse(callArgs[1].body);
@@ -867,7 +867,7 @@ describe('signalRBridge', () => {
                 ]
             };
 
-            const result = await uploadLibraryToServer('session-123', libraryData, { linkToken: 'test-token' });
+            const result = await uploadLibraryToServer('session-123', libraryData, { token: 'test-token' });
 
             // Assert: Upload succeeds
             expect(result).toBe(true);
@@ -973,3 +973,4 @@ describe('signalRBridge', () => {
         });
     });
 });
+

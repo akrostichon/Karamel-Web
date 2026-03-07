@@ -12,7 +12,7 @@ public interface ISessionApiClient
     /// Upload sanitized library to server-side API for paginated listing (main tab only)
     /// PRIVACY: Uses ConvertSongToUploadDto which excludes file paths
     /// </summary>
-    Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? linkToken = null);
+    Task<bool> UploadLibraryToServerAsync(Guid sessionId, IEnumerable<Song> songs, string? token = null);
 
     /// <summary>
     /// Fetch a paginated library page from server (prefers SignalR RPC when available)
