@@ -120,6 +120,16 @@
     min-width: 40px;
 }
 
+.playlist-song-duration {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 2.5rem;
+    text-align: right;
+    margin: 0 0.5rem;
+}
+
 .btn-clear-playlist {
     white-space: nowrap;
 }

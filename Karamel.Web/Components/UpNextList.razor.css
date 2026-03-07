@@ -55,3 +55,11 @@
 .up-next-empty {
     color: var(--color-text-secondary);
 }
+
+.up-next-song-duration {
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}

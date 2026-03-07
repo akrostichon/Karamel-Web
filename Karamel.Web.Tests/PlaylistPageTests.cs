@@ -638,4 +638,54 @@ public class PlaylistPageTests : SessionTestBase
         var playlistBtn = cut.FindAll(".segment-btn")[0];
         Assert.Contains("active", playlistBtn.GetAttribute("class") ?? string.Empty);
     }
+
+    [Fact]
+    public void QueueRow_WhenSongHasDuration_DisplaysFormattedDuration()
+    {
+        // Arrange – one queued song with DurationSeconds=180
+        var itemWithDuration = new PlaylistItemDto(
+            Id: Guid.NewGuid().ToString(),
+            SongId: Guid.NewGuid().ToString(),
+            Artist: "Queen",
+            Title: "Bohemian Rhapsody",
+            SingerName: "Alice",
+            Position: 0,
+            Status: (int)SongStatus.Queued,
+            DurationSeconds: 180
+        );
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto> { itemWithDuration } };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Assert – duration cell shows "3:00"
+        var durationSpan = cut.Find(".playlist-song-duration");
+        Assert.Equal("3:00", durationSpan.TextContent.Trim());
+    }
+
+    [Fact]
+    public void QueueRow_WhenSongHasNoDuration_ShowsDash()
+    {
+        // Arrange – one queued song with DurationSeconds=0
+        var itemNoDuration = new PlaylistItemDto(
+            Id: Guid.NewGuid().ToString(),
+            SongId: Guid.NewGuid().ToString(),
+            Artist: "Beatles",
+            Title: "Let It Be",
+            SingerName: "Bob",
+            Position: 0,
+            Status: (int)SongStatus.Queued,
+            DurationSeconds: 0
+        );
+        var playlistState = new PlaylistState { Items = new List<PlaylistItemDto> { itemNoDuration } };
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        SetupTestWithSession(sessionState, playlistState, view: "playlist");
+
+        var cut = RenderComponent<Playlist>();
+
+        // Assert – duration cell shows em-dash fallback
+        var durationSpan = cut.Find(".playlist-song-duration");
+        Assert.Equal("\u2014", durationSpan.TextContent.Trim());
+    }
 }

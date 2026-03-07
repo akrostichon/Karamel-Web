@@ -275,3 +275,13 @@ export function stopPlayback() {
         stopAnimation();
     }
 }
+
+export function getPlaybackPosition() {
+    if (playerMode === 'cdg' && audioElement) {
+        return audioElement.currentTime;
+    }
+    if (playerMode === 'video' && videoElement) {
+        return videoElement.currentTime;
+    }
+    return 0;
+}

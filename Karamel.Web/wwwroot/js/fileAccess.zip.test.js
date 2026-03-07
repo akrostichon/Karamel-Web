@@ -71,6 +71,9 @@ describe('fileAccess.js - ZIP support', () => {
     mockDirectoryPicker = vi.fn();
     global.window = { showDirectoryPicker: mockDirectoryPicker };
     vi.spyOn(global.crypto, 'randomUUID').mockReturnValue('zip-id-1');
+    // Prevent extractDuration from hanging (happy-dom doesn't load media)
+    global.URL.createObjectURL = vi.fn(() => { throw new Error('Not supported in tests'); });
+    global.URL.revokeObjectURL = vi.fn();
     fileAccessModule = await import('../js/fileAccess.js');
   });
 
@@ -98,6 +101,8 @@ describe('fileAccess.js - ZIP support', () => {
   });
 
   it('should lazily extract mp3 blob and cdg arraybuffer when loadSongFiles called for zip', async () => {
+    // Build directory and scan while URL.createObjectURL still throws (from beforeEach),
+    // so extractDuration returns 0 quickly without hanging on the 3 s timeout.
     const zip = new JSZip();
     zip.file('Z - s.mp3', new TextEncoder().encode('mp3 bytes'));
     zip.file('Z - s.cdg', new TextEncoder().encode('cdg bytes'));
@@ -112,6 +117,9 @@ describe('fileAccess.js - ZIP support', () => {
     const songs = await fileAccessModule.pickLibraryDirectory();
     expect(songs).toHaveLength(1);
     const song = songs[0];
+
+    // Enable URL.createObjectURL only now so storeSongData can build the object URL
+    global.URL.createObjectURL = vi.fn(() => 'blob:zip-mp3-url');
 
     const result = await fileAccessModule.loadSongFiles('', song.mp3FileName, song.cdgFileName, {
       zipFileName: song.zipFileName,

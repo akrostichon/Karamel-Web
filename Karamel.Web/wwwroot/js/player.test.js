@@ -136,4 +136,37 @@ describe('player.js - Dual-mode architecture', () => {
             expect(player.stopPlayback).toBeDefined();
         });
     });
+
+    describe('getPlaybackPosition', () => {
+        it('should return 0 when no player is active', () => {
+            // After dispose, playerMode is null so should return 0
+            player.dispose();
+            expect(player.getPlaybackPosition()).toBe(0);
+        });
+
+        it('should return videoElement.currentTime when in video mode', async () => {
+            const videoUrl = 'blob:http://localhost/test-video';
+            mockVideoElement.currentTime = 42.5;
+
+            await player.initializeVideoPlayer(videoUrl, mockDotNetRef);
+            const position = player.getPlaybackPosition();
+
+            expect(position).toBe(42.5);
+        });
+
+        it('should return 0 when in video mode but currentTime is 0', async () => {
+            const videoUrl = 'blob:http://localhost/test-video';
+            mockVideoElement.currentTime = 0;
+
+            await player.initializeVideoPlayer(videoUrl, mockDotNetRef);
+            const position = player.getPlaybackPosition();
+
+            expect(position).toBe(0);
+        });
+
+        it('should be exported as a function', () => {
+            expect(player.getPlaybackPosition).toBeDefined();
+            expect(typeof player.getPlaybackPosition).toBe('function');
+        });
+    });
 });

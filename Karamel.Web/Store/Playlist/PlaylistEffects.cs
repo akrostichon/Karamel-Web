@@ -222,7 +222,8 @@ public class PlaylistEffects
                     Title: song.Title,
                     SingerName: song.AddedBySinger,
                     Position: index,
-                    Status: (int)SongStatus.Queued
+                    Status: (int)SongStatus.Queued,
+                    DurationSeconds: song.DurationSeconds
                 )).ToList();
 
                 var currentSongDto = update.Playlist.CurrentSong is null
@@ -234,7 +235,8 @@ public class PlaylistEffects
                         Title: update.Playlist.CurrentSong.Title,
                         SingerName: update.Playlist.CurrentSong.AddedBySinger,
                         Position: 0,
-                        Status: (int)SongStatus.NowPlaying
+                        Status: (int)SongStatus.NowPlaying,
+                        DurationSeconds: update.Playlist.CurrentSong.DurationSeconds
                     );
 
                 _dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(itemDtos, currentSongDto));

@@ -26,7 +26,7 @@ dotnet build
 **C# Frontend Tests** (xUnit + bUnit):
 ```powershell
 dotnet test Karamel.Web.Tests
-# Runs >=206 tests in Karamel.Web.Tests (9 skipped by design)
+# Runs >=260 tests in Karamel.Web.Tests (9 skipped by design)
 # Test time: ~8-10 seconds
 # Known skipped tests:
 #   - 5 in PlaylistPageTests (async JSInterop mocking limitations)
@@ -45,7 +45,7 @@ dotnet test Karamel.Backend.Tests -v minimal
 ```powershell
 cd Karamel.Web\wwwroot
 npm run test:run    # Single run (NOT: npm test:run)
-# Runs >=163 tests in >=12 test files
+# Runs >=222 tests in >=12 test files
 # Test time: ~3-4 seconds
 # Watch mode: npm test
 Afterwards navigate back to solution root with `cd ..\..`
@@ -96,7 +96,7 @@ git push origin feature/your-feature-name
 
 ### After Making Changes
 1. Run `dotnet build` and resolve any errors
-2. Run `dotnet test Karamel.Web.Tests` and ensure at least 197 tests pass (9 skipped is expected)
+2. Run `dotnet test Karamel.Web.Tests` and ensure at least 251 tests pass (9 skipped is expected)
 3. For JavaScript changes: `cd Karamel.Web\wwwroot; npm run test:run`
 4. **For backend changes**: Request user to manually run `dotnet test .\Karamel.Backend.Tests\ -v minimal`
 5. Test the running application manually if UI changes were made
@@ -147,6 +147,35 @@ await hubConnection.invoke('AddItemAsync', currentSessionId, songId, singerName)
 - Backend auto-promotes first Queued → UpNext when no UpNext exists
 - Use `PlaylistHelpers.GetSongById(LibraryState.Value, songId)` for song lookups
 - Dispatch `AdvanceToNextSongAction` for song transitions
+
+### Song Data Flows & DTO Contracts
+
+**CRITICAL**: Song metadata travels through two entirely separate code paths. Missing a field in ANY layer of either path causes a silent zero/null — there is no compile-time error.
+
+#### Path A — Library scan (main tab only)
+```
+JS fileAccess.js (extractDuration, buildDirectorySong, buildVideoSong, buildZipSong)
+  → SongDto record (Karamel.Web/Contracts/SongDto.cs)
+  → ConvertDtoToSong()
+  → LibraryState.Songs[]
+```
+
+#### Path B — SignalR playlist update (all tabs/devices)
+```
+Backend PlaylistHub  →  ReceivePlaylistUpdated
+  → signalRBridge.js (items map + currentSong map)
+  → PlaylistStateSynchronizer  →  PlaylistEffects.cs
+  → PlaylistItemDto constructor
+  → PlaylistState.Queue / PlaylistState.CurrentSong
+```
+
+**Four-layer contract rule**: When adding a new field to `Song.cs`:
+1. Add `[property: JsonPropertyName("camelCase")] T Field` to `SongDto` record
+2. Map it in `ConvertDtoToSong()` and `ConvertSongToDto()`
+3. Add fallback in `ConvertJsonToSong()` to read from root JSON element (SignalR items have no `metadataJson`)
+4. Add `fieldName: i.fieldName || i.FieldName || defaultValue` to **both** `items` and `currentSong` maps in `signalRBridge.js`
+5. Add `Field: song.Field` to **both** `PlaylistItemDto` constructors in `PlaylistEffects.cs`
+
 
 ### Directory Structure
 ```
@@ -533,7 +562,8 @@ describe('moduleName', () => {
 
 ## Final Reminders
 1. **NEVER commit to `main`** - always use feature branches
-2. **Run tests before committing** - `dotnet test` must show 197+ passing (9 skipped is expected)
+2. **Run tests before committing** - `dotnet test` must show 251+ passing (9 skipped is expected)
 3. **Session parameter is mandatory** on all pages except Home.razor
 4. **Multi-session support**: Each session is isolated by GUID in URLs, channels, and storage
-5. **Trust these instructions** - only search the codebase if specific implementation details are unclear or need to be verified
+5. **Song field additions require 5 layers**: `SongDto` record, `ConvertDtoToSong`, `ConvertSongToDto`, `ConvertJsonToSong` (root fallback), `signalRBridge.js` mappings, and both `PlaylistItemDto` constructors in `PlaylistEffects.cs`
+6. **Trust these instructions** - only search the codebase if specific implementation details are unclear or need to be verified

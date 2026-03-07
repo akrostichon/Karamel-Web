@@ -84,6 +84,12 @@ describe('fileAccess.js - Directory Scanning', () => {
       showDirectoryPicker: mockDirectoryPicker
     };
 
+    // Prevent extractDuration from hanging: make URL.createObjectURL throw so the
+    // try/catch in extractDuration returns 0 immediately. Tests that need real duration
+    // extraction override this in their own beforeEach.
+    global.URL.createObjectURL = vi.fn(() => { throw new Error('URL.createObjectURL not supported in this test context'); });
+    global.URL.revokeObjectURL = vi.fn();
+
     // Import module after mocking
     fileAccessModule = await import('../js/fileAccess.js');
   });
@@ -437,6 +443,20 @@ describe('fileAccess.js - Directory Scanning', () => {
 
   describe('loadSongFiles', () => {
     beforeEach(async () => {
+      // Restore URL.createObjectURL so byteStore.createObjectUrl works during loadSongFiles
+      global.URL.createObjectURL = vi.fn(() => 'blob:test-url');
+      global.URL.revokeObjectURL = vi.fn();
+
+      // Make media elements fire 'error' immediately so extractDuration returns 0 quickly
+      const _origCreate = document.createElement.bind(document);
+      vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+        if (tag === 'audio' || tag === 'video') {
+          const el = { duration: NaN, _h: {}, addEventListener(ev, fn) { this._h[ev] = fn; }, set src(_) { Promise.resolve().then(() => this._h.error?.()); } };
+          return el;
+        }
+        return _origCreate(tag);
+      });
+
       // Set up a mock directory structure first
       const mockDirectory = new MockFileSystemDirectoryHandle('library', {
         'test.mp3': new MockFileSystemFileHandle('test.mp3', 'mp3 content'),
@@ -513,6 +533,18 @@ describe('fileAccess.js - Directory Scanning', () => {
     beforeEach(async () => {
       // Mock URL.createObjectURL
       global.URL.createObjectURL = vi.fn((file) => `blob:http://localhost/${file.name}`);
+      global.URL.revokeObjectURL = vi.fn();
+
+      // Make media elements fire 'error' immediately so extractDuration returns 0 quickly
+      // (real media loading is not supported in happy-dom)
+      const _origCreate = document.createElement.bind(document);
+      vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+        if (tag === 'audio' || tag === 'video') {
+          const el = { duration: NaN, _h: {}, addEventListener(ev, fn) { this._h[ev] = fn; }, set src(_) { Promise.resolve().then(() => this._h.error?.()); } };
+          return el;
+        }
+        return _origCreate(tag);
+      });
       
       // Set up a mock directory with video files
       const mockDirectory = new MockFileSystemDirectoryHandle('library', {
@@ -575,5 +607,100 @@ describe('fileAccess.js - Directory Scanning', () => {
       expect(videoUrl.startsWith('blob:')).toBe(true);
       expect(videoUrl).toContain('test-video.mp4');
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// extractDuration behaviour (tested indirectly via pickLibraryDirectory)
+// ─────────────────────────────────────────────────────────────
+
+describe('fileAccess.js - extractDuration behaviour', () => {
+  let durationModule;
+  let mockDirPicker;
+  const originalCreateElement = document.createElement.bind(document);
+
+  /** Build a fake media element that fires `fireEvent` after src is set. */
+  function makeMockMediaEl(duration, fireEvent = 'loadedmetadata') {
+    const el = {
+      duration,
+      _handlers: {},
+      addEventListener(ev, fn) { this._handlers[ev] = fn; },
+      set src(_url) {
+        // Fire the event asynchronously (microtask) to allow addEventListener to register first
+        Promise.resolve().then(() => this._handlers[fireEvent]?.());
+      },
+    };
+    return el;
+  }
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.spyOn(global.crypto, 'randomUUID').mockReturnValue('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+
+    mockDirPicker = vi.fn();
+    global.window = { showDirectoryPicker: mockDirPicker };
+
+    // Provide a working URL.createObjectURL so the element is created
+    global.URL.createObjectURL = vi.fn(() => 'blob:test-duration');
+    global.URL.revokeObjectURL = vi.fn();
+
+    durationModule = await import('../js/fileAccess.js');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function setupDirectory(entries) {
+    const dir = new MockFileSystemDirectoryHandle('lib', entries);
+    mockDirPicker.mockResolvedValue(dir);
+  }
+
+  it('returns correct durationSeconds for a fake audio song (215 s)', async () => {
+    vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+      if (tag === 'audio') return makeMockMediaEl(215, 'loadedmetadata');
+      return originalCreateElement(tag);
+    });
+
+    setupDirectory({
+      'Artist - Song.mp3': new MockFileSystemFileHandle('Artist - Song.mp3', 'fake'),
+      'Artist - Song.cdg': new MockFileSystemFileHandle('Artist - Song.cdg', 'fake'),
+    });
+
+    const songs = await durationModule.pickLibraryDirectory();
+    expect(songs).toHaveLength(1);
+    expect(songs[0].durationSeconds).toBe(215);
+  });
+
+  it('returns 0 durationSeconds when the error event fires', async () => {
+    vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+      if (tag === 'audio') return makeMockMediaEl(NaN, 'error');
+      return originalCreateElement(tag);
+    });
+
+    setupDirectory({
+      'Artist - Song.mp3': new MockFileSystemFileHandle('Artist - Song.mp3', 'fake'),
+      'Artist - Song.cdg': new MockFileSystemFileHandle('Artist - Song.cdg', 'fake'),
+    });
+
+    const songs = await durationModule.pickLibraryDirectory();
+    expect(songs).toHaveLength(1);
+    expect(songs[0].durationSeconds).toBe(0);
+  });
+
+  it('returns 0 durationSeconds when el.duration is NaN', async () => {
+    vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+      if (tag === 'audio') return makeMockMediaEl(NaN, 'loadedmetadata');
+      return originalCreateElement(tag);
+    });
+
+    setupDirectory({
+      'Artist - Song.mp3': new MockFileSystemFileHandle('Artist - Song.mp3', 'fake'),
+      'Artist - Song.cdg': new MockFileSystemFileHandle('Artist - Song.cdg', 'fake'),
+    });
+
+    const songs = await durationModule.pickLibraryDirectory();
+    expect(songs).toHaveLength(1);
+    expect(songs[0].durationSeconds).toBe(0);
   });
 });

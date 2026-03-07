@@ -1,4 +1,5 @@
 using Bunit;
+using Karamel.Web.Contracts;
 using Karamel.Web.Models;
 using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;
@@ -886,6 +887,81 @@ public class PlayerViewTests : SessionTestBase
         // Verify canvas element exists in DOM (indirect proof CDG player was used)
         var canvas = cut.Find("#cdgCanvas");
         Assert.NotNull(canvas);
+    }
+
+    // T018: Progress bar visibility tests
+
+    [Fact]
+    public void Component_WhenShowControlsAndDurationKnown_ShowsProgressBar()
+    {
+        // Arrange - song with known duration in LibraryState
+        var songWithDuration = new Song
+        {
+            Id = Guid.NewGuid(),
+            Artist = "Beatles",
+            Title = "Let It Be",
+            Mp3FileName = "beatles.mp3",
+            CdgFileName = "beatles.cdg",
+            DurationSeconds = 215
+        };
+        var playlistItem = new PlaylistItemDto(
+            Id: Guid.NewGuid().ToString(),
+            SongId: songWithDuration.Id.ToString(),
+            Artist: songWithDuration.Artist,
+            Title: songWithDuration.Title,
+            SingerName: null,
+            Position: 0,
+            Status: (int)SongStatus.NowPlaying,
+            DurationSeconds: 215);
+
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = playlistItem };
+        var libraryState = new LibraryState { Songs = new List<Song> { songWithDuration } };
+
+        SetupTestWithSession(sessionState, playlistState, libraryState, view: "player");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+        cut.InvokeAsync(() =>
+        {
+            cut.Instance.GetType().GetMethod("ShowControls",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.Invoke(cut.Instance, null);
+        });
+        cut.Render();
+
+        // Assert - progress bar container should be present when duration > 0 and controls are shown
+        var progressBars = cut.FindAll(".playback-progress-bar-container");
+        Assert.NotEmpty(progressBars);
+    }
+
+    [Fact]
+    public void Component_WhenShowControlsAndDurationZero_HidesProgressBar()
+    {
+        // Arrange - song with no known duration (DurationSeconds = 0)
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
+
+        SetupTestWithSession(sessionState, playlistState, view: "player");
+        SetupJSRuntime();
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+        cut.InvokeAsync(() =>
+        {
+            cut.Instance.GetType().GetMethod("ShowControls",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.Invoke(cut.Instance, null);
+        });
+        cut.Render();
+
+        // Assert - controls are visible but progress bar is absent when duration is unknown
+        var controls = cut.Find(".controls");
+        Assert.NotNull(controls);
+
+        var progressBars = cut.FindAll(".playback-progress-bar-container");
+        Assert.Empty(progressBars);
     }
 
 }

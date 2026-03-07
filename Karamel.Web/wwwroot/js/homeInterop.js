@@ -121,7 +121,14 @@ export async function selectLibrary(filenamePattern) {
             // User cancelled or error occurred
             return null;
         }
-        
+
+        const songsWithDuration = songs.filter(s => s.durationSeconds > 0).length;
+        logger.debug('selectLibrary: scan complete', {
+            total: songs.length,
+            withDuration: songsWithDuration,
+            sample: songs.slice(0, 3).map(s => ({ title: s.title, durationSeconds: s.durationSeconds }))
+        });
+
         return {
             songs,
             songCount: songs.length,

@@ -10,6 +10,54 @@ import * as dirHelper from './dirHelper.js';
 const logger = createLogger('FileAccess');
 
 let libraryDirectoryHandle = null; // Keep directory handle for session-long access
+
+/**
+ * Extract the duration (in whole seconds) from a media file/blob.
+ * Uses a temporary <audio> or <video> element to probe duration and revokes the object URL after reading.
+ * @param {File|Blob|ArrayBuffer} fileOrBlob - Audio or video data to measure.
+ * @param {'audio'|'video'} [elementType='audio'] - Element type to use for probing.
+ * @returns {Promise<number>} Whole seconds, or 0 if unknown/unavailable/error.
+ * @private
+ */
+async function extractDuration(fileOrBlob, elementType = 'audio') {
+    let url = null;
+    try {
+        const blob = fileOrBlob instanceof ArrayBuffer
+            ? new Blob([fileOrBlob], { type: elementType === 'video' ? 'video/mp4' : 'audio/mpeg' })
+            : fileOrBlob;
+        const inputDesc = fileOrBlob instanceof ArrayBuffer
+            ? `ArrayBuffer (${fileOrBlob.byteLength} bytes)`
+            : `${fileOrBlob.constructor?.name} name=${fileOrBlob.name ?? '?'} size=${fileOrBlob.size ?? '?'}`;
+        logger.debug('extractDuration: start', { elementType, input: inputDesc });
+        url = URL.createObjectURL(blob);
+        const el = document.createElement(elementType);
+        const duration = await new Promise((resolve) => {
+            const timer = setTimeout(() => {
+                logger.debug('extractDuration: timed out after 3s', { elementType, input: inputDesc });
+                resolve(NaN);
+            }, 3000);
+            el.addEventListener('loadedmetadata', () => {
+                clearTimeout(timer);
+                logger.debug('extractDuration: loadedmetadata fired', { elementType, rawDuration: el.duration });
+                resolve(el.duration);
+            }, { once: true });
+            el.addEventListener('error', () => {
+                clearTimeout(timer);
+                logger.debug('extractDuration: error event fired', { elementType, errorCode: el.error?.code });
+                resolve(NaN);
+            }, { once: true });
+            el.src = url;
+        });
+        const result = (!Number.isFinite(duration) || duration <= 0) ? 0 : Math.round(duration);
+        logger.debug('extractDuration: result', { elementType, rawDuration: duration, resultSeconds: result });
+        return result;
+    } catch (ex) {
+        logger.debug('extractDuration: caught exception', { elementType, error: ex?.message });
+        return 0;
+    } finally {
+        if (url) URL.revokeObjectURL(url);
+    }
+}
 const MAX_ZIP_SIZE = 20 * 1024 * 1024; // 20 MB limit for in-memory unzip (kept for local checks)
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500 MB limit for video files
 
@@ -20,6 +68,8 @@ async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
     const baseName = fileObj.name.slice(0, -4);
     const fullPath = relativePath ? `${relativePath}/${baseName}` : baseName;
     const metadata = await extractMetadata(fileObj, fullPath, filenamePattern);
+    const durationSeconds = await extractDuration(fileObj, 'audio');
+    logger.debug('buildDirectorySong: built song', { mp3FileName: `${baseName}.mp3`, durationSeconds });
     return {
         id: crypto.randomUUID(),
         artist: metadata.artist,
@@ -27,7 +77,8 @@ async function buildDirectorySong(mp3FileEntry, relativePath, filenamePattern) {
         mp3FileName: `${baseName}.mp3`,
         cdgFileName: `${baseName}.cdg`,
         path: relativePath,
-        fullPath: fullPath
+        fullPath: fullPath,
+        durationSeconds
     };
 }
 
@@ -41,6 +92,8 @@ async function buildVideoSong(videoFileData, relativePath, filenamePattern) {
     // Use existing extractMetadata to parse artist/title from filename
     const metadata = await extractMetadata(fileObj, fullPath, filenamePattern);
     
+    const durationSeconds = await extractDuration(fileObj, 'video');
+    logger.debug('buildVideoSong: built song', { videoFileName: fileObj.name, durationSeconds });
     return {
         id: crypto.randomUUID(),
         artist: metadata.artist,
@@ -51,7 +104,8 @@ async function buildVideoSong(videoFileData, relativePath, filenamePattern) {
         mp3FileName: null,
         cdgFileName: null,
         path: relativePath,
-        fullPath: fullPath
+        fullPath: fullPath,
+        durationSeconds
     };
 }
 
@@ -60,6 +114,7 @@ async function buildZipSong(zip, zipFileName, zipFilePath, mp3EntryPath, cdgEntr
     const baseName = mp3EntryPath.substring(0, mp3EntryPath.length - 4);
     let artist = '';
     let title = baseName;
+    let durationSeconds = 0;
     try {
         const mp3ArrayBuffer = await zip.file(mp3EntryPath).async('arraybuffer');
         // Create a File with a name so ID3 readers can access tags and filename fallbacks
@@ -67,9 +122,11 @@ async function buildZipSong(zip, zipFileName, zipFilePath, mp3EntryPath, cdgEntr
         const metaFile = new File([mp3ArrayBuffer], mp3EntryPath, { type: 'audio/mpeg' });
         const md = await extractMetadata(metaFile, metaFileName, filenamePattern);
         artist = md.artist; title = md.title;
+        durationSeconds = await extractDuration(metaFile, 'audio');
     } catch (e) {
-        // ignore metadata extraction errors
+        logger.debug('buildZipSong: metadata/duration extraction error', { mp3EntryPath, error: e?.message });
     }
+    logger.debug('buildZipSong: built song', { mp3EntryPath, durationSeconds });
 
     return {
         id: crypto.randomUUID(),
@@ -83,7 +140,8 @@ async function buildZipSong(zip, zipFileName, zipFilePath, mp3EntryPath, cdgEntr
         zipFileName: zipFileName,
         zipEntryMp3Path: mp3EntryPath,
         zipEntryCdgPath: cdgEntryPath,
-        zipFilePath: zipFilePath
+        zipFilePath: zipFilePath,
+        durationSeconds: durationSeconds
     };
 }
 

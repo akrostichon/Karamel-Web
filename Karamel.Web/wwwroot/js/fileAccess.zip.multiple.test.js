@@ -28,6 +28,9 @@ describe('fileAccess.js - ZIP multiple pairs', () => {
     mockDirectoryPicker = vi.fn();
     global.window = { showDirectoryPicker: mockDirectoryPicker };
     vi.spyOn(global.crypto, 'randomUUID').mockReturnValue('zip-id-multi');
+    // Prevent extractDuration from hanging (happy-dom doesn't load media)
+    global.URL.createObjectURL = vi.fn(() => { throw new Error('Not supported in tests'); });
+    global.URL.revokeObjectURL = vi.fn();
     fileAccessModule = await import('../js/fileAccess.js');
   });
 

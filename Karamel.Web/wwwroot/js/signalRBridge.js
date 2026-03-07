@@ -93,8 +93,9 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 					artist: i.artist || i.Artist,
 					title: i.title || i.Title,
 					addedBySinger: i.singerName || i.SingerName || null,
-					status: i.status || i.Status || 0,  // NEW: Include song status (0=Queued, 1=UpNext, 2=NowPlaying, 3=Completed)
-					itemId: i.id || i.Id  // NEW: Playlist item ID for status updates
+					status: i.status || i.Status || 0,  // Include song status (0=Queued, 1=UpNext, 2=NowPlaying, 3=Completed)
+					itemId: i.id || i.Id,  // Playlist item ID for status updates
+					durationSeconds: i.durationSeconds || i.DurationSeconds || 0  // Duration in whole seconds; 0 = unknown
 				}));
 
 				// Extract currentSong from DTO (first NowPlaying item, or null)
@@ -105,7 +106,8 @@ async function tryConnectSignalR(sessionId, linkToken, backendUrl) {
 					title: currentSongDto.title || currentSongDto.Title,
 					addedBySinger: currentSongDto.singerName || currentSongDto.SingerName || null,
 					status: currentSongDto.status || currentSongDto.Status || 0,
-					itemId: currentSongDto.id || currentSongDto.Id
+					itemId: currentSongDto.id || currentSongDto.Id,
+					durationSeconds: currentSongDto.durationSeconds || currentSongDto.DurationSeconds || 0  // Duration in whole seconds
 				} : null;
 
 				// Calculate singer song counts

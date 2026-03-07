@@ -7,6 +7,7 @@
 @using Karamel.Web.Store.Session
 @using Karamel.Web.Store.Library
 @using Karamel.Web.Services
+@using Karamel.Web.Helpers
 @inherits FluxorComponent
 @inject IState<PlaylistState> PlaylistState
 @inject IState<SessionState> SessionState
@@ -159,6 +160,7 @@
                                         </div>
                                     }
                                 </div>
+                                <span class="playlist-song-duration">@(DurationFormatter.Format(song.DurationSeconds) ?? "—")</span>
                                 <button class="btn btn-sm btn-destructive-outline btn-remove" 
                                         @onclick="@(() => RemoveSong(song.Id))">
                                     <i class="bi bi-x-lg"></i>
