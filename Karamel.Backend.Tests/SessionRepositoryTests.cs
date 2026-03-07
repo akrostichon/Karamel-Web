@@ -28,33 +28,12 @@ namespace Karamel.Backend.Tests
             var session = new Session 
             { 
                 Id = Guid.NewGuid(), 
-                LinkToken = "token123", 
                 CreatedAt = DateTime.UtcNow,
                 Config = new SessionConfig()
             };
             await repo.AddAsync(session);
 
             var fetched = await repo.GetByIdAsync(session.Id);
-            Assert.NotNull(fetched);
-            Assert.Equal("token123", fetched!.LinkToken);
-        }
-
-        [Fact]
-        public async Task Get_By_LinkToken_Returns_Session()
-        {
-            using var db = CreateInMemoryContext();
-            var repo = new SessionRepository(db, NullLogger<SessionRepository>.Instance);
-
-            var session = new Session 
-            { 
-                Id = Guid.NewGuid(), 
-                LinkToken = "link-abc", 
-                CreatedAt = DateTime.UtcNow,
-                Config = new SessionConfig()
-            };
-            await repo.AddAsync(session);
-
-            var fetched = await repo.GetByLinkTokenAsync("link-abc");
             Assert.NotNull(fetched);
             Assert.Equal(session.Id, fetched!.Id);
         }
@@ -69,7 +48,6 @@ namespace Karamel.Backend.Tests
             var session = new Session
             {
                 Id = Guid.NewGuid(),
-                LinkToken = "token123",
                 CreatedAt = DateTime.UtcNow,
                 Config = new SessionConfig
                 {
@@ -98,7 +76,6 @@ namespace Karamel.Backend.Tests
             var session = new Session
             {
                 Id = Guid.NewGuid(),
-                LinkToken = "token456",
                 CreatedAt = DateTime.UtcNow,
                 Config = new SessionConfig
                 {
@@ -127,7 +104,6 @@ namespace Karamel.Backend.Tests
             var session = new Session
             {
                 Id = Guid.NewGuid(),
-                LinkToken = "token789",
                 CreatedAt = DateTime.UtcNow
                 // Config will use default values
             };

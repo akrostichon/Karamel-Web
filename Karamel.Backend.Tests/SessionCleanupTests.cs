@@ -42,8 +42,7 @@ namespace Karamel.Backend.Tests
                     AllowSingersToReorder = false
                 },
                 AdminToken = "test-admin-token",
-                SingerToken = "test-singer-token",
-                LinkToken = "test-token"
+                SingerToken = "test-singer-token"
             };
 
             await repo.AddAsync(s);
@@ -86,8 +85,7 @@ namespace Karamel.Backend.Tests
                     AllowSingersToReorder = true
                 },
                 AdminToken = "test-admin-token",
-                SingerToken = "test-singer-token",
-                LinkToken = "test-token"
+                SingerToken = "test-singer-token"
             };
 
             await repo.AddAsync(oldSession);
@@ -105,8 +103,7 @@ namespace Karamel.Backend.Tests
                     AllowSingersToReorder = true
                 },
                 AdminToken = "test-admin-token-2",
-                SingerToken = "test-singer-token-2",
-                LinkToken = "test-token-2"
+                SingerToken = "test-singer-token-2"
             };
 
             await repo.AddAsync(recentSession);
@@ -148,8 +145,7 @@ namespace Karamel.Backend.Tests
                     AllowSingersToReorder = true
                 },
                 AdminToken = "test-admin-token",
-                SingerToken = "test-singer-token",
-                LinkToken = "test-token"
+                SingerToken = "test-singer-token"
             };
 
             await sessionRepo.AddAsync(session);
@@ -202,8 +198,7 @@ namespace Karamel.Backend.Tests
                     AllowSingersToReorder = true
                 },
                 AdminToken = "test-admin-token",
-                SingerToken = "test-singer-token",
-                LinkToken = "test-token"
+                SingerToken = "test-singer-token"
             };
 
             await sessionRepo.AddAsync(session);

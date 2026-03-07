@@ -71,35 +71,35 @@ description: "Task list for removing deprecated methods and properties"
 
 #### Remove LinkTokenHubFilter and Registration
 
-- [ ] T013 [P] [US2] Delete entire file Karamel.Backend/Filters/LinkTokenHubFilter.cs
-- [ ] T014 [US2] Remove `options.AddFilter<LinkTokenHubFilter>();` (or similar) from Karamel.Backend/Program.cs hub configuration
+- [X] T013 [P] [US2] Delete entire file Karamel.Backend/Filters/LinkTokenHubFilter.cs
+- [X] T014 [US2] Remove `options.AddFilter<LinkTokenHubFilter>();` (or similar) from Karamel.Backend/Program.cs hub configuration
 
 #### Remove ITokenService Methods
 
-- [ ] T015 [P] [US2] Remove `string GenerateLinkToken(Guid sessionId);` method declaration from Karamel.Backend/Services/ITokenService.cs
-- [ ] T016 [P] [US2] Remove `bool ValidateLinkToken(Guid sessionId, string token);` method declaration from Karamel.Backend/Services/ITokenService.cs
-- [ ] T017 [US2] Remove implementations of `GenerateLinkToken` and `ValidateLinkToken` from Karamel.Backend/Services/TokenService.cs
+- [X] T015 [P] [US2] Remove `string GenerateLinkToken(Guid sessionId);` method declaration from Karamel.Backend/Services/ITokenService.cs
+- [X] T016 [P] [US2] Remove `bool ValidateLinkToken(Guid sessionId, string token);` method declaration from Karamel.Backend/Services/ITokenService.cs
+- [X] T017 [US2] Remove implementations of `GenerateLinkToken` and `ValidateLinkToken` from Karamel.Backend/Services/TokenService.cs
 
 #### Remove ISessionRepository Method
 
-- [ ] T018 [P] [US2] Remove `Task<Session?> GetByLinkTokenAsync(string linkToken);` method declaration from Karamel.Backend/Repositories/ISessionRepository.cs
-- [ ] T019 [US2] Remove implementation of `GetByLinkTokenAsync` from Karamel.Backend/Repositories/SessionRepository.cs
+- [X] T018 [P] [US2] Remove `Task<Session?> GetByLinkTokenAsync(string linkToken);` method declaration from Karamel.Backend/Repositories/ISessionRepository.cs
+- [X] T019 [US2] Remove implementation of `GetByLinkTokenAsync` from Karamel.Backend/Repositories/SessionRepository.cs
 
 #### Update SessionsController
 
-- [ ] T020 [US2] In Karamel.Backend/Controllers/SessionsController.cs Create method, remove `LinkToken = _tokenService.GenerateLinkToken(session.Id)` assignment
-- [ ] T021 [US2] In SessionsController.cs Create method response, remove `linkToken = session.LinkToken` field from anonymous object
+- [X] T020 [US2] In Karamel.Backend/Controllers/SessionsController.cs Create method, remove `LinkToken = _tokenService.GenerateLinkToken(session.Id)` assignment
+- [X] T021 [US2] In SessionsController.cs Create method response, remove `linkToken = session.LinkToken` field from anonymous object
 
 #### Remove Session Model Property
 
-- [ ] T022 [US2] Remove `public string? LinkToken { get; set; }` property from Karamel.Backend/Models/Session.cs
+- [X] T022 [US2] Remove `public string? LinkToken { get; set; }` property from Karamel.Backend/Models/Session.cs
 
 #### Create and Apply Database Migration
 
-- [ ] T023 [US2] Generate EF Core migration: `dotnet ef migrations add RemoveLinkToken --project Karamel.Backend`
-- [ ] T024 [US2] Edit generated migration file Up() method to add data migration: `migrationBuilder.Sql("UPDATE Sessions SET AdminToken = LinkToken WHERE AdminToken IS NULL AND LinkToken IS NOT NULL");` before DropColumn
-- [ ] T025 [US2] Edit generated migration file Down() method to add data migration: `migrationBuilder.Sql("UPDATE Sessions SET LinkToken = AdminToken");` after AddColumn
-- [ ] T026 [US2] Apply migration to local SQLite database: `dotnet ef database update --project Karamel.Backend`
+- [X] T023 [US2] Generate EF Core migration: `dotnet ef migrations add RemoveLinkToken --project Karamel.Backend`
+- [X] T024 [US2] Edit generated migration file Up() method to add data migration: `migrationBuilder.Sql("UPDATE Sessions SET AdminToken = LinkToken WHERE AdminToken IS NULL AND LinkToken IS NOT NULL");` before DropColumn
+- [X] T025 [US2] Edit generated migration file Down() method to add data migration: `migrationBuilder.Sql("UPDATE Sessions SET LinkToken = AdminToken");` after AddColumn
+- [X] T026 [US2] Local SQLite DB deleted and recreated fresh; migration prepared for production SQL Server (`dotnet ef database update --project Karamel.Backend`)
 
 #### Update Log Messages
 

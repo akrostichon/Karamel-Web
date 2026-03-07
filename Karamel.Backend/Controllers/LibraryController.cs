@@ -5,7 +5,6 @@ namespace Karamel.Backend.Controllers
 {
     [ApiController]
     [Route("api/sessions/{sessionId:guid}/[controller]")]
-    [Filters.LinkToken]
     public class LibraryController : ControllerBase
     {
         private readonly ISongRepository _songRepo;

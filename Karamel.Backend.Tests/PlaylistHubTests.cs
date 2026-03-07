@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
@@ -1042,7 +1043,7 @@ namespace Karamel.Backend.Tests
             _client.Dispose();
         }
 
-        private record CreateResponse(Guid Id, string linkToken, string? singerToken = null);
+        private record CreateResponse(Guid Id, [property: JsonPropertyName("adminToken")] string linkToken, string? singerToken = null);
         private record PlaylistDto(Guid id, Guid sessionId);
         private record PlaylistItemDto(Guid Id, string Artist, string Title, string? SingerName, int Position, Guid? SongId, int Status);
         private record PlaylistUpdatedDto(Guid PlaylistId, Guid SessionId, List<PlaylistItemDto> Items, PlaylistItemDto? CurrentSong, int PlaybackMode);

@@ -14,33 +14,20 @@ namespace Karamel.Backend.Services
         }
 
         /// <summary>
-        /// Generates a role-based link token.
-        /// Token format: Base64url({role}|{hmac})
-        /// HMAC is computed over "{sessionId}:{role}" so the token is bound to the sessionId
-        /// without embedding it in the token payload.
+        /// Generates an admin token for the given session.
         /// </summary>
-        public string GenerateLinkToken(Guid sessionId, string role = "admin")
-        {
-            // HMAC input binds token to sessionId using ':' separator (distinct from '|' in payload)
-            var hmac = ComputeHmac($"{sessionId}:{role}");
-            
-            // Token payload: role|hmac (no sessionId — caller already has it in the URL)
-            var tokenData = $"{role}|{hmac}";
-            
-            // Use URL-safe base64 encoding
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(tokenData))
-                .TrimEnd('=')
-                .Replace('+', '-')
-                .Replace('/', '_');
-        }
+        public string GenerateAdminToken(Guid sessionId) => GenerateTokenForRole(sessionId, "admin");
 
         /// <summary>
-        /// Validates a link token using the provided sessionId (supplied by caller from URL).
-        /// Token format: Base64url({role}|{hmac})
-        /// HMAC is verified over "{sessionId}:{role}" to bind the token to the session.
-        /// Returns (role, isValid) tuple.
+        /// Generates a singer token for the given session.
         /// </summary>
-        public (string role, bool isValid) ValidateLinkToken(string token, Guid sessionId)
+        public string GenerateSingerToken(Guid sessionId) => GenerateTokenForRole(sessionId, "singer");
+
+        /// <summary>
+        /// Validates a token using the provided sessionId.
+        /// Returns (role, isValid) tuple where role is "admin" or "singer".
+        /// </summary>
+        public (string role, bool isValid) ValidateToken(string token, Guid sessionId)
         {
             if (string.IsNullOrEmpty(token))
                 return ("", false);
@@ -75,6 +62,21 @@ namespace Karamel.Backend.Services
             {
                 return ("", false);
             }
+        }
+
+        private string GenerateTokenForRole(Guid sessionId, string role)
+        {
+            // HMAC input binds token to sessionId using ':' separator (distinct from '|' in payload)
+            var hmac = ComputeHmac($"{sessionId}:{role}");
+            
+            // Token payload: role|hmac (no sessionId — caller already has it in the URL)
+            var tokenData = $"{role}|{hmac}";
+            
+            // Use URL-safe base64 encoding
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(tokenData))
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
         }
 
         private string ComputeHmac(string payload)

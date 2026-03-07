@@ -27,10 +27,5 @@ namespace Karamel.Backend.Repositories
                 throw;
             }
         }
-
-        public async Task<Session?> GetByLinkTokenAsync(string token)
-        {
-            return await _db.Sessions.FirstOrDefaultAsync(s => s.LinkToken == token);
-        }
     }
 }
