@@ -150,13 +150,6 @@ namespace Karamel.Backend.Repositories
             // Phase 1: SQL LIKE fetches all candidates (up to MaxCandidateForFuzzy), no Skip/Take
             _logger.LogDebug("SongRepository: Fuzzy search activated for query {Query}", trimmedSearch);
 
-            var candidateQuery = _db.Songs.AsNoTracking()
-                .Where(s => s.SessionId == sessionId)
-                .Where(s => EF.Functions.Like(s.Artist, $"%{trimmedSearch!.Substring(0, 1)}%")
-                         || EF.Functions.Like(s.Title,  $"%{trimmedSearch!.Substring(0, 1)}%")
-                         || EF.Functions.Like(s.Artist, $"%{trimmedSearch}%")
-                         || EF.Functions.Like(s.Title,  $"%{trimmedSearch}%"));
-
             // For fuzzy we want a broader pool — also include all songs (LIKE '%q%' or just all)
             // Strategy: fetch up to MaxCandidateForFuzzy songs ordered by Artist/Title; for small
             // libraries this is everything; for large ones we cap to keep memory bounded.

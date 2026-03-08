@@ -251,6 +251,7 @@
     private void ClearFilter()
     {
         Dispatcher.Dispatch(new FilterSongsAction(string.Empty));
+        Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false));
     }
 
     private void OnSuggestionClick(string suggestion)
