@@ -14,6 +14,7 @@ public class LibraryEffects(
 {
     private const string ItemsPropertyName = "items";
     private const string TotalCountPropertyName = "totalCount";
+    private const string SuggestionsPropertyName = "suggestions";
 
     [EffectMethod]
     public async Task HandleLoadPageAction(LoadPageAction action, IDispatcher dispatcher)
@@ -58,6 +59,7 @@ public class LibraryEffects(
             }
 
             var totalCount = ParseTotalCount(pageResult);
+            var suggestions = ParseSuggestions(pageResult);
 
             Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: Successfully parsed - songs.Count={songs.Count}, totalCount={totalCount}");
             Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects: Dispatching LoadPageSuccessAction");
@@ -69,6 +71,9 @@ public class LibraryEffects(
                 SearchQuery: action.SearchQuery,
                 Append: action.Append
             ));
+
+            // Dispatch suggestions (empty list clears previous suggestions when results found)
+            dispatcher.Dispatch(new SearchSuggestionsAction(suggestions));
             
             Console.WriteLine($"[DIAG:{correlationId}] LibraryEffects.HandleLoadPageAction: END - SUCCESS");
         }
@@ -129,5 +134,26 @@ public class LibraryEffects(
         return long.TryParse(totalCountElement.ToString(), out var parsedCount) 
             ? parsedCount 
             : 0;
+    }
+
+    private static IReadOnlyList<string> ParseSuggestions(JsonElement response)
+    {
+        if (!response.TryGetProperty(SuggestionsPropertyName, out var suggestionsElement) ||
+            suggestionsElement.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<string>();
+        }
+
+        var result = new List<string>();
+        foreach (var item in suggestionsElement.EnumerateArray())
+        {
+            if (item.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
+            {
+                var text = textEl.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                    result.Add(text);
+            }
+        }
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 using Karamel.Backend.Controllers;
 using Karamel.Backend.Data;
 using Karamel.Backend.Models;
+using Karamel.Backend.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Karamel.Backend.Repositories
@@ -9,11 +10,13 @@ namespace Karamel.Backend.Repositories
     {
         private readonly BackendDbContext _db;
         private readonly ILogger<EfSongRepository> _logger;
+        private readonly IFuzzySearchService _fuzzy;
 
-        public EfSongRepository(BackendDbContext db, ILogger<EfSongRepository> logger)
+        public EfSongRepository(BackendDbContext db, ILogger<EfSongRepository> logger, IFuzzySearchService fuzzy)
         {
             _db = db;
             _logger = logger;
+            _fuzzy = fuzzy;
         }
 
         public async Task BulkUpsertAsync(Guid sessionId, IEnumerable<SongUploadDto> songs)
@@ -104,42 +107,107 @@ namespace Karamel.Backend.Repositories
 
         public async Task<PagedResult<SongListItemDto>> GetPageAsync(Guid sessionId, int page, int pageSize, string? search, string? sort)
         {
-            _logger.LogInformation("[DIAG] SongRepository.GetPageAsync: sessionId={SessionId}, page={Page}, pageSize={PageSize}, search={Search}",
+            _logger.LogDebug("SongRepository.GetPageAsync: sessionId={SessionId}, page={Page}, pageSize={PageSize}, search={Search}",
                 sessionId, page, pageSize, search ?? "null");
             
             if (page < 1) page = 1;
             if (pageSize <= 0) pageSize = 50;
 
-            var query = _db.Songs.AsNoTracking().Where(s => s.SessionId == sessionId);
-            
-            // Log total songs for this session BEFORE filtering
-            var totalForSession = await _db.Songs.CountAsync(s => s.SessionId == sessionId);
-            _logger.LogInformation("[DIAG] SongRepository: Total songs in DB for sessionId {SessionId}: {TotalCount}", sessionId, totalForSession);
+            var trimmedSearch = search?.Trim();
 
-            if (!string.IsNullOrWhiteSpace(search))
+            // ── Short/empty query: DB-only pagination (no fuzzy) ─────────────
+            bool useFuzzy = !string.IsNullOrWhiteSpace(trimmedSearch)
+                            && trimmedSearch.Length >= IFuzzySearchService.MinFuzzyQueryLength;
+
+            if (!useFuzzy)
             {
-                var q = search.Trim();
-                query = query.Where(s => EF.Functions.Like(s.Artist, $"%{q}%") || EF.Functions.Like(s.Title, $"%{q}%"));
+                var query = _db.Songs.AsNoTracking().Where(s => s.SessionId == sessionId);
+
+                if (!string.IsNullOrWhiteSpace(trimmedSearch))
+                {
+                    var q = trimmedSearch;
+                    query = query.Where(s => EF.Functions.Like(s.Artist, $"%{q}%") || EF.Functions.Like(s.Title, $"%{q}%"));
+                }
+
+                query = sort switch
+                {
+                    "addedAt" => query.OrderByDescending(s => s.AddedAt),
+                    _ => query.OrderBy(s => s.Artist).ThenBy(s => s.Title)
+                };
+
+                var total = await query.LongCountAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
+                    .ToListAsync();
+
+                _logger.LogInformation("[DIAG] SongRepository.GetPageAsync (no-fuzzy): Returning {ItemCount} items (total={TotalCount})",
+                    items.Count, total);
+
+                return new PagedResult<SongListItemDto>(items, page, pageSize, total);
             }
 
-            // Sorting: default by Artist then Title, support 'artist' or 'addedAt'
-            query = sort switch
-            {
-                "addedAt" => query.OrderByDescending(s => s.AddedAt),
-                "artist" => query.OrderBy(s => s.Artist).ThenBy(s => s.Title),
-                _ => query.OrderBy(s => s.Artist).ThenBy(s => s.Title)
-            };
+            // ── Two-phase fuzzy strategy ──────────────────────────────────────
+            // Phase 1: SQL LIKE fetches all candidates (up to MaxCandidateForFuzzy), no Skip/Take
+            _logger.LogDebug("SongRepository: Fuzzy search activated for query {Query}", trimmedSearch);
 
-            var total = await query.LongCountAsync();
-            
-            var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+            var candidateQuery = _db.Songs.AsNoTracking()
+                .Where(s => s.SessionId == sessionId)
+                .Where(s => EF.Functions.Like(s.Artist, $"%{trimmedSearch!.Substring(0, 1)}%")
+                         || EF.Functions.Like(s.Title,  $"%{trimmedSearch!.Substring(0, 1)}%")
+                         || EF.Functions.Like(s.Artist, $"%{trimmedSearch}%")
+                         || EF.Functions.Like(s.Title,  $"%{trimmedSearch}%"));
+
+            // For fuzzy we want a broader pool — also include all songs (LIKE '%q%' or just all)
+            // Strategy: fetch up to MaxCandidateForFuzzy songs ordered by Artist/Title; for small
+            // libraries this is everything; for large ones we cap to keep memory bounded.
+            var allCandidates = await _db.Songs.AsNoTracking()
+                .Where(s => s.SessionId == sessionId)
+                .OrderBy(s => s.Artist).ThenBy(s => s.Title)
+                .Take(IFuzzySearchService.MaxCandidateForFuzzy)
                 .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
                 .ToListAsync();
 
-            _logger.LogInformation("[DIAG] SongRepository.GetPageAsync: Returning {ItemCount} items (total={TotalCount}) for session {SessionId}",
-                items.Count, total, sessionId);
+            _logger.LogDebug("SongRepository: Fuzzy candidate pool size={Count} for session {SessionId}",
+                allCandidates.Count, sessionId);
 
-            return new PagedResult<SongListItemDto>(items, page, pageSize, total);
+            // Phase 2: ScoreAndSort in memory, then C#-side Skip/Take
+            var scored = _fuzzy.ScoreAndSort(allCandidates, trimmedSearch!);
+
+            // Zero-results branch: generate spelling suggestions from first-char filtered candidates
+            if (scored.Count == 0)
+            {
+                var firstChar = trimmedSearch![0].ToString();
+                var suggestionCandidates = await _db.Songs.AsNoTracking()
+                    .Where(s => s.SessionId == sessionId)
+                    .Where(s => EF.Functions.Like(s.Artist, $"%{firstChar}%")
+                             || EF.Functions.Like(s.Title,  $"%{firstChar}%"))
+                    .OrderBy(s => s.Artist)
+                    .Take(IFuzzySearchService.MaxSuggestionCandidates)
+                    .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
+                    .ToListAsync();
+
+                var suggestions = _fuzzy.GenerateSuggestions(suggestionCandidates, trimmedSearch!);
+
+                _logger.LogDebug("SongRepository: Zero results for query, generated {Count} suggestion(s)", suggestions.Count);
+
+                return new PagedResult<SongListItemDto>(new List<SongListItemDto>(), page, pageSize, 0)
+                {
+                    Suggestions = suggestions
+                };
+            }
+
+            var pagedScored = scored
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(r => r.Song)
+                .ToList();
+
+            long totalFuzzy = scored.Count;
+
+            _logger.LogInformation("[DIAG] SongRepository.GetPageAsync (fuzzy): Returning {ItemCount} items (total={TotalCount}) for session {SessionId}",
+                pagedScored.Count, totalFuzzy, sessionId);
+
+            return new PagedResult<SongListItemDto>(pagedScored, page, pageSize, totalFuzzy);
         }
 
         public async Task<SongListItemDto?> GetByIdAsync(Guid sessionId, Guid songId)

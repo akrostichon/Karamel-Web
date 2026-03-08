@@ -23,6 +23,10 @@ public record LibraryState
     
     // Computed property: whether more pages are available from server
     public bool HasMorePages => (CurrentPage * PageSize) < TotalCount;
+
+    // Fuzzy search suggestions and zero-results state
+    public IReadOnlyList<string> Suggestions { get; init; } = Array.Empty<string>();
+    public bool HasSearchedWithNoResults { get; init; } = false;
     
     public IReadOnlyList<Song> FilteredSongs
     {

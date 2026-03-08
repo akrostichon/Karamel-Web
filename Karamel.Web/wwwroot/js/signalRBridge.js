@@ -739,19 +739,26 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 				sessionId,
 				url
 			});
-			return { items: [], page, pageSize, totalCount: 0 };
+			return { items: [], page, pageSize, totalCount: 0, suggestions: [] };
 		}
 		
-		const items = await resp.json();
-		const total = parseInt(resp.headers.get('X-Total-Count') || '0');
+		const data = await resp.json();
+		const items = Array.isArray(data) ? data : (data.items ?? []);
+		const total = Array.isArray(data)
+			? parseInt(resp.headers.get('X-Total-Count') || '0')
+			: (data.totalCount ?? 0);
+		const suggestions = Array.isArray(data)
+			? []
+			: (data.suggestions ?? []).map(s => s.text ?? s.Text ?? '').filter(Boolean);
 		
 		logger.debug(`[DIAG:${correlationId}] fetchLibraryPage SUCCESS`, { 
 			itemCount: items.length, 
 			totalCount: total,
+			suggestionCount: suggestions.length,
 			sessionId
 		});
 		
-		return { items, page, pageSize, totalCount: total };
+		return { items, page, pageSize, totalCount: total, suggestions };
 	} catch (e) {
 		// CRITICAL: This will track in Application Insights as an exception
 		logger.error(`[ERROR:${correlationId}] fetchLibraryPage exception`, { 
@@ -759,7 +766,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 			stack: e.stack?.substring(0, 500),
 			sessionId
 		});
-		return { items: [], page, pageSize, totalCount: 0 };
+		return { items: [], page, pageSize, totalCount: 0, suggestions: [] };
 	}
 }
 

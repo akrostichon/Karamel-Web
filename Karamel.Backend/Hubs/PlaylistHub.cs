@@ -996,7 +996,7 @@ namespace Karamel.Backend.Hubs
         public async Task<object> GetLibraryPage(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
         {
             var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort);
-            return new { items = result.Items, page = result.Page, pageSize = result.PageSize, totalCount = result.TotalCount };
+            return new { items = result.Items, page = result.Page, pageSize = result.PageSize, totalCount = result.TotalCount, suggestions = result.Suggestions };
         }
 
         /// <summary>

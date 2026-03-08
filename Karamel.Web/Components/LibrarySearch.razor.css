@@ -107,6 +107,26 @@
     font-size: 0.9rem;
 }
 
+/* Did you mean suggestions */
+.library-search .did-you-mean-label {
+    color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.library-search .suggestion-item {
+    color: var(--color-accent);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.library-search .suggestion-item:hover {
+    color: var(--color-accent-secondary);
+    text-decoration: underline;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
     .library-search .table {
