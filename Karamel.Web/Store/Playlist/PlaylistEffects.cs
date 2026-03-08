@@ -64,15 +64,11 @@ public class PlaylistEffects
         // Try to use server-side RPC via SignalR; fallback to local broadcast if unavailable
         try
         {
-            var sent = await _signalRBridge.AddItemToPlaylistAsync(action.Song);
-            if (!sent)
-            {
-                await _signalRBridge.BroadcastPlaylistUpdatedAsync();
-            }
+            await _signalRBridge.AddItemToPlaylistAsync(action.Song);
         }
         catch
         {
-            await _signalRBridge.BroadcastPlaylistUpdatedAsync();
+            // SignalR error logged by bridge
         }
     }
 
@@ -81,23 +77,19 @@ public class PlaylistEffects
     {
         try
         {
-            var sent = await _signalRBridge.RemoveItemFromPlaylistAsync(action.SongId);
-            if (!sent)
-            {
-                await _signalRBridge.BroadcastPlaylistUpdatedAsync();
-            }
+            await _signalRBridge.RemoveItemFromPlaylistAsync(action.SongId);
         }
         catch
         {
-            await _signalRBridge.BroadcastPlaylistUpdatedAsync();
+            // SignalR error logged by bridge
         }
     }
 
     [EffectMethod]
-    public async Task HandleNextSongAction(NextSongAction action, IDispatcher dispatcher)
+    public Task HandleNextSongAction(NextSongAction action, IDispatcher dispatcher)
     {
-        // Broadcast playlist update after advancing to next song
-        await _signalRBridge.BroadcastPlaylistUpdatedAsync();
+        // No action needed - SignalR handles playlist synchronization automatically
+        return Task.CompletedTask;
     }
 
     [EffectMethod]

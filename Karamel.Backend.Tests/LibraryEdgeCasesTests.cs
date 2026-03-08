@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -92,7 +93,7 @@ namespace Karamel.Backend.Tests
             Assert.Equal(3, uniqueIds);
         }
 
-        private record CreateResponse(Guid Id, string linkToken);
+        private record CreateResponse(Guid Id, [property: JsonPropertyName("adminToken")] string linkToken);
         private record SongListItem(Guid Id, Guid SessionId, string Artist, string Title, string? MetadataJson, DateTime AddedAt);
     }
 }

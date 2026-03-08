@@ -45,12 +45,6 @@ public interface ISignalRPlaylistBridge
     Task ClearQueueAsync();
 
     /// <summary>
-    /// Broadcast playlist updated event (main tab only) - FALLBACK for BroadcastChannel
-    /// DEPRECATED: SignalR handles playlist synchronization now
-    /// </summary>
-    Task BroadcastPlaylistUpdatedAsync();
-
-    /// <summary>
     /// Pause the session via SignalR hub (admin only).
     /// Hub broadcasts ReceiveSessionPaused to all clients.
     /// </summary>

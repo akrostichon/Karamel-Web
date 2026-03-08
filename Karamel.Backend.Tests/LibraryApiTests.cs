@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -325,7 +326,7 @@ namespace Karamel.Backend.Tests
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, uploadResp.StatusCode);
         }
 
-        private record CreateResponse(Guid Id, string linkToken);
+        private record CreateResponse(Guid Id, [property: JsonPropertyName("adminToken")] string linkToken);
         private record SongListItem(Guid Id, Guid SessionId, string Artist, string Title, string? MetadataJson, DateTime AddedAt);
     }
 }

@@ -41,14 +41,12 @@ namespace Karamel.Backend.Controllers
                 };
 
                 // Generate dual tokens
-                session.AdminToken = _tokenService.GenerateLinkToken(session.Id, "admin");
-                session.SingerToken = _tokenService.GenerateLinkToken(session.Id, "singer");
-                session.LinkToken = session.AdminToken; // Backward compat
+                session.AdminToken = _tokenService.GenerateAdminToken(session.Id);
+                session.SingerToken = _tokenService.GenerateSingerToken(session.Id);
 
                 await _repo.AddAsync(session);
 
-                _logger.LogInformation("Created new session {SessionId} with RequireSingerName={RequireSingerName}, AllowSingersToReorder={AllowSingersToReorder}", 
-                    session.Id, req.RequireSingerName, req.AllowSingersToReorder);
+                _logger.LogInformation("Created new session {SessionId} with AdminToken and SingerToken", session.Id);
 
                 // Return flattened config (Option B - no frontend changes needed)
                 return CreatedAtAction(nameof(Get), new { id = session.Id }, new 
@@ -56,7 +54,6 @@ namespace Karamel.Backend.Controllers
                     session.Id, 
                     adminToken = session.AdminToken,
                     singerToken = session.SingerToken,
-                    linkToken = session.AdminToken, // Deprecated
                     expiresAt = session.ExpiresAt,
                     requireSingerName = session.Config.RequireSingerName,
                     pauseBetweenSongsSeconds = session.Config.PauseBetweenSongsSeconds,

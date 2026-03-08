@@ -2,13 +2,20 @@ namespace Karamel.Backend.Services
 {
     public interface ITokenService
     {
-        // Role-based token generation (defaults to "admin" for backward compat)
-        string GenerateLinkToken(Guid sessionId, string role = "admin");
-        
         /// <summary>
-        /// Validates a link token using the provided sessionId (supplied by caller from URL).
-        /// Returns (role, isValid) tuple. SessionId is not stored in the token.
+        /// Generates an admin token for the given session (grants full permissions).
         /// </summary>
-        (string role, bool isValid) ValidateLinkToken(string token, Guid sessionId);
+        string GenerateAdminToken(Guid sessionId);
+
+        /// <summary>
+        /// Generates a singer token for the given session (grants limited read/add permissions).
+        /// </summary>
+        string GenerateSingerToken(Guid sessionId);
+
+        /// <summary>
+        /// Validates a token using the provided sessionId.
+        /// Returns (role, isValid) tuple where role is "admin" or "singer".
+        /// </summary>
+        (string role, bool isValid) ValidateToken(string token, Guid sessionId);
     }
 }

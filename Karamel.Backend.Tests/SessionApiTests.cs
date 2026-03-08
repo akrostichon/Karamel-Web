@@ -34,13 +34,13 @@ namespace Karamel.Backend.Tests
             var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
             Assert.NotNull(created);
             Assert.NotEqual(Guid.Empty, created!.Id);
-            Assert.False(string.IsNullOrEmpty(created.linkToken));
+            Assert.False(string.IsNullOrEmpty(created.adminToken));
 
             // Validate that the token service accepts the token for the created session
             using var scope = _factory.Services.CreateScope();
             var tokenService = scope.ServiceProvider.GetRequiredService<Services.ITokenService>();
-            var (_, isValid) = tokenService.ValidateLinkToken(created.linkToken, created.Id);
-            Assert.True(isValid, "Generated link token should validate for the session");
+            var (_, isValid) = tokenService.ValidateToken(created.adminToken, created.Id);
+            Assert.True(isValid, "Generated admin token should validate for the session");
         }
 
         [Fact]
@@ -89,8 +89,8 @@ namespace Karamel.Backend.Tests
             Assert.Null(session!.theme);
         }
 
-        private record CreateResponse(Guid Id, string linkToken);
-        private record CreateResponseWithTheme(Guid Id, string linkToken, string? theme);
+        private record CreateResponse(Guid Id, string adminToken);
+        private record CreateResponseWithTheme(Guid Id, string adminToken, string? theme);
         private record SessionGetResponse(Guid Id, bool requireSingerName, int pauseBetweenSongsSeconds, bool allowSingersToReorder, string? theme);
         private record PlaylistDto(Guid id, Guid sessionId);
     }

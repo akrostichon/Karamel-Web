@@ -35,7 +35,7 @@ public class SignalRConnectionManager : ISignalRConnectionManager
     /// </summary>
     /// <param name="sessionId">Session GUID</param>
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
-    public async Task InitializeAsync(Guid sessionId, bool asMainTab, string? linkToken = null)
+    public async Task InitializeAsync(Guid sessionId, bool asMainTab, string? token = null)
     {
         if (_isInitialized)
             return;
@@ -44,8 +44,8 @@ public class SignalRConnectionManager : ISignalRConnectionManager
         _sessionBridgeModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./js/signalRBridge.js");
 
-        // Pass link token and backend URL if present so JS SignalR client can use them when connecting
-        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, linkToken, _backendBaseAddress);
+        // Pass auth token and backend URL if present so JS SignalR client can authenticate when connecting
+        await _sessionBridgeModule.InvokeVoidAsync("initializeSession", sessionId.ToString(), asMainTab, token, _backendBaseAddress);
 
         _isInitialized = true;
         _logger.LogInformation("SignalR connection manager initialized for session {SessionId} (isMainTab={IsMainTab})", sessionId, asMainTab);

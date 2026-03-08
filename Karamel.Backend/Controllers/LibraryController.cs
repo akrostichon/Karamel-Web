@@ -1,26 +1,36 @@
 using Microsoft.AspNetCore.Mvc;
 using Karamel.Backend.Repositories;
+using Karamel.Backend.Services;
 
 namespace Karamel.Backend.Controllers
 {
     [ApiController]
     [Route("api/sessions/{sessionId:guid}/[controller]")]
-    [Filters.LinkToken]
     public class LibraryController : ControllerBase
     {
         private readonly ISongRepository _songRepo;
         private readonly ILogger<LibraryController> _logger;
+        private readonly ITokenService _tokenService;
 
-        public LibraryController(ISongRepository songRepo, ILogger<LibraryController> logger)
+        public LibraryController(ISongRepository songRepo, ILogger<LibraryController> logger, ITokenService tokenService)
         {
             _songRepo = songRepo;
             _logger = logger;
+            _tokenService = tokenService;
         }
 
         // Bulk upload sanitized library entries for a session
         [HttpPost("bulk")]
         public async Task<IActionResult> BulkUpsert(Guid sessionId, [FromBody] IEnumerable<SongUploadDto> songs)
         {
+            // Require valid admin token
+            var token = Request.Headers["X-Link-Token"].FirstOrDefault();
+            if (string.IsNullOrEmpty(token))
+                return Unauthorized("Missing X-Link-Token header");
+            var (role, isValid) = _tokenService.ValidateToken(token, sessionId);
+            if (!isValid || role != "admin")
+                return Unauthorized("Invalid or expired token");
+
             try
             {
                 if (songs == null)

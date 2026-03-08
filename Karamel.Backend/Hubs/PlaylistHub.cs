@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Karamel.Backend.Contracts;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
+using Karamel.Backend.Services;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -10,13 +11,14 @@ namespace Karamel.Backend.Hubs
     /// <summary>
     /// SignalR hub for real-time playlist synchronization.
     /// Provides mutation methods for playlist management and broadcasts updates to all connected clients in a session.
-    /// Authorization enforced via LinkTokenHubFilter (X-Link-Token header required for mutations).
+    /// Authorization enforced inline via X-Link-Token header (validated using ITokenService).
     /// </summary>
     public class PlaylistHub : Hub
     {
         private readonly IPlaylistRepository _playlistRepo;
         private readonly ISessionRepository _sessionRepo;
         private readonly ISongRepository _songRepo;
+        private readonly ITokenService _tokenService;
         private readonly ILogger<PlaylistHub> _logger;
 
         // Per-session semaphores to serialize mutations and avoid races.
@@ -26,11 +28,12 @@ namespace Karamel.Backend.Hubs
         private static SemaphoreSlim GetSessionLock(Guid sessionId) =>
             _sessionLocks.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
 
-        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo, ISongRepository songRepo, ILogger<PlaylistHub> logger)
+        public PlaylistHub(IPlaylistRepository playlistRepo, ISessionRepository sessionRepo, ISongRepository songRepo, ITokenService tokenService, ILogger<PlaylistHub> logger)
         {
             _playlistRepo = playlistRepo;
             _sessionRepo = sessionRepo;
             _songRepo = songRepo;
+            _tokenService = tokenService;
             _logger = logger;
         }
 
@@ -112,12 +115,11 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Add a song to the playlist.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
-        /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
-        /// Uses one-playlist-per-session architecture (playlistId = sessionId).
+        /// Requires valid X-Link-Token header.
         /// </summary>
         public async Task AddItemAsync(Guid sessionId, Guid songId, string? singerName)
         {
+            ValidateToken(sessionId); // any role OK
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -192,12 +194,13 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Remove a song from the playlist.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header.
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// Uses one-playlist-per-session architecture (playlistId = sessionId).
         /// </summary>
         public async Task RemoveItemAsync(Guid sessionId, Guid itemId)
         {
+            ValidateToken(sessionId); // any role OK
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -257,13 +260,14 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Reorder songs in the playlist.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header (admin or singer role depending on the operation).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// Uses one-playlist-per-session architecture (playlistId = sessionId).
         /// NOTE: Only reorders items with Status = Queued or UpNext (excludes NowPlaying and Completed).
         /// </summary>
         public async Task ReorderAsync(Guid sessionId, int from, int to)
         {
+            ValidateToken(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -342,11 +346,12 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Set the status of a specific playlist item.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header (admin or singer role depending on the operation).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// </summary>
         public async Task SetSongStatusAsync(Guid sessionId, Guid itemId, int status)
         {
+            RequireAdmin(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -388,11 +393,12 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Complete the current song: marks current NowPlaying as Completed without advancing to next song.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header (admin or singer role depending on the operation).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// </summary>
         public async Task CompleteCurrentSongAsync(Guid sessionId)
         {
+            RequireAdmin(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -433,11 +439,12 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Advance to the next song: marks current NowPlaying as Completed, marks first UpNext as NowPlaying.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header (admin or singer role depending on the operation).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// </summary>
         public async Task AdvanceToNextSongAsync(Guid sessionId)
         {
+            RequireAdmin(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -517,11 +524,12 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Set the PlaybackMode to StopAfterCurrent, indicating playback should stop after the current song finishes.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header (admin or singer role depending on the operation).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// </summary>
         public async Task SetStopAfterCurrentAsync(Guid sessionId)
         {
+            RequireAdmin(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -556,11 +564,12 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Proceed with playback from Stopped state, advancing to the next song and setting mode to Normal.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header (admin or singer role depending on the operation).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// </summary>
         public async Task ProceedPlaybackAsync(Guid sessionId)
         {
+            RequireAdmin(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -621,11 +630,12 @@ namespace Karamel.Backend.Hubs
 
         /// <summary>
         /// Clear all queued and up-next songs from the playlist, preserving the currently playing song.
-        /// Requires valid X-Link-Token header (validated by LinkTokenHubFilter).
+        /// Requires valid X-Link-Token header (admin or singer role depending on the operation).
         /// Broadcasts ReceivePlaylistUpdated to all clients in the session group.
         /// </summary>
         public async Task ClearQueueAsync(Guid sessionId)
         {
+            RequireAdmin(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -680,6 +690,7 @@ namespace Karamel.Backend.Hubs
         {
             try
             {
+                RequireAdmin(sessionId);
                 _logger.LogInformation("Pausing session {SessionId}", sessionId);
 
                 var session = await _sessionRepo.GetByIdAsync(sessionId);
@@ -714,6 +725,7 @@ namespace Karamel.Backend.Hubs
         {
             try
             {
+                RequireAdmin(sessionId);
                 _logger.LogInformation("Resuming session {SessionId}", sessionId);
 
                 var session = await _sessionRepo.GetByIdAsync(sessionId);
@@ -748,6 +760,7 @@ namespace Karamel.Backend.Hubs
         {
             try
             {
+                RequireAdmin(sessionId);
                 _logger.LogInformation(
                     "Updating session config for {SessionId}: RequireSingerName={RequireSingerName}, AllowSingersToReorder={AllowSingersToReorder}, PauseBetweenSongsSeconds={PauseBetweenSongsSeconds}, Theme={Theme}",
                     sessionId, config.RequireSingerName, config.AllowSingersToReorder, config.PauseBetweenSongsSeconds, config.Theme);
@@ -943,6 +956,32 @@ namespace Karamel.Backend.Hubs
 
             _logger.LogInformation("Removing {Count} items from session {SessionId}: {Summary}",
                 items.Count, sessionId, summary);
+        }
+
+        /// <summary>
+        /// Validates the X-Link-Token header for the current connection against the given session.
+        /// Returns the role ("admin" or "singer") if valid, or throws HubException.
+        /// </summary>
+        private string ValidateToken(Guid sessionId)
+        {
+            var token = Context.Items.TryGetValue("X-Link-Token", out var t) ? t?.ToString() : null;
+            if (string.IsNullOrEmpty(token))
+                throw new HubException("Missing X-Link-Token header");
+            var (role, isValid) = _tokenService.ValidateToken(token, sessionId);
+            if (!isValid)
+                throw new HubException("Invalid or expired link token");
+            return role;
+        }
+
+        /// <summary>
+        /// Validates the token and ensures the caller has the admin role.
+        /// Throws HubException if not authenticated or not admin.
+        /// </summary>
+        private void RequireAdmin(Guid sessionId)
+        {
+            var role = ValidateToken(sessionId);
+            if (role != "admin")
+                throw new HubException("This operation requires admin permissions");
         }
 
         /// <summary>

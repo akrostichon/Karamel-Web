@@ -73,7 +73,7 @@ if (tokenSecret.Length < 32)
 }
 
 builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new Karamel.Backend.Services.TokenService(tokenSecret));
-// Add SignalR and register hub filter globally
+// Add SignalR
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = true;
@@ -81,9 +81,6 @@ builder.Services.AddSignalR(options =>
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(60); // Default: 30s
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);      // Default: 15s (send ping every 15s)
     options.HandshakeTimeout = TimeSpan.FromSeconds(30);       // Default: 15s
-}).AddHubOptions<Karamel.Backend.Hubs.PlaylistHub>(options =>
-{
-    options.AddFilter<Karamel.Backend.Filters.LinkTokenHubFilter>();
 });
 
 // Add Application Insights telemetry with IP masking

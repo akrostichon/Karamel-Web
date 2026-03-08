@@ -18,7 +18,7 @@ public interface ISignalRConnectionManager
     /// </summary>
     /// <param name="sessionId">Session GUID</param>
     /// <param name="asMainTab">Whether this tab has directory handle (main tab)</param>
-    Task InitializeAsync(Guid sessionId, bool asMainTab, string? linkToken = null);
+    Task InitializeAsync(Guid sessionId, bool asMainTab, string? token = null);
 
     /// <summary>
     /// Check if main tab is still alive (secondary tabs only)

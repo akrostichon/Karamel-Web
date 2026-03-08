@@ -192,16 +192,6 @@ public class SignalRPlaylistBridge : ISignalRPlaylistBridge
     }
 
     /// <summary>
-    /// Broadcast playlist updated event (main tab only)
-    /// DEPRECATED: SignalR handles playlist synchronization now
-    /// </summary>
-    public async Task BroadcastPlaylistUpdatedAsync()
-    {
-        // No-op: SignalR broadcasts playlist updates automatically
-        await Task.CompletedTask;
-    }
-
-    /// <summary>
     /// Broadcast session settings (main tab only) - includes theme
     /// </summary>
     public async Task BroadcastSessionSettingsAsync(Session session)
