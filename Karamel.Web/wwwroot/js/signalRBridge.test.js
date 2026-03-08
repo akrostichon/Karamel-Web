@@ -973,4 +973,5 @@ describe('signalRBridge', () => {
         });
     });
 });
+// T027 fetchLibraryPage tests moved to fetchLibraryPage.test.js (isolated worker)
 

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Karamel.Backend.Data;
 using Karamel.Backend.Repositories;
+using Karamel.Backend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -23,7 +24,7 @@ namespace Karamel.Backend.Tests
         public async Task BulkUpsert_AddsDistinctSongs()
         {
             using var ctx = CreateContext();
-            var repo = new EfSongRepository(ctx, NullLogger<EfSongRepository>.Instance);
+            var repo = new EfSongRepository(ctx, NullLogger<EfSongRepository>.Instance, new FuzzySearchService());
             var sessionId = Guid.NewGuid();
 
             var id1 = Guid.NewGuid();
@@ -49,7 +50,7 @@ namespace Karamel.Backend.Tests
         public async Task BulkUpsert_WithSameId_UpdatesExistingSong()
         {
             using var ctx = CreateContext();
-            var repo = new EfSongRepository(ctx, NullLogger<EfSongRepository>.Instance);
+            var repo = new EfSongRepository(ctx, NullLogger<EfSongRepository>.Instance, new FuzzySearchService());
             var sessionId = Guid.NewGuid();
 
             var songId = Guid.NewGuid();

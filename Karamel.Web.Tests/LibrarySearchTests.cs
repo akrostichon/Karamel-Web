@@ -330,6 +330,12 @@ public class LibrarySearchTests : TestContext
         // Wait for debounce delay (300ms)
         await Task.Delay(350);
 
+        // Assert: FilterSongsAction dispatched immediately to keep local filter in sync
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.Is<FilterSongsAction>(a => a.SearchFilter == "Beatles")),
+            Times.AtLeastOnce
+        );
+
         // Assert: LoadPageAction should be dispatched
         mockDispatcher.Verify(
             d => d.Dispatch(It.Is<LoadPageAction>(a => 
@@ -339,6 +345,100 @@ public class LibrarySearchTests : TestContext
             )),
             Times.AtLeastOnce
         );
+    }
+
+    // ── T021: Suggestion rendering and tap-to-search (US3) ─────────────────
+
+    [Fact]
+    public void Component_WhenSuggestionsNonEmpty_ShowsDidYouMeanSection()
+    {
+        // Arrange: zero results + suggestions set → "Did you mean?" section must render
+        var state = new LibraryState
+        {
+            Songs = Array.Empty<Song>(),
+            HasSearchedWithNoResults = true,
+            Suggestions = new List<string> { "beatles" }
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert: "Did you mean?" section renders with suggestion text
+        var section = cut.Find(".did-you-mean");
+        Assert.NotNull(section);
+        Assert.Contains("beatles", section.TextContent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Component_ClickingSuggestion_DispatchesLoadPageAction()
+    {
+        // Arrange
+        var state = new LibraryState
+        {
+            Songs = Array.Empty<Song>(),
+            HasSearchedWithNoResults = true,
+            Suggestions = new List<string> { "beatles" }
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act: click the suggestion
+        var suggestionButton = cut.Find(".suggestion-item");
+        suggestionButton.Click();
+
+        // Assert: FilterSongsAction dispatched to update the search input field
+        mockDispatcher.Verify(d => d.Dispatch(It.Is<FilterSongsAction>(a =>
+            a.SearchFilter == "beatles"
+        )), Times.Once);
+
+        // Assert: LoadPageAction dispatched with suggestion text as search query
+        mockDispatcher.Verify(d => d.Dispatch(It.Is<LoadPageAction>(a =>
+            a.Page == 1 &&
+            a.SearchQuery == "beatles" &&
+            a.Append == false
+        )), Times.Once);
+    }
+
+    [Fact]
+    public void Component_WhenResultsPresentWithSuggestions_HidesDidYouMeanSection()
+    {
+        // Arrange: songs are present → suggestion section must NOT show even if suggestions populated
+        var state = new LibraryState
+        {
+            Songs = _testSongs,
+            HasSearchedWithNoResults = false,
+            Suggestions = new List<string> { "beatles" }
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert: "Did you mean?" section must not render
+        var sections = cut.FindAll(".did-you-mean");
+        Assert.Empty(sections);
+    }
+
+    [Fact]
+    public void Component_WhenNoSuggestionsAndNoResults_ShowsNoMatchMessage()
+    {
+        // Arrange: zero results, HasSearchedWithNoResults but no suggestions
+        var state = new LibraryState
+        {
+            Songs = Array.Empty<Song>(),
+            HasSearchedWithNoResults = true,
+            Suggestions = Array.Empty<string>()
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert: Standard "No songs in library." message, no suggestion section
+        var sections = cut.FindAll(".did-you-mean");
+        Assert.Empty(sections);
     }
 
     [Fact]

@@ -94,6 +94,20 @@
                 <text>No songs in library.</text>
             }
         </div>
+
+        @if (LibraryState.Value.HasSearchedWithNoResults && LibraryState.Value.Suggestions.Count > 0)
+        {
+            <div class="did-you-mean mt-3">
+                <p class="did-you-mean-label mb-2">Did you mean:</p>
+                @foreach (var suggestion in LibraryState.Value.Suggestions)
+                {
+                    <button type="button" class="btn btn-link suggestion-item p-0 me-2"
+                            @onclick="() => OnSuggestionClick(suggestion)">
+                        @suggestion
+                    </button>
+                }
+            </div>
+        }
     }
     else
     {
@@ -178,6 +192,8 @@
     private async void OnSearchInput(ChangeEventArgs e)
     {
         var searchText = e.Value?.ToString() ?? string.Empty;
+        // Keep SearchFilter in sync immediately so FilteredSongs always uses the current input value
+        Dispatcher.Dispatch(new FilterSongsAction(searchText));
         await PerformDebouncedSearchAsync(searchText);
     }
 
@@ -235,6 +251,17 @@
     private void ClearFilter()
     {
         Dispatcher.Dispatch(new FilterSongsAction(string.Empty));
+        Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false));
+    }
+
+    private void OnSuggestionClick(string suggestion)
+    {
+        Dispatcher.Dispatch(new FilterSongsAction(suggestion));
+        Dispatcher.Dispatch(new LoadPageAction(
+            Page: 1,
+            SearchQuery: suggestion,
+            Append: false
+        ));
     }
 
     private System.Threading.CancellationTokenSource? _debounceCts;

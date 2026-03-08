@@ -104,7 +104,7 @@ namespace Karamel.Backend.Controllers
             _logger.LogInformation("GetPage called for session {SessionId}", sessionId);
             var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort);
             Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
-            return Ok(result.Items);
+            return Ok(new LibraryResponseDto(result.Items, result.TotalCount, result.Page, result.PageSize, result.Suggestions));
         }
 
         [HttpGet("{songId:guid}")]

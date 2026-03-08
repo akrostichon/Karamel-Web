@@ -2,7 +2,6 @@
 description: 'Reviews all committed and pushed branch changes against base (master/main/develop) with comprehensive code quality, security, and architecture analysis'
 name: 'Code Review Agent'
 tools: ['read', 'search', 'execute']
-model: 'Claude Sonnet 4.5'
 target: 'vscode'
 user-invokable: true
 ---

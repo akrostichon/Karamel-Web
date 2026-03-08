@@ -13,3 +13,6 @@ public record ScanProgressAction(int Scanned, bool Complete = false);
 public record LoadPageAction(int Page, string? SearchQuery, bool Append);
 public record LoadPageSuccessAction(IReadOnlyList<Song> Songs, int Page, long TotalCount, string? SearchQuery, bool Append);
 public record ResetPaginationAction();
+
+// Fuzzy search suggestion actions
+public record SearchSuggestionsAction(IReadOnlyList<string> Suggestions);

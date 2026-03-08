@@ -98,6 +98,16 @@ public static class LibraryReducers
             CurrentPage = 1,
             TotalCount = 0,
             Songs = Array.Empty<Song>(),
-            ServerSearchQuery = null
+            ServerSearchQuery = null,
+            Suggestions = Array.Empty<string>(),
+            HasSearchedWithNoResults = false
+        };
+
+    [ReducerMethod]
+    public static LibraryState ReduceSearchSuggestionsAction(LibraryState state, SearchSuggestionsAction action) =>
+        state with
+        {
+            Suggestions = action.Suggestions,
+            HasSearchedWithNoResults = action.Suggestions.Count > 0
         };
 }

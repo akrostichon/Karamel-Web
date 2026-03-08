@@ -48,6 +48,7 @@ else
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
 builder.Services.AddScoped<Karamel.Backend.Repositories.IPlaylistRepository, Karamel.Backend.Repositories.PlaylistRepository>();
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISongRepository, Karamel.Backend.Repositories.EfSongRepository>();
+builder.Services.AddSingleton<Karamel.Backend.Services.IFuzzySearchService, Karamel.Backend.Services.FuzzySearchService>();
 // Register TokenService with secret from configuration (fallback for dev)
 // Priority: Karamel:TokenSecret -> KARAMEL-TOKEN-SECRET environment var -> TokenSecret
 var tokenSecret = builder.Configuration["Karamel:TokenSecret"]
