@@ -82,7 +82,7 @@
             @LibraryState.Value.ErrorMessage
         </div>
     }
-    else if (string.IsNullOrEmpty(LibraryState.Value.SearchFilter) && LibraryState.Value.ScanComplete)
+    else if (string.IsNullOrEmpty(LibraryState.Value.SearchFilter) && (LibraryState.Value.ScanComplete || LibraryState.Value.TotalCount > 0))
     {
         @* Branch C: artist browse mode *@
         @if (LibraryState.Value.IsLoadingArtists)
@@ -102,7 +102,7 @@
                     {
                         <div class="artist-row" @onclick="() => SelectArtist(artist.Name)">
                             <span class="artist-name">@artist.Name</span>
-                            <span class="artist-song-count">@artist.SongCount</span>
+                            <span class="artist-song-count">@artist.SongCount @(artist.SongCount == 1 ? "song" : "songs")</span>
                         </div>
                     }
                 </div>
@@ -220,10 +220,22 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        if (LibraryState.Value.ScanComplete && !LibraryState.Value.ArtistsLoaded && !LibraryState.Value.IsLoadingArtists)
+        LibraryState.StateChanged += OnLibraryStateChanged;
+        TryLoadArtistsIfReady();
+    }
+
+    private void TryLoadArtistsIfReady()
+    {
+        var state = LibraryState.Value;
+        if ((state.ScanComplete || state.TotalCount > 0) && !state.ArtistsLoaded && !state.IsLoadingArtists)
         {
             Dispatcher.Dispatch(new LoadArtistsAction());
         }
+    }
+
+    private void OnLibraryStateChanged(object? sender, EventArgs e)
+    {
+        TryLoadArtistsIfReady();
     }
 
     private IEnumerable<Song> FilteredAndSortedSongs => 
@@ -356,6 +368,7 @@
 
     public void Dispose()
     {
+        LibraryState.StateChanged -= OnLibraryStateChanged;
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
     }

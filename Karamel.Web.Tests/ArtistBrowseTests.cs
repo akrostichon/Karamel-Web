@@ -219,6 +219,106 @@ public class ArtistBrowseTests : TestContext
         Assert.Empty(artistRows);
     }
 
+    // ── US2: Artist selection (click → dispatch) ─────────────────────────
+
+    [Fact]
+    public void ClickingArtistRow_DispatchesFilterSongsAction_WithArtistName()
+    {
+        // Arrange
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act – click first artist row ("ABBA")
+        cut.Find(".artist-row").Click();
+
+        // Assert – FilterSongsAction dispatched with the correct artist name
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.Is<FilterSongsAction>(a => a.SearchFilter == "ABBA")),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public void ClickingArtistRow_DispatchesLoadPageAction_WithArtistNameAndPage1()
+    {
+        // Arrange
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act – click first artist row ("ABBA")
+        cut.Find(".artist-row").Click();
+
+        // Assert – LoadPageAction dispatched with page 1, correct name, not appending
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.Is<LoadPageAction>(a => a.Page == 1 && a.SearchQuery == "ABBA" && !a.Append)),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public void Component_HidesArtistList_WhenSearchFilterIsNonEmpty()
+    {
+        // Arrange – state as it would be after SelectArtist dispatch updates SearchFilter
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – browse branch is not rendered when search filter is active
+        var artistRows = cut.FindAll(".artist-row");
+        Assert.Empty(artistRows);
+    }
+
+    [Fact]
+    public void ClickingArtistRow_FilterSongsAction_SearchFilter_MatchesArtistName()
+    {
+        // Arrange – verify that the dispatched FilterSongsAction carries the
+        // tapped artist name (i.e. SearchFilter state will reflect the selection)
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+
+        FilterSongsAction? captured = null;
+        mockDispatcher
+            .Setup(d => d.Dispatch(It.IsAny<FilterSongsAction>()))
+            .Callback<object>(a => captured = (FilterSongsAction)a);
+
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act – click third artist row ("The Beatles")
+        cut.FindAll(".artist-row")[2].Click();
+
+        // Assert – the action carries the precise artist name
+        Assert.NotNull(captured);
+        Assert.Equal("The Beatles", captured!.SearchFilter);
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────
 
     private Mock<IDispatcher> SetupFluxorWithState(LibraryState state)
