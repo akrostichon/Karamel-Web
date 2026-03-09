@@ -27,6 +27,11 @@ public record LibraryState
     // Fuzzy search suggestions and zero-results state
     public IReadOnlyList<string> Suggestions { get; init; } = Array.Empty<string>();
     public bool HasSearchedWithNoResults { get; init; } = false;
+
+    // Artist browse state
+    public IReadOnlyList<ArtistItem> Artists { get; init; } = Array.Empty<ArtistItem>();
+    public bool IsLoadingArtists { get; init; } = false;
+    public bool ArtistsLoaded { get; init; } = false;
     
     public IReadOnlyList<Song> FilteredSongs
     {

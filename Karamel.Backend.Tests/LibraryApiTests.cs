@@ -742,5 +742,78 @@ namespace Karamel.Backend.Tests
             [property: JsonPropertyName("text")] string Text,
             [property: JsonPropertyName("sourceField")] string SourceField
         );
+
+        // ── T006: GetArtists endpoint tests ─────────────────────────────────
+
+        private record ArtistSummaryResponse(
+            [property: JsonPropertyName("name")] string Name,
+            [property: JsonPropertyName("songCount")] int SongCount
+        );
+
+        [Fact]
+        public async Task GetArtists_WithSeededSession_ReturnsSortedArtistArray()
+        {
+            var client = _factory.CreateDefaultClient();
+
+            var sessionResp = await client.PostAsJsonAsync("/api/sessions",
+                new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false });
+            sessionResp.EnsureSuccessStatusCode();
+            var created = await sessionResp.Content.ReadFromJsonAsync<CreateResponse>();
+            Assert.NotNull(created);
+
+            var sessionId = created!.Id;
+            client.DefaultRequestHeaders.Add("X-Link-Token", created.linkToken);
+
+            var songs = new[]
+            {
+                new { id = Guid.NewGuid(), artist = "Adele",  title = "Hello",           metadataJson = (string?)null },
+                new { id = Guid.NewGuid(), artist = "ABBA",   title = "Dancing Queen",   metadataJson = (string?)null },
+                new { id = Guid.NewGuid(), artist = "ABBA",   title = "Waterloo",        metadataJson = (string?)null },
+                new { id = Guid.NewGuid(), artist = "AC/DC",  title = "Back in Black",   metadataJson = (string?)null },
+            };
+            var uploadResp = await client.PostAsJsonAsync($"/api/sessions/{sessionId}/library/bulk", songs);
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, uploadResp.StatusCode);
+
+            var getResp = await client.GetAsync($"/api/sessions/{sessionId}/library/artists");
+            Assert.Equal(System.Net.HttpStatusCode.OK, getResp.StatusCode);
+
+            var artists = await getResp.Content.ReadFromJsonAsync<ArtistSummaryResponse[]>();
+            Assert.NotNull(artists);
+            Assert.Equal(3, artists!.Length);
+
+            // Case-insensitive alphabetical order: ABBA, AC/DC, Adele
+            Assert.Equal("ABBA",  artists[0].Name);
+            Assert.Equal(2,       artists[0].SongCount);
+            Assert.Equal("AC/DC", artists[1].Name);
+            Assert.Equal(1,       artists[1].SongCount);
+            Assert.Equal("Adele", artists[2].Name);
+            Assert.Equal(1,       artists[2].SongCount);
+
+            // Verify JSON field names
+            var raw = await (await client.GetAsync($"/api/sessions/{sessionId}/library/artists")).Content.ReadAsStringAsync();
+            Assert.Contains("\"name\"",      raw);
+            Assert.Contains("\"songCount\"", raw);
+        }
+
+        [Fact]
+        public async Task GetArtists_WithNoSongs_ReturnsEmptyArray()
+        {
+            var client = _factory.CreateDefaultClient();
+
+            var sessionResp = await client.PostAsJsonAsync("/api/sessions",
+                new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false });
+            sessionResp.EnsureSuccessStatusCode();
+            var created = await sessionResp.Content.ReadFromJsonAsync<CreateResponse>();
+            Assert.NotNull(created);
+
+            var sessionId = created!.Id;
+
+            var getResp = await client.GetAsync($"/api/sessions/{sessionId}/library/artists");
+            Assert.Equal(System.Net.HttpStatusCode.OK, getResp.StatusCode);
+
+            var artists = await getResp.Content.ReadFromJsonAsync<ArtistSummaryResponse[]>();
+            Assert.NotNull(artists);
+            Assert.Empty(artists!);
+        }
     }
 }

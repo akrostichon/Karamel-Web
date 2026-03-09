@@ -156,4 +156,26 @@ public class LibraryEffects(
         }
         return result;
     }
+
+    [EffectMethod]
+    public async Task HandleLoadArtistsAction(LoadArtistsAction action, IDispatcher dispatcher)
+    {
+        var session = sessionState.Value.CurrentSession;
+        if (session == null)
+        {
+            dispatcher.Dispatch(new LoadArtistsFailureAction("No active session"));
+            return;
+        }
+
+        try
+        {
+            var artists = await sessionApiClient.FetchArtistsAsync(session.SessionId);
+            dispatcher.Dispatch(new LoadArtistsSuccessAction(artists));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] LibraryEffects.HandleLoadArtistsAction: {ex.Message}");
+            dispatcher.Dispatch(new LoadArtistsFailureAction($"Failed to load artists: {ex.Message}"));
+        }
+    }
 }

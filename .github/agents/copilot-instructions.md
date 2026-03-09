@@ -9,6 +9,10 @@ Auto-generated from all feature plans. Last updated: 2026-02-22
 - SQL Server (production), SQLite (development), File System Access API (browser-only, main tab) (003-remove-deprecated-code)
 - C# 14 / .NET 10 (backend `Karamel.Backend`); Blazor WebAssembly / C# 14 (frontend `Karamel.Web`); JavaScript ES modules (`wwwroot/js/`) + ASP.NET Core 10, EF Core 10, Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32, Vitest 4.0 (004-fuzzy-search)
 - SQLite (local development via EF Core `Sqlite` provider); Azure SQL Server (`SqlServer` provider) in production; no schema migration needed (no new columns) (004-fuzzy-search)
+- [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION] + [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION] (005-artist-exploration-browse)
+- [if applicable, e.g., PostgreSQL, CoreData, files or N/A] (005-artist-exploration-browse)
+- C# 14 / .NET 10 (both `Karamel.Backend` and `Karamel.Web`); JavaScript ES modules + ASP.NET Core 10, EF Core 10 (SQLite dev / SQL Server prod), Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32 (005-artist-exploration-browse)
+- SQLite (local dev); Azure SQL Server (production); no schema changes needed (queries against existing `Songs` table) (005-artist-exploration-browse)
 
 - C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop. + ASP.NET Core, SignalR, Fluxor on the frontend, xUnit/bUnit tests, Vitest for JS. (001-admin-session-control)
 
@@ -29,9 +33,9 @@ npm test; npm run lint
 C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop.: Follow standard conventions
 
 ## Recent Changes
+- 005-artist-exploration-browse: Added C# 14 / .NET 10 (both `Karamel.Backend` and `Karamel.Web`); JavaScript ES modules + ASP.NET Core 10, EF Core 10 (SQLite dev / SQL Server prod), Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32
+- 005-artist-exploration-browse: Added [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION] + [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
 - 004-fuzzy-search: Added C# 14 / .NET 10 (backend `Karamel.Backend`); Blazor WebAssembly / C# 14 (frontend `Karamel.Web`); JavaScript ES modules (`wwwroot/js/`) + ASP.NET Core 10, EF Core 10, Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32, Vitest 4.0
-- 003-remove-deprecated-code: Added C# 14, .NET 10.0 + Blazor WebAssembly, ASP.NET Core, Fluxor 6.9.0, SignalR, Entity Framework Core
-- 001-song-duration-display: Added C# 14 / .NET 10 (backend + Blazor WASM frontend), JavaScript ES2022 (browser modules) + Fluxor 6.9, ASP.NET Core 10, EF Core 10, xUnit, bUnit 1.32, Vitest 4.0, jsmediatags
 
 
 <!-- MANUAL ADDITIONS START -->

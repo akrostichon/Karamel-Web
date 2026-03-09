@@ -30,4 +30,10 @@ public interface ISessionApiClient
     /// Returns session configuration with theme
     /// </summary>
     Task<Session?> FetchSessionConfigFromBackendAsync(Guid sessionId);
+
+    /// <summary>
+    /// Fetches the full artist list for a session from the backend API.
+    /// Returns an empty list if the session has no library or the request fails.
+    /// </summary>
+    Task<IReadOnlyList<ArtistItem>> FetchArtistsAsync(Guid sessionId);
 }

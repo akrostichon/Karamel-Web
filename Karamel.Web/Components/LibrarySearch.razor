@@ -82,6 +82,39 @@
             @LibraryState.Value.ErrorMessage
         </div>
     }
+    else if (string.IsNullOrEmpty(LibraryState.Value.SearchFilter) && LibraryState.Value.ScanComplete)
+    {
+        @* Branch C: artist browse mode *@
+        @if (LibraryState.Value.IsLoadingArtists)
+        {
+            <div class="artist-list-loader text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading artists...</span>
+                </div>
+            </div>
+        }
+        else if (LibraryState.Value.ArtistsLoaded)
+        {
+            @if (LibraryState.Value.Artists.Any())
+            {
+                <div class="artist-list">
+                    @foreach (var artist in LibraryState.Value.Artists)
+                    {
+                        <div class="artist-row" @onclick="() => SelectArtist(artist.Name)">
+                            <span class="artist-name">@artist.Name</span>
+                            <span class="artist-song-count">@artist.SongCount</span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info" role="alert">
+                    No songs in library.
+                </div>
+            }
+        }
+    }
     else if (!FilteredAndSortedSongs.Any())
     {
         <div class="alert alert-info" role="alert">
@@ -184,10 +217,25 @@
     private string toastClass = string.Empty;
     private string toastIcon = string.Empty;
 
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (LibraryState.Value.ScanComplete && !LibraryState.Value.ArtistsLoaded && !LibraryState.Value.IsLoadingArtists)
+        {
+            Dispatcher.Dispatch(new LoadArtistsAction());
+        }
+    }
+
     private IEnumerable<Song> FilteredAndSortedSongs => 
         LibraryState.Value.FilteredSongs
             .OrderBy(s => s.Artist)
             .ThenBy(s => s.Title);
+
+    private void SelectArtist(string name)
+    {
+        Dispatcher.Dispatch(new FilterSongsAction(name));
+        Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: name, Append: false));
+    }
 
     private async void OnSearchInput(ChangeEventArgs e)
     {
