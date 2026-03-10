@@ -318,7 +318,7 @@ Karamel-Web/                          # Solution root
 
 ### Logging & Observability
 
-📊 See [.github/instructions/logging-observability.instructions.md](.github/instructions/logging-observability.instructions.md) for:
+📊 See [.github/prompts/logging-observability.prompt.md](.github/prompts/logging-observability.prompt.md) for:
 - Structured logging patterns with `ILogger<T>`
 - Application Insights integration (backend & frontend)
 - Log levels and when to use them
@@ -557,7 +557,7 @@ describe('moduleName', () => {
 - **STYLING_GUIDE.md**: UI design, color palette, typography, responsive layout
 - **README.md**: Project overview, feature list
 - **.github/instructions/playlist-status-system.instructions.md**: Playlist status architecture (auto-loaded for playlist work)
-- **.github/instructions/logging-observability.instructions.md**: Application Insights integration and structured logging
+- **.github/prompts/logging-observability.prompt.md**: Application Insights integration and structured logging
 - **.github/instructions/azure-deployment.instructions.md**: Azure resource naming and deployment warnings
 
 ## Final Reminders

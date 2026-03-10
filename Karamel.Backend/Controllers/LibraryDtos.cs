@@ -21,4 +21,9 @@ namespace Karamel.Backend.Controllers
         [property: JsonPropertyName("pageSize")] int PageSize,
         [property: JsonPropertyName("suggestions")] IReadOnlyList<SearchSuggestionDto> Suggestions
     );
+
+    public record ArtistSummaryDto(
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("songCount")] int SongCount
+    );
 }

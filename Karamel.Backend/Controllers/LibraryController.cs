@@ -114,5 +114,13 @@ namespace Karamel.Backend.Controllers
             if (item == null) return NotFound();
             return Ok(item);
         }
+
+        [HttpGet("artists")]
+        public async Task<IActionResult> GetArtists(Guid sessionId)
+        {
+            _logger.LogInformation("GetArtists called for session {SessionId}", sessionId);
+            var result = await _songRepo.GetArtistsAsync(sessionId);
+            return Ok(result);
+        }
     }
 }

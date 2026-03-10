@@ -8,5 +8,12 @@ namespace Karamel.Backend.Repositories
         Task<PagedResult<SongListItemDto>> GetPageAsync(Guid sessionId, int page, int pageSize, string? search, string? sort);
         Task<SongListItemDto?> GetByIdAsync(Guid sessionId, Guid songId);
         Task DeleteBySessionAsync(Guid sessionId);
+
+        /// <summary>
+        /// Returns all distinct artists in the session library,
+        /// ordered alphabetically, with song counts.
+        /// Artists with null or whitespace names are excluded.
+        /// </summary>
+        Task<IReadOnlyList<ArtistSummaryDto>> GetArtistsAsync(Guid sessionId);
     }
 }

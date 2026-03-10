@@ -162,4 +162,28 @@ public class SessionApiClient : ISessionApiClient
             throw new InvalidOperationException("Unable to connect to session. Please check your network connection and try again.", ex);
         }
     }
+
+    /// <summary>
+    /// Fetches the full artist list for a session from the backend API.
+    /// </summary>
+    public async Task<IReadOnlyList<ArtistItem>> FetchArtistsAsync(Guid sessionId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/sessions/{sessionId}/library/artists");
+            if (!response.IsSuccessStatusCode)
+                return Array.Empty<ArtistItem>();
+
+            var dtos = await response.Content.ReadFromJsonAsync<Contracts.ArtistDto[]>();
+            if (dtos == null)
+                return Array.Empty<ArtistItem>();
+
+            return dtos.Select(d => new ArtistItem(d.Name, d.SongCount)).ToArray();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] SessionApiClient: FetchArtistsAsync failed: {ex.Message}");
+            return Array.Empty<ArtistItem>();
+        }
+    }
 }

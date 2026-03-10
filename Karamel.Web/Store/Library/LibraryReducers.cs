@@ -38,7 +38,11 @@ public static class LibraryReducers
             ScannedCount = action.Scanned,
             ScanComplete = action.Complete,
             // Keep IsLoading true until we receive LoadLibrarySuccess or failure
-            IsLoading = !action.Complete
+            IsLoading = !action.Complete,
+            // Invalidate artist cache when a rescan starts
+            Artists = action.Complete ? state.Artists : Array.Empty<ArtistItem>(),
+            IsLoadingArtists = false,
+            ArtistsLoaded = action.Complete ? state.ArtistsLoaded : false
         };
 
     [ReducerMethod]
@@ -100,7 +104,10 @@ public static class LibraryReducers
             Songs = Array.Empty<Song>(),
             ServerSearchQuery = null,
             Suggestions = Array.Empty<string>(),
-            HasSearchedWithNoResults = false
+            HasSearchedWithNoResults = false,
+            Artists = Array.Empty<ArtistItem>(),
+            IsLoadingArtists = false,
+            ArtistsLoaded = false
         };
 
     [ReducerMethod]
@@ -109,5 +116,28 @@ public static class LibraryReducers
         {
             Suggestions = action.Suggestions,
             HasSearchedWithNoResults = action.Suggestions.Count > 0
+        };
+
+    // Artist browse reducers
+    [ReducerMethod]
+    public static LibraryState ReduceLoadArtistsAction(LibraryState state, LoadArtistsAction action) =>
+        state with { IsLoadingArtists = true };
+
+    [ReducerMethod]
+    public static LibraryState ReduceLoadArtistsSuccessAction(LibraryState state, LoadArtistsSuccessAction action) =>
+        state with
+        {
+            Artists = action.Artists,
+            IsLoadingArtists = false,
+            ArtistsLoaded = true
+        };
+
+    [ReducerMethod]
+    public static LibraryState ReduceLoadArtistsFailureAction(LibraryState state, LoadArtistsFailureAction action) =>
+        state with
+        {
+            IsLoadingArtists = false,
+            ArtistsLoaded = false,
+            ErrorMessage = action.ErrorMessage
         };
 }

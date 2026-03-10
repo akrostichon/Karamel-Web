@@ -217,5 +217,28 @@ namespace Karamel.Backend.Repositories
             _db.Songs.RemoveRange(list);
             await _db.SaveChangesAsync();
         }
+
+        public async Task<IReadOnlyList<ArtistSummaryDto>> GetArtistsAsync(Guid sessionId)
+        {
+            _logger.LogInformation("GetArtists called for session {SessionId}", sessionId);
+            try
+            {
+                var grouped = await _db.Songs
+                    .AsNoTracking()
+                    .Where(s => s.SessionId == sessionId && s.Artist != null && s.Artist != string.Empty)
+                    .GroupBy(s => s.Artist)
+                    .Select(g => new ArtistSummaryDto(g.Key!, g.Count()))
+                    .ToListAsync();
+
+                return grouped
+                    .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetArtists failed for session {SessionId}", sessionId);
+                throw;
+            }
+        }
     }
 }

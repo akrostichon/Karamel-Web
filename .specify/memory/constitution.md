@@ -1,9 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0 (MINOR — new principle added)
-Added sections:
-  - VII. Domain-Driven Design (new, v1.1.0)
+Version change: 1.1.0 → 1.1.1 (PATCH — factual corrections only)
+
+Changed (v1.1.1):
+  - Principle V: corrected test counts (101 → 260+, 3 skipped → 9 skipped)
+  - Principle VI: fixed broken logging reference (instructions → prompts)
+  - copilot-instructions.md: same reference fix
+  - playlist-status-system.instructions.md: same reference fix
+
+Previously added (v1.1.0):
+  - VII. Domain-Driven Design (new)
 Previously added (v1.0.0):
   - I. Multi-Session, Multi-Device Architecture
   - II. Privacy by Design & GDPR Compliance
@@ -17,11 +24,9 @@ Previously added (v1.0.0):
   - Additional Constraints: Database Migrations
   - Development Workflow
   - Governance
+
 Removed sections: none
-Templates updated (v1.1.0):
-  - .specify/templates/plan-template.md ✅ Constitution Check I–VII added
-  - .specify/templates/spec-template.md ✅ Privacy/GDPR and Multi-Device review gates added
-  - .specify/templates/tasks-template.md ✅ Observability and serialization task types added
+Templates updated: none required
 Deferred TODOs: none
 -->
 
@@ -122,7 +127,7 @@ Detailed guidance:
 No code is merged without passing all quality gates:
 
 - `dotnet build` MUST produce zero errors and zero warnings before every commit.
-- `dotnet test Karamel.Web.Tests` MUST yield ≥ 101 passing tests (maximum 3 skipped by design).
+- `dotnet test Karamel.Web.Tests` MUST yield ≥ 260 passing tests (9 skipped by design).
 - `npm run test:run` (in `Karamel.Web/wwwroot`) MUST yield zero failures across all JS tests.
 - **Targeted test runs first**: when changing a single file, run only the affected test file;
   run the full suite only after the targeted test passes.
@@ -149,7 +154,7 @@ Every significant code path MUST be observable in production via Application Ins
 - Sensitive data MUST NOT appear in any log output (see Principle II).
 
 Full guidance:
-[logging-observability.instructions.md](.github/instructions/logging-observability.instructions.md)
+[logging-observability.prompt.md](.github/prompts/logging-observability.prompt.md)
 
 ### VII. Domain-Driven Design
 
@@ -264,4 +269,4 @@ reference; this constitution governs *what* is non-negotiable, the instructions 
 
 ---
 
-**Version**: 1.1.0 | **Ratified**: 2026-02-21 | **Last Amended**: 2026-02-21
+**Version**: 1.1.1 | **Ratified**: 2026-02-21 | **Last Amended**: 2026-03-10

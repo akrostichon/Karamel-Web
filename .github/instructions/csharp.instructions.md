@@ -85,6 +85,17 @@ applyTo: '**/*.cs'
 - Show how to implement custom telemetry and correlation IDs for request tracking.
 - Explain how to monitor API performance, errors, and usage patterns.
 
+## Blazor Component Lifecycle (Karamel.Web)
+
+All Razor page components MUST follow this established pattern:
+
+- Inherit `FluxorComponent` and implement `IAsyncDisposable`.
+- Subscribe to `State.StateChanged` in `OnInitializedAsync`; unsubscribe in `DisposeAsyncCore`.
+- Call `StateHasChanged()` inside event handlers that react to Fluxor state changes.
+- Keep `@code` blocks thin — dispatch Fluxor actions only; never call repositories or invoke
+  services with side effects directly from component code.
+- Use xUnit assertions exclusively in tests — FluentAssertions is not installed and MUST NOT be used.
+
 ## Testing
 
 - Always include test cases for critical paths of the application.

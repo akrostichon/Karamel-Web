@@ -16,3 +16,8 @@ public record ResetPaginationAction();
 
 // Fuzzy search suggestion actions
 public record SearchSuggestionsAction(IReadOnlyList<string> Suggestions);
+
+// Artist browse actions
+public record LoadArtistsAction();
+public record LoadArtistsSuccessAction(IReadOnlyList<ArtistItem> Artists);
+public record LoadArtistsFailureAction(string ErrorMessage);

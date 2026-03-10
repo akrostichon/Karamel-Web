@@ -270,4 +270,4 @@ traces
 ## Related Documentation
 
 - [Copilot Instructions](.github/copilot-instructions.md) - Multi-session architecture
-- [Logging & Observability](.github/instructions/logging-observability.instructions.md) - Telemetry patterns
+- [Logging & Observability](.github/prompts/logging-observability.prompt.md) - Telemetry patterns
