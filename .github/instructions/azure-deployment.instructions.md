@@ -1,6 +1,6 @@
 ---
 description: "Azure deployment guidance and resource naming conventions for Karamel-Web production environment"
-applyTo: "**"
+applyTo: "infra/**,**/*.bicep,**/*.bicepparam,**/.github/workflows/**,**/deploy*.ps1,**/run_migrations*.ps1"
 ---
 
 # Azure Deployment Guidelines

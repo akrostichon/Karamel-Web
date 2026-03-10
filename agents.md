@@ -121,6 +121,21 @@ See `.github/instructions/agent-skills.instructions.md` for authoring guidelines
 3. Verifies the fix actually resolves the root cause
 4. Validates there are no side effects
 
+## git-workflow
+
+**File**: [`.github/skills/git-workflow/SKILL.md`](.github/skills/git-workflow/SKILL.md)
+
+**Purpose**: Enforces Karamel-Web git conventions: branch protection, feature branch creation, user-facing commit messages, plan file exclusion, and local-first commits.
+
+**Activated by**: When committing code, creating branches, preparing commit messages, or asking about git workflow conventions.
+
+**How it works**:
+1. Verifies the current branch is not `main`/`develop`/`master`
+2. Creates a `feature/…` branch if needed
+3. Removes plan files from staging if accidentally added
+4. Commits with a user-facing outcome-oriented message
+5. Holds push until explicitly requested by the user
+
 ---
 
 ## Adding New Agents
