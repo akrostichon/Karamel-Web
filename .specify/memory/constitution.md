@@ -239,7 +239,7 @@ Guidance:
 - After any change: run build → targeted tests → full test suite → manual UI verification if the
   change affects UI.
 
-Full rules: [git-workflow.instructions.md](.github/instructions/git-workflow.instructions.md)
+Full rules: [git-workflow skill](.github/skills/git-workflow/SKILL.md)
 
 ## Governance
 
