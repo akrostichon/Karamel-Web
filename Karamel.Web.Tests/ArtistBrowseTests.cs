@@ -319,6 +319,89 @@ public class ArtistBrowseTests : TestContext
         Assert.Equal("The Beatles", captured!.SearchFilter);
     }
 
+    // ── US3: Artist list cache hit and no-refetch after clear ─────────────
+
+    [Fact]
+    public void ArtistList_ReappearsInstantly_AfterClearFilter_WhenCacheIsWarm()
+    {
+        // Arrange – state as it would be after ClearFilter() when artists are cached
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists,
+            IsLoadingArtists = false
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – artist list shows immediately with no spinner and no fetch
+        var artistRows = cut.FindAll(".artist-row");
+        Assert.Equal(3, artistRows.Count);
+
+        var loaderSpinners = cut.FindAll(".artist-list-loader");
+        Assert.Empty(loaderSpinners);
+
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.IsAny<LoadArtistsAction>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public void ClearFilter_TriggersArtistLoad_WhenCacheIsEmpty()
+    {
+        // Arrange – filter active (X button shown), scan complete, cache empty
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = false,
+            IsLoadingArtists = false
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+        // OnInit already dispatched LoadArtistsAction once
+
+        // Act – click the X button to clear the search
+        cut.Find(".clear-filter-btn").Click();
+
+        // Assert – LoadArtistsAction dispatched twice: once on init, once by ClearFilter
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.IsAny<LoadArtistsAction>()),
+            Times.Exactly(2)
+        );
+    }
+
+    [Fact]
+    public void OnSearchInput_ClearedToEmpty_TriggersArtistLoad_WhenCacheIsEmpty()
+    {
+        // Arrange – scan complete, cache empty
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = false,
+            IsLoadingArtists = false
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+        // OnInit already dispatched LoadArtistsAction once
+
+        // Act – simulate user deleting all text in the search input
+        cut.Find("input[type='text']").Input(string.Empty);
+
+        // Assert – LoadArtistsAction dispatched twice: once on init, once from the
+        // empty-string branch of OnSearchInput → TryLoadArtistsIfReady
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.IsAny<LoadArtistsAction>()),
+            Times.Exactly(2)
+        );
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────
 
     private Mock<IDispatcher> SetupFluxorWithState(LibraryState state)

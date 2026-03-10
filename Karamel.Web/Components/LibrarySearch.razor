@@ -254,6 +254,10 @@
         var searchText = e.Value?.ToString() ?? string.Empty;
         // Keep SearchFilter in sync immediately so FilteredSongs always uses the current input value
         Dispatcher.Dispatch(new FilterSongsAction(searchText));
+        if (string.IsNullOrEmpty(searchText))
+        {
+            TryLoadArtistsIfReady();
+        }
         await PerformDebouncedSearchAsync(searchText);
     }
 
@@ -312,6 +316,7 @@
     {
         Dispatcher.Dispatch(new FilterSongsAction(string.Empty));
         Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false));
+        TryLoadArtistsIfReady();
     }
 
     private void OnSuggestionClick(string suggestion)

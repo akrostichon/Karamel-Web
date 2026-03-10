@@ -59,8 +59,10 @@
 - [X] T011a [P] [US1] Extend existing `ScanProgressAction` reducer in `Karamel.Web/Store/Library/LibraryReducers.cs` to clear `Artists`, `IsLoadingArtists = false`, `ArtistsLoaded = false` when `ScanProgressAction.IsComplete == false` — ensures a library rescan invalidates the cached artist list so stale artists from the previous scan are not displayed (depends on T010)
 - [X] T012 [US1] Add `Task<IReadOnlyList<ArtistItem>> FetchArtistsAsync(Guid sessionId)` to `ISessionApiClient` interface and implement in `SessionApiClient` — HTTP GET `{baseUrl}/api/sessions/{sessionId}/library/artists`, deserialise array as `ArtistDto[]`, map each to `new ArtistItem(dto.Name, dto.SongCount)` (depends on T007, T008)
 - [X] T013 [US1] Add `HandleLoadArtistsAction` effect in `Karamel.Web/Store/Library/LibraryEffects.cs` — inject `IState<SessionState>` to read `sessionId` from `SessionState.Value.CurrentSession.SessionId`; call `FetchArtistsAsync(sessionId)`, dispatch `LoadArtistsSuccessAction` on success or `LoadArtistsFailureAction` on exception, using structured logging at Info/Error level (depends on T009, T012)
-- [X] T014 [P] [US1] Add `.artist-list` and `.artist-row` CSS rules to `Karamel.Web/Components/LibrarySearch.razor.css` — artist name left-aligned, song count right-aligned in muted text, full-width tap target
+- [X] T014 [P] [US1] Add `.artist-list` and `.artist-row` CSS rules to `Karamel.Web/Components/LibrarySearch.razor.css` — two-line stacked layout: artist name left-aligned on top row (font-weight 500), song count below in muted smaller text (`0.75rem`), full-width tap target
+  - 📐 **Design decision (Phase 3 review)**: Changed from single-line right-aligned count to two-line stacked (Option B — Spotify/Apple Music pattern). Singular/plural handled in template: "1 song" / "N songs".
 - [X] T015 [US1] Add Branch C (artist browse mode) to `Karamel.Web/Components/LibrarySearch.razor` render tree — shown when `SearchFilter == ""`; displays spinner when `IsLoadingArtists`; displays artist list rows when `ArtistsLoaded` (or `Artists.Any()`); each row shows artist name + song count with `@onclick="() => SelectArtist(artist.Name)"` (depends on T010, T013, T014)
+  - ⚠️ **Bug fix applied at Phase 3 checkpoint**: Branch C gate condition changed from `ScanComplete` to `ScanComplete || TotalCount > 0`. Secondary tabs and devices load songs via the pagination REST API which sets `TotalCount` but never `ScanComplete` (that flag is main-tab file-scan-only). The artist list was permanently hidden for all API-loaded libraries.
 
 ### Tests for US1
 
@@ -78,11 +80,11 @@
 
 ### Implementation for US2
 
-- [ ] T017 [US2] Implement `SelectArtist(string name)` private method in `Karamel.Web/Components/LibrarySearch.razor` that dispatches `new FilterSongsAction(name)` then `new LoadPageAction(Page: 1, SearchQuery: name, Append: false)` — already wired to artist row `@onclick` from T015 (depends on T015)
+- [X] T017 [US2] Implement `SelectArtist(string name)` private method in `Karamel.Web/Components/LibrarySearch.razor` that dispatches `new FilterSongsAction(name)` then `new LoadPageAction(Page: 1, SearchQuery: name, Append: false)` — already wired to artist row `@onclick` from T015 (depends on T015)
 
 ### Tests for US2
 
-- [ ] T018 [P] [US2] Write bUnit tests for artist selection in `Karamel.Web.Tests/ArtistBrowseTests.cs` — covers: clicking an artist row dispatches `FilterSongsAction` with correct name; `LoadPageAction(1, name, false)` is dispatched; artist list branch is no longer shown after dispatch; `SearchFilter` state reflects the selected artist name (depends on T017)
+- [X] T018 [P] [US2] Write bUnit tests for artist selection in `Karamel.Web.Tests/ArtistBrowseTests.cs` — covers: clicking an artist row dispatches `FilterSongsAction` with correct name; `LoadPageAction(1, name, false)` is dispatched; artist list branch is no longer shown after dispatch; `SearchFilter` state reflects the selected artist name (depends on T017)
 
 **Checkpoint**: `dotnet test Karamel.Web.Tests` still passes. Manual quickstart steps 1–2 verified: browse list → tap artist → songs appear.
 
@@ -96,11 +98,12 @@
 
 ### Implementation for US3
 
-- [ ] T019 [US3] Add `TryLoadArtistsIfNeeded()` private helper to `Karamel.Web/Components/LibrarySearch.razor` — checks `ScanComplete && !ArtistsLoaded && !IsLoadingArtists` and dispatches `LoadArtistsAction` if true; call it from the `LibraryState.StateChanged` subscription handler, from `ClearFilter()`, and from the empty-string branch of `OnSearchInput` (depends on T015, T017)
+- [X] T019 [US3] Add `TryLoadArtistsIfNeeded()` private helper to `Karamel.Web/Components/LibrarySearch.razor` — checks `ScanComplete && !ArtistsLoaded && !IsLoadingArtists` and dispatches `LoadArtistsAction` if true; call it from the `LibraryState.StateChanged` subscription handler, from `ClearFilter()`, and from the empty-string branch of `OnSearchInput` (depends on T015, T017)
+  - ⚠️ **Partially pre-implemented** by the Phase 3 bug fix: helper already exists as `TryLoadArtistsIfReady()` with condition `(ScanComplete || TotalCount > 0) && !ArtistsLoaded && !IsLoadingArtists`; `LibraryState.StateChanged` subscription is wired and unsubscribed in `Dispose()`. **Remaining work**: call `TryLoadArtistsIfReady()` from `ClearFilter()` and from the empty-string branch of `OnSearchInput`.
 
 ### Tests for US3
 
-- [ ] T020 [P] [US3] Write bUnit tests for cache and invalidation in `Karamel.Web.Tests/ArtistBrowseTests.cs` — covers: `TryLoadArtistsIfNeeded` does not dispatch when `ArtistsLoaded=true`; artist list reappears after `ClearFilter()` when `ArtistsLoaded=true` (no spinner, no action dispatched); `ResetPaginationAction` clears `Artists` and `ArtistsLoaded` in reducer (depends on T019)
+- [X] T020 [P] [US3] Write bUnit tests for cache and invalidation in `Karamel.Web.Tests/ArtistBrowseTests.cs` — covers: `TryLoadArtistsIfNeeded` does not dispatch when `ArtistsLoaded=true`; artist list reappears after `ClearFilter()` when `ArtistsLoaded=true` (no spinner, no action dispatched); `ResetPaginationAction` clears `Artists` and `ArtistsLoaded` in reducer (depends on T019)
 
 **Checkpoint**: `dotnet test Karamel.Web.Tests` passes. Manual quickstart step 3 verified: clear search → list reappears instantly with no network request.
 
@@ -110,9 +113,9 @@
 
 **Purpose**: Final test suite validation, backend smoke test, and quickstart confirmation.
 
-- [ ] T021 Run full test suites and confirm all pass: `dotnet test Karamel.Web.Tests` (≥ 251 pass, ≤ 9 skipped), `cd Karamel.Web\wwwroot; npm run test:run` (zero failures), then `cd ..\..`
-- [ ] T022 [P] Run backend tests: `dotnet test Karamel.Backend.Tests -v minimal` — confirm new `GetArtists` integration tests pass
-- [ ] T023 [P] Run `quickstart.md` API smoke test — `curl http://localhost:5245/api/sessions/{sessionId}/library/artists` returns correctly sorted JSON array with `name` and `songCount` fields
+- [X] T021 Run full test suites and confirm all pass: `dotnet test Karamel.Web.Tests` (≥ 251 pass, ≤ 9 skipped), `cd Karamel.Web\wwwroot; npm run test:run` (zero failures), then `cd ..\..`
+- [X] T022 [P] Run backend tests: `dotnet test Karamel.Backend.Tests -v minimal` — confirm new `GetArtists` integration tests pass
+- [X] T023 [P] Run `quickstart.md` API smoke test — `curl http://localhost:5245/api/sessions/{sessionId}/library/artists` returns correctly sorted JSON array with `name` and `songCount` fields
 
 ---
 
