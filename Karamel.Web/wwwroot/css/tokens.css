@@ -174,6 +174,8 @@ html[data-theme="light"] .dropdown-menu {
 html {
   color-scheme: light dark;
   background: var(--gradient-light);
+  background-attachment: fixed;
+  background-size: cover;
   color: var(--color-text);
   font-family: var(--font-sans);
 }

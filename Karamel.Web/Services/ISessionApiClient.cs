@@ -18,7 +18,7 @@ public interface ISessionApiClient
     /// Fetch a paginated library page from server (prefers SignalR RPC when available)
     /// Returns a JSON element containing { items, page, pageSize, totalCount }
     /// </summary>
-    Task<JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null);
+    Task<JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null, string? artist = null);
 
     /// <summary>
     /// Search library on server

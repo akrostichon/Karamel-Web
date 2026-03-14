@@ -180,3 +180,80 @@
         padding: 0.5rem;
     }
 }
+
+/* ── Alphabet navigation (US1) ─────────────────────────────────────── */
+
+/* Flex row: artist list on the left, alphabet bar pinned on the right */
+.library-search .artist-browse-layout {
+    display: flex;
+    align-items: flex-start;
+}
+
+/* Artist list fills all remaining space */
+.library-search .artist-browse {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Per-letter section header — kept in DOM as a scroll anchor for the A–Z bar, but invisible */
+.library-search .artist-section-header {
+    height: 0;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+}
+
+/* Right-side A–Z strip — in-flow flex column, sticks near top while scrolling */
+.alphabet-bar {
+    position: sticky;
+    top: 1rem;
+    align-self: flex-start;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.25rem 0.1rem;
+    z-index: 10;
+    gap: 1px;
+    touch-action: none;
+    background-color: var(--color-surface, #fff);
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Individual letter button */
+.alpha-btn {
+    display: block;
+    width: 1.6rem;
+    height: 1.6rem;
+    line-height: 1.6rem;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--color-primary);
+    border-radius: 50%;
+    padding: 0;
+    transition: background-color 0.12s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.alpha-btn:hover:not(:disabled) {
+    background-color: var(--color-primary);
+    color: var(--color-surface, #fff);
+}
+
+.alpha-btn:disabled {
+    color: var(--color-text-secondary);
+    opacity: 0.3;
+    cursor: default;
+}
+
+/* Currently-visible letter highlight */
+.alpha-btn--current {
+    background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    color: var(--color-primary);
+    font-weight: 800;
+}

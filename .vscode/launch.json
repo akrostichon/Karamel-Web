@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Karamel.Backend",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-backend",
+            "program": "${workspaceFolder}/Karamel.Backend/bin/Debug/net10.0/Karamel.Backend.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Karamel.Backend",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "https://localhost:7001;http://localhost:5001"
+            }
+        },
+        {
+            "name": "Karamel.Web",
+            "type": "blazorwasm",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/Karamel.Web",
+            "url": "http://localhost:5245"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Karamel Full Stack",
+            "configurations": [
+                "Karamel.Backend",
+                "Karamel.Web"
+            ],
+            "stopAll": true
+        }
+    ]
+}

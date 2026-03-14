@@ -3,6 +3,7 @@
 @using Karamel.Web.Models
 @using Karamel.Web.Store.Library
 @using Karamel.Web.Store.Playlist
+@using Microsoft.JSInterop
 
 @inherits FluxorComponent
 @implements IDisposable
@@ -10,6 +11,7 @@
 @inject IState<LibraryState> LibraryState
 @inject IDispatcher Dispatcher
 @inject IState<Karamel.Web.Store.Session.SessionState> SessionState
+@inject IJSRuntime JSRuntime
 
 <div class="library-search">
     <span class="spinner-border" style="display:none;" aria-hidden="true"></span>
@@ -95,16 +97,47 @@
         }
         else if (LibraryState.Value.ArtistsLoaded)
         {
-            @if (LibraryState.Value.Artists.Any())
+            @if (_artistGroups.Count > 0)
             {
-                <div class="artist-list">
-                    @foreach (var artist in LibraryState.Value.Artists)
+                <div class="artist-browse-layout">
+                <div class="artist-browse">
+                    @foreach (var group in _artistGroups)
                     {
-                        <div class="artist-row" @onclick="() => SelectArtist(artist.Name)">
-                            <span class="artist-name">@artist.Name</span>
-                            <span class="artist-song-count">@artist.SongCount @(artist.SongCount == 1 ? "song" : "songs")</span>
-                        </div>
+                        <div id="letter-@group.Letter" class="artist-section-header">@group.Letter</div>
+                        @foreach (var artist in group.Artists)
+                        {
+                            <div class="artist-row" @onclick="() => SelectArtist(artist.Name)">
+                                <span class="artist-name">@artist.Name</span>
+                                <span class="artist-song-count">@artist.SongCount @(artist.SongCount == 1 ? "song" : "songs")</span>
+                            </div>
+                        }
                     }
+                </div>
+                <nav class="alphabet-bar" aria-label="Jump to artist by letter">
+                    @{
+                        var hasHash = _activeLetters.Contains('#');
+                    }
+                    <button
+                        type="button"
+                        class="alpha-btn @(_currentLetter == '#' ? "alpha-btn--current" : "")"
+                        disabled="@(!hasHash)"
+                        @onclick="async () => await ScrollToLetter('#')"
+                        title="Jump to #">
+                        #
+                    </button>
+                    @foreach (var letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+                    {
+                        var isActive = _activeLetters.Contains(letter);
+                        <button
+                            type="button"
+                            class="alpha-btn @(_currentLetter == letter ? "alpha-btn--current" : "")"
+                            disabled="@(!isActive)"
+                            @onclick="async () => await ScrollToLetter(letter)"
+                            title="Jump to @letter">
+                            @letter
+                        </button>
+                    }
+                </nav>
                 </div>
             }
             else
@@ -217,11 +250,39 @@
     private string toastClass = string.Empty;
     private string toastIcon = string.Empty;
 
+    private record ArtistGroup(char Letter, IReadOnlyList<ArtistItem> Artists);
+
+    private IReadOnlyList<ArtistGroup> _artistGroups = [];
+    private HashSet<char> _activeLetters = [];
+    private IJSObjectReference? _alphabetModule;
+    private char? _currentLetter;
+    private int _lastObservedGroupCount;
+    private DotNetObjectReference<LibrarySearch>? _dotNetRef;
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         LibraryState.StateChanged += OnLibraryStateChanged;
         TryLoadArtistsIfReady();
+        if (LibraryState.Value.ArtistsLoaded)
+        {
+            BuildArtistGroups();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_alphabetModule == null && _artistGroups.Count > 0)
+        {
+            _alphabetModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/alphabetBridge.js");
+        }
+
+        if (_alphabetModule != null && _artistGroups.Count > 0 && _artistGroups.Count != _lastObservedGroupCount)
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await _alphabetModule.InvokeVoidAsync("observeArtistSections", _dotNetRef);
+            _lastObservedGroupCount = _artistGroups.Count;
+        }
     }
 
     private void TryLoadArtistsIfReady()
@@ -236,6 +297,54 @@
     private void OnLibraryStateChanged(object? sender, EventArgs e)
     {
         TryLoadArtistsIfReady();
+        if (LibraryState.Value.ArtistsLoaded)
+        {
+            BuildArtistGroups();
+            StateHasChanged();
+        }
+        else
+        {
+            _artistGroups = [];
+            _activeLetters = [];
+        }
+    }
+
+    private void BuildArtistGroups()
+    {
+        var artists = LibraryState.Value.Artists;
+        if (!artists.Any())
+        {
+            _artistGroups = [];
+            _activeLetters = [];
+            return;
+        }
+
+        var groups = artists
+            .GroupBy(a => a.Name.Length > 0 && char.IsLetter(a.Name[0])
+                ? char.ToUpperInvariant(a.Name[0])
+                : '#')
+            .OrderBy(g => g.Key == '#' ? ' ' : g.Key)
+            .Select(g => new ArtistGroup(g.Key, g.ToList()))
+            .ToList();
+
+        _artistGroups = groups;
+        _activeLetters = new HashSet<char>(groups.Select(g => g.Letter));
+    }
+
+    private async Task ScrollToLetter(char letter)
+    {
+        if (_alphabetModule is null) return;
+        await _alphabetModule.InvokeVoidAsync("scrollToArtistSection", letter.ToString());
+    }
+
+    [JSInvokable]
+    public void OnLetterVisible(string letter)
+    {
+        if (letter.Length > 0)
+        {
+            _currentLetter = letter[0];
+            InvokeAsync(StateHasChanged);
+        }
     }
 
     private IEnumerable<Song> FilteredAndSortedSongs => 
@@ -246,7 +355,7 @@
     private void SelectArtist(string name)
     {
         Dispatcher.Dispatch(new FilterSongsAction(name));
-        Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: name, Append: false));
+        Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false, ArtistFilter: name));
     }
 
     private async void OnSearchInput(ChangeEventArgs e)
@@ -376,5 +485,12 @@
         LibraryState.StateChanged -= OnLibraryStateChanged;
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
+        _dotNetRef?.Dispose();
+        if (_alphabetModule is not null)
+        {
+            // Fire-and-forget: acceptable in sync Dispose since the component is being torn down
+            _ = _alphabetModule.InvokeVoidAsync("disconnectArtistSectionObserver").AsTask();
+            _ = _alphabetModule.DisposeAsync().AsTask();
+        }
     }
 }

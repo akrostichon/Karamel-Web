@@ -993,9 +993,9 @@ namespace Karamel.Backend.Hubs
         /// SignalR RPC to retrieve a paginated library page. No mutation performed.
         /// Requires the caller to be connected; authorization for read is allowed without link token but callers should provide a valid session context.
         /// </summary>
-        public async Task<object> GetLibraryPage(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
+        public async Task<object> GetLibraryPage(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null, string? artist = null)
         {
-            var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort);
+            var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort, artist);
             return new { items = result.Items, page = result.Page, pageSize = result.PageSize, totalCount = result.TotalCount, suggestions = result.Suggestions };
         }
 

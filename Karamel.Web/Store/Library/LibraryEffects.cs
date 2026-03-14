@@ -93,7 +93,8 @@ public class LibraryEffects(
             action.Page,
             pageSize,
             action.SearchQuery,
-            null);
+            null,
+            action.ArtistFilter);
     }
 
     private static bool IsValidJsonResponse(JsonElement response)

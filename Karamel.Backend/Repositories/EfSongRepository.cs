@@ -105,13 +105,29 @@ namespace Karamel.Backend.Repositories
         }
     }
 
-        public async Task<PagedResult<SongListItemDto>> GetPageAsync(Guid sessionId, int page, int pageSize, string? search, string? sort)
+        public async Task<PagedResult<SongListItemDto>> GetPageAsync(Guid sessionId, int page, int pageSize, string? search, string? sort, string? artist = null)
         {
-            _logger.LogDebug("SongRepository.GetPageAsync: sessionId={SessionId}, page={Page}, pageSize={PageSize}, search={Search}",
-                sessionId, page, pageSize, search ?? "null");
+            _logger.LogDebug("SongRepository.GetPageAsync: sessionId={SessionId}, page={Page}, pageSize={PageSize}, search={Search}, artist={Artist}",
+                sessionId, page, pageSize, search ?? "null", artist ?? "null");
             
             if (page < 1) page = 1;
             if (pageSize <= 0) pageSize = 50;
+
+            // ── Artist-exact-match path: bypasses fuzzy entirely, no pool limit ──
+            if (!string.IsNullOrWhiteSpace(artist))
+            {
+                var artistQuery = _db.Songs.AsNoTracking()
+                    .Where(s => s.SessionId == sessionId && s.Artist == artist)
+                    .OrderBy(s => s.Title);
+                var artistTotal = await artistQuery.LongCountAsync();
+                var artistItems = await artistQuery
+                    .Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
+                    .ToListAsync();
+                _logger.LogInformation("[DIAG] SongRepository.GetPageAsync (artist-exact): artist={Artist}, Returning {ItemCount} items (total={TotalCount})",
+                    artist, artistItems.Count, artistTotal);
+                return new PagedResult<SongListItemDto>(artistItems, page, pageSize, artistTotal);
+            }
 
             var trimmedSearch = search?.Trim();
 
