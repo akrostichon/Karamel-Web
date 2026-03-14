@@ -166,18 +166,42 @@ namespace Karamel.Backend.Repositories
             // Phase 1: SQL LIKE fetches all candidates (up to MaxCandidateForFuzzy), no Skip/Take
             _logger.LogDebug("SongRepository: Fuzzy search activated for query {Query}", trimmedSearch);
 
-            // For fuzzy we want a broader pool — also include all songs (LIKE '%q%' or just all)
-            // Strategy: fetch up to MaxCandidateForFuzzy songs ordered by Artist/Title; for small
-            // libraries this is everything; for large ones we cap to keep memory bounded.
-            var allCandidates = await _db.Songs.AsNoTracking()
+            // Stage A: LIKE pre-filter — fetches every song whose artist or title contains the
+            // search term as a substring, regardless of alphabetical position.
+            // This fixes the UC1 bug where an unfiltered Take(MaxCandidateForFuzzy) would silently
+            // exclude late-alphabet artists (e.g. "Queen" at alphabetical position >500 in a large library).
+            var likeCandidates = await _db.Songs.AsNoTracking()
                 .Where(s => s.SessionId == sessionId)
+                .Where(s => EF.Functions.Like(s.Artist, $"%{trimmedSearch}%") || EF.Functions.Like(s.Title, $"%{trimmedSearch}%"))
                 .OrderBy(s => s.Artist).ThenBy(s => s.Title)
                 .Take(IFuzzySearchService.MaxCandidateForFuzzy)
                 .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
                 .ToListAsync();
 
-            _logger.LogDebug("SongRepository: Fuzzy candidate pool size={Count} for session {SessionId}",
-                allCandidates.Count, sessionId);
+            // Stage B: fill any remaining capacity with alphabetically-first songs not yet in the
+            // pool.  This preserves fuzzy / typo matching (e.g. "Rapsody" → "Rhapsody") for queries
+            // that produce no LIKE hits — the first-N alphabetical songs are very likely to contain
+            // the intended song in small-to-medium libraries, exactly as the original code did.
+            List<SongListItemDto> allCandidates;
+            int slotsLeft = IFuzzySearchService.MaxCandidateForFuzzy - likeCandidates.Count;
+            if (slotsLeft > 0)
+            {
+                var likeIds = likeCandidates.Select(c => c.Id).ToHashSet();
+                var supplement = await _db.Songs.AsNoTracking()
+                    .Where(s => s.SessionId == sessionId && !likeIds.Contains(s.Id))
+                    .OrderBy(s => s.Artist).ThenBy(s => s.Title)
+                    .Take(slotsLeft)
+                    .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
+                    .ToListAsync();
+                allCandidates = likeCandidates.Concat(supplement).ToList();
+            }
+            else
+            {
+                allCandidates = likeCandidates;
+            }
+
+            _logger.LogDebug("SongRepository: Fuzzy candidate pool size={Count} (LIKE={LikeCount}) for session {SessionId}",
+                allCandidates.Count, likeCandidates.Count, sessionId);
 
             // Phase 2: ScoreAndSort in memory, then C#-side Skip/Take
             var scored = _fuzzy.ScoreAndSort(allCandidates, trimmedSearch!);

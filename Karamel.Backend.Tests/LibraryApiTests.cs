@@ -743,6 +743,72 @@ namespace Karamel.Backend.Tests
             [property: JsonPropertyName("sourceField")] string SourceField
         );
 
+        // ── T001: Artist-name search beyond alphabetical position 500 ────────
+
+        [Fact]
+        public async Task GetPage_FuzzySearch_IncludesArtistMatchesBeyondAlphabeticalPosition500()
+        {
+            // Purpose: In a 600-song library, songs by artist "Queen" appear beyond alphabetical
+            // position 500.  Without the LIKE-filtered fix the unpatched query only takes the first
+            // 500 alphabetical songs (MaxCandidateForFuzzy=500), which never reaches "Queen".
+            // After the fix, the LIKE pre-filter ensures all matching songs are included.
+            var client = _factory.CreateDefaultClient();
+
+            var createReq = new { RequireSingerName = false, PauseBetweenSongsSeconds = 1, AllowSingersToReorder = false };
+            var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
+            resp.EnsureSuccessStatusCode();
+            var created = await resp.Content.ReadFromJsonAsync<CreateResponse>();
+            Assert.NotNull(created);
+
+            var sessionId = created!.Id;
+            client.DefaultRequestHeaders.Add("X-Link-Token", created.linkToken);
+
+            // Build 600 songs so that the three Queen-related songs land beyond alphabetical
+            // position 500 when ordered by Artist asc, Title asc:
+            //   Position   1 : ABBA – Dancing Queen        (title contains "Queen" → PartialTitle)
+            //   Positions  2–550 : Artist Alpha 001–549    (filler, all start with "A")
+            //   Positions 551–552: Queen – Bohemian Rhapsody / Somebody to Love  (ArtistOnly)
+            //   Positions 553–600: Zest Artist 001–048     (filler, all start with "Z")
+            var songs = new System.Collections.Generic.List<object>
+            {
+                new { id = Guid.NewGuid(), artist = "ABBA",  title = "Dancing Queen",     metadataJson = (string?)null },
+                new { id = Guid.NewGuid(), artist = "Queen", title = "Bohemian Rhapsody", metadataJson = (string?)null },
+                new { id = Guid.NewGuid(), artist = "Queen", title = "Somebody to Love",  metadataJson = (string?)null },
+            };
+            for (var i = 1; i <= 549; i++)
+                songs.Add(new { id = Guid.NewGuid(), artist = $"Artist Alpha {i:D3}", title = $"Song {i:D3}", metadataJson = (string?)null });
+            for (var i = 1; i <= 48; i++)
+                songs.Add(new { id = Guid.NewGuid(), artist = $"Zest Artist {i:D3}", title = $"Song Z{i:D3}", metadataJson = (string?)null });
+
+            // Upload in batches of 100 to stay within payload limits
+            for (var batch = 0; batch < songs.Count; batch += 100)
+            {
+                var chunk = songs.Skip(batch).Take(100).ToList();
+                var uploadResp = await client.PostAsJsonAsync($"/api/sessions/{sessionId}/library/bulk", chunk);
+                Assert.Equal(System.Net.HttpStatusCode.Accepted, uploadResp.StatusCode);
+            }
+
+            // Search for "Queen" — all three songs must appear in results
+            var getResp = await client.GetAsync($"/api/sessions/{sessionId}/library?page=1&pageSize=20&search=Queen");
+            Assert.Equal(System.Net.HttpStatusCode.OK, getResp.StatusCode);
+
+            var body = await getResp.Content.ReadFromJsonAsync<LibraryResponseBody>();
+            Assert.NotNull(body);
+            var items = body!.Items;
+
+            Assert.Contains(items, s => s.Artist == "ABBA"  && s.Title == "Dancing Queen");
+            Assert.Contains(items, s => s.Artist == "Queen" && s.Title == "Bohemian Rhapsody");
+            Assert.Contains(items, s => s.Artist == "Queen" && s.Title == "Somebody to Love");
+
+            // "Dancing Queen" (PartialTitle tier) must rank above "Bohemian Rhapsody" (ArtistOnly tier)
+            var dancingQueenIdx = Array.FindIndex(items, s => s.Artist == "ABBA"  && s.Title == "Dancing Queen");
+            var bohemianIdx     = Array.FindIndex(items, s => s.Artist == "Queen" && s.Title == "Bohemian Rhapsody");
+            Assert.True(dancingQueenIdx >= 0, "Dancing Queen must appear in results");
+            Assert.True(bohemianIdx >= 0,     "Bohemian Rhapsody must appear in results");
+            Assert.True(dancingQueenIdx < bohemianIdx,
+                "Dancing Queen (PartialTitle) must rank above Bohemian Rhapsody (ArtistOnly)");
+        }
+
         // ── T006: GetArtists endpoint tests ─────────────────────────────────
 
         private record ArtistSummaryResponse(

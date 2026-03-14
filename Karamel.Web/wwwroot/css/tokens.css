@@ -68,6 +68,10 @@
 
 /* Dark mode: both system preference and explicit data-theme toggle supported */
 @media (prefers-color-scheme: dark) {
+  body::before {
+    background: var(--gradient-dark);
+  }
+
   :root {
     --gradient-light: linear-gradient(35deg, var(--gradient-light-from), var(--gradient-light-to));
     --gradient-dark: linear-gradient(35deg, var(--gradient-dark-from), var(--gradient-dark-to));
@@ -101,6 +105,10 @@
 }
 
 /* Explicit dark theme via attribute (allows toggle) */
+:root[data-theme="dark"] body::before {
+  background: var(--gradient-dark);
+}
+
 :root[data-theme="dark"] {
   --gradient-light: linear-gradient(35deg, var(--gradient-light-from), var(--gradient-light-to));
   --gradient-dark: linear-gradient(35deg, var(--gradient-dark-from), var(--gradient-dark-to));
@@ -173,11 +181,20 @@ html[data-theme="light"] .dropdown-menu {
 /* Utility: ensure color scheme declared for form controls */
 html {
   color-scheme: light dark;
-  background: var(--gradient-light);
-  background-attachment: fixed;
-  background-size: cover;
   color: var(--color-text);
   font-family: var(--font-sans);
+}
+
+/* Viewport-pinned background gradient via a fixed pseudo-element.
+   This approach is immune to document height, content count, and Bootstrap body resets.
+   The gradient always covers exactly the viewport, regardless of scroll position. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--gradient-light);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .k-btn-primary {
