@@ -82,6 +82,7 @@ public class LibraryEffects(
             Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: Exception: {ex.GetType().Name}: {ex.Message}");
             Console.WriteLine($"[ERROR:{correlationId}] LibraryEffects: Stack trace: {ex.StackTrace}");
             dispatcher.Dispatch(new LoadLibraryFailureAction($"Failed to load page {action.Page}: {ex.Message}"));
+            dispatcher.Dispatch(new LoadPageFailureAction("Could not load songs. Tap to retry."));
         }
     }
 

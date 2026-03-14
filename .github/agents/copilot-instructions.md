@@ -17,6 +17,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-22
 - N/A — pure frontend UI changes; no new persistence (006-library-view-enhancements)
 - C# 14 / .NET 10, Blazor WebAssembly + Fluxor 6.9.0 (state), bUnit 1.32.7 (tests), Bootstrap 5 (layout), Vitest 4 (JS tests) (006-library-view-enhancements)
 - N/A — both features are stateless UI changes (006-library-view-enhancements)
+- C# 14 / .NET 10 (Blazor WebAssembly) + JavaScript ES modules + Fluxor 6.9.0, bUnit 1.32.7 (tests), Vitest 4.0.16 (JS tests) (007-library-ux-polish)
+- No storage changes — scroll offset is ephemeral component-level state only (007-library-ux-polish)
 
 - C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop. + ASP.NET Core, SignalR, Fluxor on the frontend, xUnit/bUnit tests, Vitest for JS. (001-admin-session-control)
 
@@ -37,9 +39,9 @@ npm test; npm run lint
 C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop.: Follow standard conventions
 
 ## Recent Changes
+- 007-library-ux-polish: Added C# 14 / .NET 10 (Blazor WebAssembly) + JavaScript ES modules + Fluxor 6.9.0, bUnit 1.32.7 (tests), Vitest 4.0.16 (JS tests)
 - 006-library-view-enhancements: Added C# 14 / .NET 10, Blazor WebAssembly + Fluxor 6.9.0 (state), bUnit 1.32.7 (tests), Bootstrap 5 (layout), Vitest 4 (JS tests)
 - 006-library-view-enhancements: Added C# 14 / .NET 10; JavaScript (ES modules) + Blazor WebAssembly 10; Fluxor 6.9.0; Bootstrap 5; Vitest 4 (tests)
-- 005-artist-exploration-browse: Added C# 14 / .NET 10 (both `Karamel.Backend` and `Karamel.Web`); JavaScript ES modules + ASP.NET Core 10, EF Core 10 (SQLite dev / SQL Server prod), Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32
 
 
 <!-- MANUAL ADDITIONS START -->

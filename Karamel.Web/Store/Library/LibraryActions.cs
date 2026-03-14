@@ -21,3 +21,5 @@ public record SearchSuggestionsAction(IReadOnlyList<string> Suggestions);
 public record LoadArtistsAction();
 public record LoadArtistsSuccessAction(IReadOnlyList<ArtistItem> Artists);
 public record LoadArtistsFailureAction(string ErrorMessage);
+public record SelectArtistAction(string ArtistName);
+public record LoadPageFailureAction(string ErrorMessage);

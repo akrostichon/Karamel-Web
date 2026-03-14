@@ -113,3 +113,19 @@ export function disconnectArtistSectionObserver() {
         observer = null;
     }
 }
+
+/**
+ * Returns the current vertical scroll offset of the page.
+ * @returns {number} Current window.scrollY value
+ */
+export function getScrollY() {
+    return window.scrollY;
+}
+
+/**
+ * Instantly scrolls the page to the given vertical offset.
+ * @param {number} y - The vertical scroll position to restore
+ */
+export function scrollToY(y) {
+    window.scrollTo({ top: y, behavior: 'instant' });
+}

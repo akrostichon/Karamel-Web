@@ -222,7 +222,7 @@ public class ArtistBrowseTests : TestContext
     // ── US2: Artist selection (click → dispatch) ─────────────────────────
 
     [Fact]
-    public void ClickingArtistRow_DispatchesFilterSongsAction_WithArtistName()
+    public void ClickingArtistRow_DispatchesSelectArtistAction_WithArtistName()
     {
         // Arrange
         var state = new LibraryState
@@ -238,9 +238,9 @@ public class ArtistBrowseTests : TestContext
         // Act – click first artist row ("ABBA")
         cut.Find(".artist-row").Click();
 
-        // Assert – FilterSongsAction dispatched with the correct artist name
+        // Assert – SelectArtistAction dispatched with the correct artist name
         mockDispatcher.Verify(
-            d => d.Dispatch(It.Is<FilterSongsAction>(a => a.SearchFilter == "ABBA")),
+            d => d.Dispatch(It.Is<SelectArtistAction>(a => a.ArtistName == "ABBA")),
             Times.Once
         );
     }
@@ -291,9 +291,9 @@ public class ArtistBrowseTests : TestContext
     }
 
     [Fact]
-    public void ClickingArtistRow_FilterSongsAction_SearchFilter_MatchesArtistName()
+    public void ClickingArtistRow_SelectArtistAction_ArtistName_MatchesClickedArtist()
     {
-        // Arrange – verify that the dispatched FilterSongsAction carries the
+        // Arrange – verify that the dispatched SelectArtistAction carries the
         // tapped artist name (i.e. SearchFilter state will reflect the selection)
         var state = new LibraryState
         {
@@ -304,10 +304,10 @@ public class ArtistBrowseTests : TestContext
         };
         var mockDispatcher = SetupFluxorWithState(state);
 
-        FilterSongsAction? captured = null;
+        SelectArtistAction? captured = null;
         mockDispatcher
-            .Setup(d => d.Dispatch(It.IsAny<FilterSongsAction>()))
-            .Callback<object>(a => captured = (FilterSongsAction)a);
+            .Setup(d => d.Dispatch(It.IsAny<SelectArtistAction>()))
+            .Callback<object>(a => captured = (SelectArtistAction)a);
 
         var cut = RenderComponent<LibrarySearch>();
 
@@ -316,7 +316,7 @@ public class ArtistBrowseTests : TestContext
 
         // Assert – the action carries the precise artist name
         Assert.NotNull(captured);
-        Assert.Equal("The Beatles", captured!.SearchFilter);
+        Assert.Equal("The Beatles", captured!.ArtistName);
     }
 
     // ── US3: Artist list cache hit and no-refetch after clear ─────────────
@@ -609,6 +609,511 @@ public class ArtistBrowseTests : TestContext
         var allButtons = cut.FindAll(".alpha-btn");
         var nonCurrent = allButtons.Where(b => !b.ClassList.Contains("alpha-btn--current")).ToList();
         Assert.Equal(26, nonCurrent.Count);
+    }
+
+    // ── US1 (T008): Spinner visible on artist tap ─────────────────────────
+
+    [Fact]
+    public void Spinner_Shown_WhenIsLoadingArtistSongsTrue()
+    {
+        // Arrange – state after SelectArtistAction reducer fires: filter set, loading = true
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists,
+            IsLoadingArtistSongs = true
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – artist-songs loader spinner is visible
+        var loader = cut.Find(".artist-songs-loader");
+        Assert.NotNull(loader);
+        Assert.NotNull(loader.QuerySelector(".spinner-border"));
+    }
+
+    [Fact]
+    public void Spinner_NotShown_WhenIsLoadingArtistSongsFalse_AndSongsPresent()
+    {
+        // Arrange – state after LoadPageSuccessAction: IsLoadingArtistSongs = false
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Songs = new List<Song> { new Song { Artist = "ABBA", Title = "Dancing Queen" } },
+            TotalCount = 1,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = null
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – no artist-songs loader
+        var loaders = cut.FindAll(".artist-songs-loader");
+        Assert.Empty(loaders);
+    }
+
+    [Fact]
+    public void NoEmptyStateMessage_WhenIsLoadingArtistSongsTrue()
+    {
+        // Arrange – loading in flight: SearchFilter set, no songs yet, loading = true
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Songs = Array.Empty<Song>(),
+            TotalCount = 10,
+            IsLoadingArtistSongs = true
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – no "No songs" alert-info messages while loading
+        var infoAlerts = cut.FindAll(".alert-info");
+        Assert.Empty(infoAlerts);
+    }
+
+    // ── US1 (T009): Error card and retry button ───────────────────────────
+
+    [Fact]
+    public void ErrorCard_Shown_WhenArtistSongsErrorIsSet()
+    {
+        // Arrange – state after LoadPageFailureAction: error set
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = "Could not load songs. Tap to retry."
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – error card is rendered with the error message
+        var errorCard = cut.Find(".artist-songs-error");
+        Assert.NotNull(errorCard);
+        Assert.Contains("Could not load songs.", errorCard.TextContent);
+        Assert.NotNull(errorCard.QuerySelector(".retry-btn"));
+    }
+
+    [Fact]
+    public void RetryButton_Click_DispatchesSelectArtistAction_WithLastArtistName()
+    {
+        // Arrange – state shows the error card; SearchFilter carries the artist name
+        // (which initializes _lastSelectedArtist on component init)
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = "Could not load songs. Tap to retry."
+        };
+        var mockDispatcher = SetupFluxorWithState(state);
+
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act – click the retry button
+        cut.Find(".retry-btn").Click();
+
+        // Assert – SelectArtistAction dispatched with the last selected artist name
+        mockDispatcher.Verify(
+            d => d.Dispatch(It.Is<SelectArtistAction>(a => a.ArtistName == "ABBA")),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public void NoSpinner_WhenArtistSongsErrorIsSet()
+    {
+        // Arrange – error state: loading must have stopped, only error card visible
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = "Could not load songs. Tap to retry."
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – no spinner (artist-songs-loader) is shown alongside the error card
+        var loaders = cut.FindAll(".artist-songs-loader");
+        Assert.Empty(loaders);
+
+        // Error card is shown instead
+        Assert.NotNull(cut.Find(".artist-songs-error"));
+    }
+
+    // ── US2 (T013): Scroll position captured and restored ─────────────────
+
+    [Fact]
+    public void SelectArtist_CapturesScrollY_ViaJsInterop()
+    {
+        // Arrange — set up the JS module so getScrollY returns a known value
+        var moduleSetup = JSInterop.SetupModule("./js/alphabetBridge.js");
+        moduleSetup.SetupVoid("observeArtistSections", _ => true);
+        moduleSetup.SetupVoid("disconnectArtistSectionObserver", _ => true);
+        moduleSetup.Setup<double>("getScrollY").SetResult(550.0);
+
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Trigger a render cycle so _alphabetModule is initialised
+        cut.WaitForState(() => true);
+
+        // Act — click artist row; SelectArtist will invoke getScrollY
+        cut.Find(".artist-row").Click();
+
+        // Assert — getScrollY was invoked (captured the scroll position)
+        moduleSetup.VerifyInvoke("getScrollY");
+    }
+
+    [Fact]
+    public void ClearFilter_TriggersScrollRestore_ViaJsInterop()
+    {
+        // Arrange — active filter state with the X button visible; module available
+        var moduleSetup = JSInterop.SetupModule("./js/alphabetBridge.js");
+        moduleSetup.SetupVoid("observeArtistSections", _ => true);
+        moduleSetup.SetupVoid("disconnectArtistSectionObserver", _ => true);
+        moduleSetup.SetupVoid("scrollToY", _ => true);
+        moduleSetup.Setup<double>("getScrollY").SetResult(0.0);
+
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act — click the clear-filter button
+        cut.Find(".clear-filter-btn").Click();
+
+        // The component sets _needsScrollRestore = true; on the next render cycle
+        // OnAfterRenderAsync fires scrollToY.
+        cut.WaitForState(() => true);
+
+        // Assert — scrollToY was invoked to restore the scroll position
+        moduleSetup.VerifyInvoke("scrollToY");
+    }
+
+    [Fact]
+    public void FreshComponentMount_DoesNotInvokeScrollToY()
+    {
+        // Arrange — no ClearFilter called; just a fresh render
+        var moduleSetup = JSInterop.SetupModule("./js/alphabetBridge.js");
+        moduleSetup.SetupVoid("observeArtistSections", _ => true);
+        moduleSetup.SetupVoid("disconnectArtistSectionObserver", _ => true);
+        moduleSetup.SetupVoid("scrollToY", _ => true);
+
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+        cut.WaitForState(() => true);
+
+        // Assert — scrollToY should NOT have been called on initial render
+        Assert.DoesNotContain("scrollToY", moduleSetup.Invocations.Identifiers);
+    }
+
+    // ── US3 (T015): Accurate empty-state messages ─────────────────────────
+
+    [Fact]
+    public void EmptyState_ShowsNoSongsInLibrary_WhenTotalCountZero_AndNoFilter()
+    {
+        // Arrange – library genuinely empty: TotalCount = 0, no active filter
+        // ScanComplete = false keeps us out of the artist-browse branch
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            Songs = Array.Empty<Song>(),
+            TotalCount = 0,
+            IsLoading = false,
+            ScanComplete = false
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – "No songs in library." is shown
+        var infoAlert = cut.Find(".alert-info");
+        Assert.Contains("No songs in library.", infoAlert.TextContent);
+    }
+
+    [Fact]
+    public void EmptyState_ShowsNoSongsMatch_WhenSearchYieldsNoResults()
+    {
+        // Arrange – server returned zero songs for the search term;
+        // TotalCount > 0 proves the library is not empty (old code would show "No songs in library." — wrong)
+        var state = new LibraryState
+        {
+            SearchFilter = "xyznonexistent",
+            Songs = Array.Empty<Song>(),
+            TotalCount = 50,
+            IsLoading = false,
+            ScanComplete = true,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = null
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – "No songs match" is shown, NOT "No songs in library."
+        var infoAlert = cut.Find(".alert-info");
+        Assert.Contains("No songs match your search criteria.", infoAlert.TextContent);
+        Assert.DoesNotContain("No songs in library.", infoAlert.TextContent);
+    }
+
+    [Fact]
+    public void EmptyState_ShowsNoSongsMatch_WhenArtistFilterActive_AndNoSongsReturned()
+    {
+        // Arrange – artist drill-in returned no songs (rare but possible);
+        // TotalCount reflects the whole library, not just this artist
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            Songs = Array.Empty<Song>(),
+            TotalCount = 50,
+            IsLoading = false,
+            ScanComplete = true,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = null
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – "No songs match" is shown; NOT "No songs in library."
+        var infoAlert = cut.Find(".alert-info");
+        Assert.Contains("No songs match your search criteria.", infoAlert.TextContent);
+        Assert.DoesNotContain("No songs in library.", infoAlert.TextContent);
+    }
+
+    [Fact]
+    public void EmptyState_NotShown_WhenTextSearchInFlight()
+    {
+        // Arrange – user typed a new search term; FilterSongsAction cleared local filter results
+        // (old songs still in Songs from previous load), but server fetch IsLoading = true.
+        // FilteredSongs = [] because old songs don't match the new term.
+        var state = new LibraryState
+        {
+            SearchFilter = "xyznothing",
+            Songs = new List<Song>
+            {
+                new Song { Artist = "ABBA", Title = "Dancing Queen" }
+            },
+            TotalCount = 50,
+            IsLoading = true,
+            ScanComplete = true,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = null
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – no empty-state message while server fetch is in progress
+        var infoAlerts = cut.FindAll(".alert-info");
+        Assert.Empty(infoAlerts);
+    }
+
+    [Fact]
+    public void EmptyState_NotShown_WhenSongsMatchActiveSearchFilter()
+    {
+        // Arrange – search returned matching songs; FilteredAndSortedSongs is non-empty
+        var songs = new List<Song>
+        {
+            new Song { Artist = "Queen", Title = "Bohemian Rhapsody" },
+            new Song { Artist = "Queen", Title = "We Are the Champions" }
+        };
+        var state = new LibraryState
+        {
+            SearchFilter = "queen",
+            Songs = songs,
+            TotalCount = 2,
+            IsLoading = false,
+            ScanComplete = true,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = null
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert – no empty-state alert; songs table is rendered instead
+        var infoAlerts = cut.FindAll(".alert-info");
+        Assert.Empty(infoAlerts);
+
+        var songsTable = cut.Find("table.table-striped");
+        Assert.NotNull(songsTable);
+    }
+
+    // ── US4 (T017): _currentLetter set immediately on ScrollToLetter ─────
+
+    [Fact]
+    public void ScrollToLetter_SingleTap_SetsCurrentLetterImmediately()
+    {
+        // Arrange — artists with A and R groups to enable both letter buttons
+        var moduleSetup = JSInterop.SetupModule("./js/alphabetBridge.js");
+        moduleSetup.SetupVoid("observeArtistSections", _ => true);
+        moduleSetup.SetupVoid("disconnectArtistSectionObserver", _ => true);
+        moduleSetup.SetupVoid("scrollToArtistSection", _ => true);
+
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = new List<ArtistItem>
+            {
+                new ArtistItem("ABBA", 3),
+                new ArtistItem("Radiohead", 6)
+            }
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Pre-condition — no letter highlighted initially
+        Assert.Empty(cut.FindAll(".alpha-btn--current"));
+
+        // Act — tap the 'A' button
+        cut.Find("button.alpha-btn[title='Jump to A']").Click();
+
+        // Assert — 'A' button immediately has the current class
+        var currentButtons = cut.FindAll(".alpha-btn--current");
+        Assert.Single(currentButtons);
+        Assert.Equal("A", currentButtons[0].TextContent.Trim());
+    }
+
+    [Fact]
+    public void ScrollToLetter_RepeatedSameLetter_RemainsHighlighted()
+    {
+        // Arrange — single artist group 'A' to enable the 'A' button
+        var moduleSetup = JSInterop.SetupModule("./js/alphabetBridge.js");
+        moduleSetup.SetupVoid("observeArtistSections", _ => true);
+        moduleSetup.SetupVoid("disconnectArtistSectionObserver", _ => true);
+        moduleSetup.SetupVoid("scrollToArtistSection", _ => true);
+
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = new List<ArtistItem>
+            {
+                new ArtistItem("ABBA", 3)
+            }
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act — tap 'A' twice
+        var aButton = cut.Find("button.alpha-btn[title='Jump to A']");
+        aButton.Click();
+        aButton.Click();
+
+        // Assert — 'A' still has the current class after the repeated tap
+        var currentButtons = cut.FindAll(".alpha-btn--current");
+        Assert.Single(currentButtons);
+        Assert.Equal("A", currentButtons[0].TextContent.Trim());
+    }
+
+    [Fact]
+    public void ScrollToLetter_JumpFromRToA_AHighlighted_RUnhighlighted()
+    {
+        // Arrange — artists in both A and R groups to enable both buttons
+        var moduleSetup = JSInterop.SetupModule("./js/alphabetBridge.js");
+        moduleSetup.SetupVoid("observeArtistSections", _ => true);
+        moduleSetup.SetupVoid("disconnectArtistSectionObserver", _ => true);
+        moduleSetup.SetupVoid("scrollToArtistSection", _ => true);
+
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = new List<ArtistItem>
+            {
+                new ArtistItem("ABBA", 3),
+                new ArtistItem("Radiohead", 6)
+            }
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act — tap 'R' first, then 'A'
+        cut.Find("button.alpha-btn[title='Jump to R']").Click();
+        cut.Find("button.alpha-btn[title='Jump to A']").Click();
+
+        // Assert — only 'A' has the current class; 'R' is un-highlighted
+        var currentButtons = cut.FindAll(".alpha-btn--current");
+        Assert.Single(currentButtons);
+        Assert.Equal("A", currentButtons[0].TextContent.Trim());
+
+        var rButton = cut.Find("button.alpha-btn[title='Jump to R']");
+        Assert.False(rButton.ClassList.Contains("alpha-btn--current"), "'R' should no longer be highlighted after jumping to 'A'");
+    }
+
+    // ── US5 (T019): Alphabet bar rendered in artist browse view ──────────
+
+    [Fact]
+    public void AlphabetBar_RenderedInArtistBrowseView()
+    {
+        // Arrange — scan complete, artists loaded, no active search filter
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert — alphabet bar is rendered (CSS layout is validated manually via quickstart.md)
+        var bars = cut.FindAll(".alphabet-bar");
+        Assert.Single(bars);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────

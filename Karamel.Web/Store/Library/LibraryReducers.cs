@@ -54,10 +54,32 @@ public static class LibraryReducers
         };
 
     [ReducerMethod]
-    public static LibraryState ReduceFilterSongsAction(LibraryState state, FilterSongsAction action) =>
+    public static LibraryState ReduceFilterSongsAction(LibraryState state, FilterSongsAction action)
+    {
+        var cleared = string.IsNullOrEmpty(action.SearchFilter);
+        return state with
+        {
+            SearchFilter = action.SearchFilter,
+            IsLoadingArtistSongs = cleared ? false : state.IsLoadingArtistSongs,
+            ArtistSongsError = cleared ? null : state.ArtistSongsError
+        };
+    }
+
+    [ReducerMethod]
+    public static LibraryState ReduceSelectArtistAction(LibraryState state, SelectArtistAction action) =>
         state with
         {
-            SearchFilter = action.SearchFilter
+            SearchFilter = action.ArtistName,
+            IsLoadingArtistSongs = true,
+            ArtistSongsError = null
+        };
+
+    [ReducerMethod]
+    public static LibraryState ReduceLoadPageFailureAction(LibraryState state, LoadPageFailureAction action) =>
+        state with
+        {
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = action.ErrorMessage
         };
 
     // Server-side pagination reducers
@@ -91,7 +113,9 @@ public static class LibraryReducers
             TotalCount = action.TotalCount,
             ServerSearchQuery = action.SearchQuery,
             IsLoading = false,
-            ErrorMessage = null
+            ErrorMessage = null,
+            IsLoadingArtistSongs = false,
+            ArtistSongsError = null
         };
     }
 
