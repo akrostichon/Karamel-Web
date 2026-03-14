@@ -60,6 +60,7 @@ html[data-theme="dark"] .name-entry-card .form-control::placeholder {
     margin-bottom: 2rem;
     padding: 1.5rem;
     background: var(--gradient-light);
+    background-attachment: fixed;
     color: var(--color-text-on-gradient);
     border-radius: 1rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

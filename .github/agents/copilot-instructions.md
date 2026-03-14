@@ -13,6 +13,10 @@ Auto-generated from all feature plans. Last updated: 2026-02-22
 - [if applicable, e.g., PostgreSQL, CoreData, files or N/A] (005-artist-exploration-browse)
 - C# 14 / .NET 10 (both `Karamel.Backend` and `Karamel.Web`); JavaScript ES modules + ASP.NET Core 10, EF Core 10 (SQLite dev / SQL Server prod), Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32 (005-artist-exploration-browse)
 - SQLite (local dev); Azure SQL Server (production); no schema changes needed (queries against existing `Songs` table) (005-artist-exploration-browse)
+- C# 14 / .NET 10; JavaScript (ES modules) + Blazor WebAssembly 10; Fluxor 6.9.0; Bootstrap 5; Vitest 4 (tests) (006-library-view-enhancements)
+- N/A — pure frontend UI changes; no new persistence (006-library-view-enhancements)
+- C# 14 / .NET 10, Blazor WebAssembly + Fluxor 6.9.0 (state), bUnit 1.32.7 (tests), Bootstrap 5 (layout), Vitest 4 (JS tests) (006-library-view-enhancements)
+- N/A — both features are stateless UI changes (006-library-view-enhancements)
 
 - C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop. + ASP.NET Core, SignalR, Fluxor on the frontend, xUnit/bUnit tests, Vitest for JS. (001-admin-session-control)
 
@@ -33,9 +37,9 @@ npm test; npm run lint
 C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop.: Follow standard conventions
 
 ## Recent Changes
+- 006-library-view-enhancements: Added C# 14 / .NET 10, Blazor WebAssembly + Fluxor 6.9.0 (state), bUnit 1.32.7 (tests), Bootstrap 5 (layout), Vitest 4 (JS tests)
+- 006-library-view-enhancements: Added C# 14 / .NET 10; JavaScript (ES modules) + Blazor WebAssembly 10; Fluxor 6.9.0; Bootstrap 5; Vitest 4 (tests)
 - 005-artist-exploration-browse: Added C# 14 / .NET 10 (both `Karamel.Backend` and `Karamel.Web`); JavaScript ES modules + ASP.NET Core 10, EF Core 10 (SQLite dev / SQL Server prod), Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32
-- 005-artist-exploration-browse: Added [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION] + [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
-- 004-fuzzy-search: Added C# 14 / .NET 10 (backend `Karamel.Backend`); Blazor WebAssembly / C# 14 (frontend `Karamel.Web`); JavaScript ES modules (`wwwroot/js/`) + ASP.NET Core 10, EF Core 10, Fluxor 6.9, SignalR, xUnit 2.9, bUnit 1.32, Vitest 4.0
 
 
 <!-- MANUAL ADDITIONS START -->

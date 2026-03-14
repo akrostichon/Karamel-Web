@@ -94,9 +94,9 @@ public class ArtistBrowseTests : TestContext
         var songsTables = cut.FindAll("table.table-striped");
         Assert.Empty(songsTables);
 
-        // Artist list is rendered instead
-        var artistList = cut.Find(".artist-list");
-        Assert.NotNull(artistList);
+        // Artist browse container is rendered instead
+        var artistBrowse = cut.Find(".artist-browse");
+        Assert.NotNull(artistBrowse);
     }
 
     // ── Init dispatch ─────────────────────────────────────────────────────
@@ -262,9 +262,9 @@ public class ArtistBrowseTests : TestContext
         // Act – click first artist row ("ABBA")
         cut.Find(".artist-row").Click();
 
-        // Assert – LoadPageAction dispatched with page 1, correct name, not appending
+        // Assert – LoadPageAction dispatched with page 1, ArtistFilter carrying the name, SearchQuery null, not appending
         mockDispatcher.Verify(
-            d => d.Dispatch(It.Is<LoadPageAction>(a => a.Page == 1 && a.SearchQuery == "ABBA" && !a.Append)),
+            d => d.Dispatch(It.Is<LoadPageAction>(a => a.Page == 1 && a.ArtistFilter == "ABBA" && a.SearchQuery == null && !a.Append)),
             Times.Once
         );
     }
@@ -402,10 +402,221 @@ public class ArtistBrowseTests : TestContext
         );
     }
 
+    // ── US1: Alphabet bar rendering ───────────────────────────────────────
+
+    [Fact]
+    public void AlphabetBar_Renders26LetterButtons_WhenArtistsLoaded()
+    {
+        // Arrange
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+
+        // Act
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert — exactly 27 buttons in the alphabet bar (# + A–Z)
+        var buttons = cut.FindAll(".alpha-btn");
+        Assert.Equal(27, buttons.Count);
+    }
+
+    [Fact]
+    public void AlphabetBar_ActiveLetters_EnabledInactiveLetters_Disabled()
+    {
+        // Arrange — ABBA → A, Queen → Q, The Beatles → T
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert active letters A, Q, T are NOT disabled
+        var activeLetters = new[] { 'A', 'Q', 'T' };
+        foreach (var letter in activeLetters)
+        {
+            var btn = cut.Find($"button.alpha-btn[title='Jump to {letter}']");
+            Assert.False(btn.HasAttribute("disabled"), $"Letter '{letter}' should be active (no disabled attr)");
+        }
+
+        // Assert a sample of inactive letters are disabled
+        var inactiveLetters = new[] { 'B', 'C', 'D', 'Z' };
+        foreach (var letter in inactiveLetters)
+        {
+            var btn = cut.Find($"button.alpha-btn[title='Jump to {letter}']");
+            Assert.True(btn.HasAttribute("disabled"), $"Letter '{letter}' should be inactive (disabled attr present)");
+        }
+    }
+
+    [Fact]
+    public void AlphabetBar_SectionHeaders_OnePerLetterGroup()
+    {
+        // Arrange — 3 artists spanning 3 distinct letters → 3 section headers
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert — one header per letter group (A, Q, T)
+        var headers = cut.FindAll(".artist-section-header");
+        Assert.Equal(3, headers.Count);
+        Assert.Contains(headers, h => h.TextContent.Trim() == "A");
+        Assert.Contains(headers, h => h.TextContent.Trim() == "Q");
+        Assert.Contains(headers, h => h.TextContent.Trim() == "T");
+    }
+
+    [Fact]
+    public void AlphabetBar_ClickActiveLetterButton_CallsScrollToArtistSection()
+    {
+        // Arrange — register the module BEFORE rendering so bUnit routes the import
+        var moduleSetup = JSInterop.SetupModule("./js/alphabetBridge.js");
+        moduleSetup.SetupVoid("observeArtistSections", _ => true);
+        moduleSetup.SetupVoid("scrollToArtistSection", _ => true);
+        moduleSetup.SetupVoid("disconnectArtistSectionObserver", _ => true);
+
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Act — click the first non-disabled letter button (should be 'A')
+        cut.Find("button.alpha-btn:not([disabled])").Click();
+
+        // Assert — scrollToArtistSection called with the letter as a string
+        moduleSetup.VerifyInvoke("scrollToArtistSection", 1);
+        var args = moduleSetup.Invocations["scrollToArtistSection"][0].Arguments;
+        Assert.Equal("A", args[0]?.ToString());
+    }
+
+    [Fact]
+    public void AlphabetBar_AbsentWhenScanNotComplete()
+    {
+        // Arrange — scan not done yet
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = false,
+            ArtistsLoaded = false
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert — no alphabet bar rendered
+        var navs = cut.FindAll(".alphabet-bar");
+        Assert.Empty(navs);
+    }
+
+    [Fact]
+    public void AlphabetBar_AbsentWhenSearchFilterActive()
+    {
+        // Arrange — search filter active means browse mode is not shown
+        var state = new LibraryState
+        {
+            SearchFilter = "ABBA",
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = _testArtists
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert — no alphabet bar in search results view
+        var navs = cut.FindAll(".alphabet-bar");
+        Assert.Empty(navs);
+    }
+
+    [Fact]
+    public void AlphabetBar_HashGroupArtists_VisibleInList_HashButtonShown()
+    {
+        // Arrange — artist with non-alpha first char belongs to '#' group
+        var artistsWithHash = new List<ArtistItem>
+        {
+            new ArtistItem("4 Non Blondes", 2),
+            new ArtistItem("ABBA", 3),
+        };
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = artistsWithHash
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Assert — "4 Non Blondes" row IS rendered
+        var rows = cut.FindAll(".artist-row");
+        Assert.Contains(rows, r => r.TextContent.Contains("4 Non Blondes"));
+
+        // Assert — alphabet bar has 27 buttons (# + A–Z); '#' button is present and enabled
+        var buttons = cut.FindAll(".alpha-btn");
+        Assert.Equal(27, buttons.Count);
+        var hashButton = buttons.FirstOrDefault(b => b.TextContent.Trim() == "#");
+        Assert.NotNull(hashButton);
+        Assert.False(hashButton.HasAttribute("disabled"), "'#' button should be enabled when hash-group artists exist");
+    }
+
+    // ── US1: Scroll-following letter highlight (T017) ─────────────────────
+
+    [Fact]
+    public async Task OnLetterVisible_SetsAlphaBtnCurrentOnMatchingButton()
+    {
+        // Arrange — include an artist starting with 'S' so the 'S' button is active
+        var artistsWithS = new List<ArtistItem>(_testArtists)
+        {
+            new ArtistItem("Sia", 4)
+        };
+        var state = new LibraryState
+        {
+            SearchFilter = string.Empty,
+            ScanComplete = true,
+            ArtistsLoaded = true,
+            Artists = artistsWithS
+        };
+        SetupFluxorWithState(state);
+        var cut = RenderComponent<LibrarySearch>();
+
+        // Pre-condition — no button has the .alpha-btn--current class initially
+        Assert.Empty(cut.FindAll(".alpha-btn--current"));
+
+        // Act — simulate the IntersectionObserver callback notifying that 'S' is visible
+        await cut.InvokeAsync(() => cut.Instance.OnLetterVisible("S"));
+
+        // Assert — 'S' button now has the current class
+        var currentButtons = cut.FindAll(".alpha-btn--current");
+        Assert.Single(currentButtons);
+        Assert.Equal("S", currentButtons[0].TextContent.Trim());
+
+        // Assert — no other letter button has the current class
+        var allButtons = cut.FindAll(".alpha-btn");
+        var nonCurrent = allButtons.Where(b => !b.ClassList.Contains("alpha-btn--current")).ToList();
+        Assert.Equal(26, nonCurrent.Count);
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────
 
     private Mock<IDispatcher> SetupFluxorWithState(LibraryState state)
     {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+
         var mockDispatcher = new Mock<IDispatcher>();
         var mockState = new Mock<IState<LibraryState>>();
         var mockActionSubscriber = new Mock<IActionSubscriber>();

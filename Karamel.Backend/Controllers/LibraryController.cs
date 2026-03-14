@@ -99,10 +99,10 @@ namespace Karamel.Backend.Controllers
 
         // GET paginated library
         [HttpGet]
-        public async Task<IActionResult> GetPage(Guid sessionId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] string? search = null, [FromQuery] string? sort = null)
+        public async Task<IActionResult> GetPage(Guid sessionId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] string? search = null, [FromQuery] string? sort = null, [FromQuery] string? artist = null)
         {
             _logger.LogInformation("GetPage called for session {SessionId}", sessionId);
-            var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort);
+            var result = await _songRepo.GetPageAsync(sessionId, page, pageSize, search, sort, artist);
             Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
             return Ok(new LibraryResponseDto(result.Items, result.TotalCount, result.Page, result.PageSize, result.Suggestions));
         }

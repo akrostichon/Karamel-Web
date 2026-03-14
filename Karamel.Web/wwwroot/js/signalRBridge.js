@@ -651,7 +651,7 @@ export async function updateSessionConfig(config) {
 	return false;
 }
 
-export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, search = null, sort = null) {
+export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, search = null, sort = null, artist = null) {
 	if (!sessionId) throw new Error('sessionId is required');
 
 	const correlationId = Math.random().toString(36).substring(2, 10);
@@ -663,6 +663,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		pageSize, 
 		search: search || 'null', 
 		sort: sort || 'null',
+		artist: artist || 'null',
 		usingSignalR,
 		hubConnectionState: hubConnection?.state,
 		hasToken: !!currentToken,
@@ -674,7 +675,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		try {
 			logger.debug(`[DIAG:${correlationId}] Attempting SignalR RPC`, { sessionId, operation: 'GetLibraryPage' });
 			const startTime = Date.now();
-			const res = await hubConnection.invoke('GetLibraryPage', sessionId, page, pageSize, search, sort);
+			const res = await hubConnection.invoke('GetLibraryPage', sessionId, page, pageSize, search, sort, artist);
 			const duration = Date.now() - startTime;
 			logger.debug(`[DIAG:${correlationId}] SignalR RPC SUCCESS`, { 
 				duration, 
@@ -699,6 +700,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		params.set('pageSize', String(pageSize));
 		if (search) params.set('search', search);
 		if (sort) params.set('sort', sort);
+		if (artist) params.set('artist', artist);
 
 		const baseUrl = backendBaseUrl || '';
 		const url = `${baseUrl}/api/sessions/${sessionId}/library?${params.toString()}`;

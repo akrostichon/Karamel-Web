@@ -62,13 +62,13 @@ public class SessionApiClient : ISessionApiClient
     /// <summary>
     /// Fetch a paginated library page from server
     /// </summary>
-    public async Task<JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null)
+    public async Task<JsonElement> FetchLibraryPageAsync(Guid sessionId, int page = 1, int pageSize = 50, string? search = null, string? sort = null, string? artist = null)
     {
         var module = await GetModuleAsync();
         
         try
         {
-            var result = await module.InvokeAsync<JsonElement>("fetchLibraryPage", sessionId.ToString(), page, pageSize, search, sort);
+            var result = await module.InvokeAsync<JsonElement>("fetchLibraryPage", sessionId.ToString(), page, pageSize, search, sort, artist);
             return result;
         }
         catch (Exception ex)

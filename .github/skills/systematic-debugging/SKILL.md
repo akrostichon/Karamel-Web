@@ -9,16 +9,24 @@ description: Use when encountering any bug, test failure, or unexpected behavior
 
 Random fixes waste time and create new bugs. Quick patches mask underlying issues.
 
-**Core principle:** ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
+**Core principles:**
+1. ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
+2. ALWAYS ask the user when in doubt. Assumptions are silent bugs.
 
 **Violating the letter of this process is violating the spirit of debugging.**
 
-## The Iron Law
+## The Iron Laws
 
 ```
-NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
+LAW 1 — NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
+
+LAW 2 — ASK DON'T ASSUME
+         Every assumption you form must be written down and confirmed
+         with the user before acting on it.
+         "It is better to ask one time too many than to not ask a required question."
 ```
 
+If you haven't completed Phase 0, you cannot start Phase 1.
 If you haven't completed Phase 1, you cannot propose fixes.
 
 ## When to Use
@@ -43,31 +51,80 @@ Use for ANY technical issue:
 - You're in a hurry (rushing guarantees rework)
 - Manager wants it fixed NOW (systematic is faster than thrashing)
 
-## The Four Phases
+## Default Assumption: Blame the Branch
+
+**Unless the user explicitly states otherwise, assume the current branch's changes caused the error.**
+
+Before anything else:
+1. Run `git diff main` (or the base branch) to see ALL committed and uncommitted changes on the current branch
+2. Note every modified file — these are your primary suspects
+3. Look for new code paths that could match the symptom before searching elsewhere
+
+This prevents wasting time investigating stable code when a recent change is the culprit.
+
+## The Five Phases
 
 You MUST complete each phase before proceeding to the next.
+
+---
+
+### Phase 0: Requirements Clarification
+
+**BEFORE any investigation, validate that the bug description is complete enough to work from.**
+
+A vague bug description leads to a wrong root cause. Don't start on unclear requirements.
+
+**Checklist — ask the user if ANY of these are missing or ambiguous:**
+
+| Item | What to ask if missing |
+|------|------------------------|
+| Reproduction steps | "What exact steps reproduce the issue?" |
+| Expected behavior | "What should happen?" |
+| Actual behavior | "What actually happens instead?" |
+| Environment | "Which browser / OS / configuration?" |
+| Branch / version | "Which branch or release is affected?" |
+| Frequency | "Does it happen every time, or intermittently?" |
+| Recent changes | "Did anything change before this started?" |
+
+**Rules:**
+- If the description is incomplete → stop and ask before proceeding to Phase 1
+- Treat the bug description as requirements: incomplete requirements = invalid investigation
+- A precise problem statement is worth more than an hour of code reading
+
+---
 
 ### Phase 1: Root Cause Investigation
 
 **BEFORE attempting ANY fix:**
 
-1. **Read Error Messages Carefully**
+> **Assumption Tracking Rule**: Every time you form an assumption during investigation,
+> write it down explicitly ("I'm assuming X because Y") and ask the user to confirm it
+> rather than treating it as fact. Do not proceed past an unverified assumption.
+>
+> Example: "I'm assuming this only happens when the user is not logged in. Is that correct?"
+
+> **User as Debugger Rule**: If running the application or attaching a debugger would
+> reveal the root cause faster than reading code, ask the user to do it.
+> Example: "Could you open the browser console and reproduce the error? I need to see
+> the full stack trace."
+
+1. **Check Branch Changes First**
+   - Run `git diff main` on the current branch (all committed + uncommitted changes)
+   - Identify modified files — investigate these before other code
+   - If no branch changes match the symptom, note that explicitly and ask the user whether the bug existed before this branch
+
+2. **Read Error Messages Carefully**
    - Don't skip past errors or warnings
    - They often contain the exact solution
    - Read stack traces completely
    - Note line numbers, file paths, error codes
+   - **If the stack trace is incomplete**: ask the user to reproduce with full logging enabled
 
-2. **Reproduce Consistently**
+3. **Reproduce Consistently**
    - Can you trigger it reliably?
    - What are the exact steps?
    - Does it happen every time?
-   - If not reproducible → gather more data, don't guess
-
-3. **Check Recent Changes**
-   - What changed that could cause this?
-   - Git diff, recent commits
-   - New dependencies, config changes
-   - Environmental differences
+   - If not reproducible → ask the user for more context; don't guess
 
 4. **Gather Evidence in Multi-Component Systems**
 
@@ -119,6 +176,12 @@ You MUST complete each phase before proceeding to the next.
    - Keep tracing up until you find the source
    - Fix at source, not at symptom
 
+6. **Document Multiple Possible Causes → Troubleshooting.md**
+
+   When investigation reveals 2 or more possible root causes, create a **Troubleshooting.md** before continuing (see dedicated section below). Keep it updated throughout the investigation.
+
+---
+
 ### Phase 2: Pattern Analysis
 
 **Find the pattern before fixing:**
@@ -135,12 +198,14 @@ You MUST complete each phase before proceeding to the next.
 3. **Identify Differences**
    - What's different between working and broken?
    - List every difference, however small
-   - Don't assume "that can't matter"
+   - Don't assume "that can't matter" — ask the user if significance is unclear
 
 4. **Understand Dependencies**
    - What other components does this need?
    - What settings, config, environment?
    - What assumptions does it make?
+
+---
 
 ### Phase 3: Hypothesis and Testing
 
@@ -148,7 +213,7 @@ You MUST complete each phase before proceeding to the next.
 
 1. **Form Single Hypothesis**
    - State clearly: "I think X is the root cause because Y"
-   - Write it down
+   - Write it to Troubleshooting.md (_if it exists_)
    - Be specific, not vague
 
 2. **Test Minimally**
@@ -164,8 +229,10 @@ You MUST complete each phase before proceeding to the next.
 4. **When You Don't Know**
    - Say "I don't understand X"
    - Don't pretend to know
-   - Ask for help
-   - Research more
+   - Ask the user — they may have context you don't
+   - Research more before guessing
+
+---
 
 ### Phase 4: Implementation
 
@@ -212,6 +279,60 @@ You MUST complete each phase before proceeding to the next.
 
    This is NOT a failed hypothesis - this is a wrong architecture.
 
+---
+
+## Troubleshooting.md
+
+When investigation surfaces 2 or more possible root causes, create a **Troubleshooting.md** to track them.
+
+### Location
+
+| Branch type | Location |
+|---|---|
+| Speckit feature branch (`NNN-word1-word2-word3` or `feature/NNN-word1-word2-word3`) | `specs/<branch-name>/Troubleshooting.md` |
+| Any other branch or context | Project root `Troubleshooting.md` |
+
+Example: branch `feature/001-library-view-enhancements` → `specs/001-library-view-enhancements/Troubleshooting.md`
+
+### Required Content
+
+```markdown
+# Troubleshooting: <short bug description>
+
+## Symptom
+<What the user reported, verbatim if possible>
+
+## Assumptions Confirmed with User
+- <assumption 1> → confirmed / refuted
+- <assumption 2> → confirmed / refuted
+
+## Branch Changes Under Investigation
+- <list of modified files / changes from git diff main>
+
+## Possible Causes (ordered by likelihood)
+
+### 1. <Most likely cause>
+**Status**: OPEN | DISPROVEN | CONFIRMED
+**Reasoning**: <why this is a candidate>
+**Evidence for**: <anything supporting it>
+**Evidence against**: <anything ruling it out>
+**Verdict**: <if DISPROVEN: explanation of how it was ruled out — keep this entry>
+
+### 2. <Second cause>
+...
+
+## Knowledge Gained
+<Add new findings here continuously so another agent can pick up where this one left off>
+```
+
+### Rules
+- Order possible causes by likelihood (most likely first)
+- **Never delete a disproven cause** — mark it DISPROVEN and explain why it was ruled out. This prevents re-investigating the same dead ends.
+- Update this file after every significant finding — it is the handoff document
+- If investigation is handed off to another agent, this file is the source of truth
+
+---
+
 ## Red Flags - STOP and Follow Process
 
 If you catch yourself thinking:
@@ -226,12 +347,16 @@ If you catch yourself thinking:
 - Proposing solutions before tracing data flow
 - **"One more fix attempt" (when already tried 2+)**
 - **Each fix reveals new problem in different place**
+- Starting code analysis without first checking branch changes (`git diff main`)
+- Formed an assumption without writing it down and asking the user
+- Starting investigation on an incomplete or ambiguous bug description
+- Answering "I don't know which component is involved" without asking the user
 
-**ALL of these mean: STOP. Return to Phase 1.**
+**ALL of these mean: STOP. Return to the appropriate phase.**
 
 **If 3+ fixes failed:** Question the architecture (see Phase 4.5)
 
-## your human partner's Signals You're Doing It Wrong
+## Your Human Partner's Signals You're Doing It Wrong
 
 **Watch for these redirections:**
 - "Is that not happening?" - You assumed without verifying
@@ -239,8 +364,9 @@ If you catch yourself thinking:
 - "Stop guessing" - You're proposing fixes without understanding
 - "Ultrathink this" - Question fundamentals, not just symptoms
 - "We're stuck?" (frustrated) - Your approach isn't working
+- "Didn't you ask about that?" - You acted on an assumption instead of asking
 
-**When you see these:** STOP. Return to Phase 1.
+**When you see these:** STOP. Return to Phase 0 or Phase 1.
 
 ## Common Rationalizations
 
@@ -254,12 +380,16 @@ If you catch yourself thinking:
 | "Reference too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely. |
 | "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
 | "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. Question pattern, don't fix again. |
+| "I can figure this out from the code" | The user has context you don't. Ask early, not after thrashing. |
+| "The bug description is good enough" | Ambiguous requirements → wrong root cause. Clarify first. |
+| "It's probably from before this branch" | Assume your branch caused it unless told otherwise. Check git diff first. |
 
 ## Quick Reference
 
 | Phase | Key Activities | Success Criteria |
 |-------|---------------|------------------|
-| **1. Root Cause** | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY |
+| **0. Requirements** | Confirm bug description is complete; ask if not | Clear, unambiguous bug statement |
+| **1. Root Cause** | Check branch diff; read errors; note & ask about assumptions; gather evidence | Understand WHAT and WHY |
 | **2. Pattern** | Find working examples, compare | Identify differences |
 | **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
 | **4. Implementation** | Create test, fix, verify | Bug resolved, tests pass |
