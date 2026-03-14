@@ -14,7 +14,7 @@ vi.mock('./logger.js', () => ({
     createLogger: vi.fn(() => mockLogger),
 }));
 
-import { scrollToArtistSection, observeArtistSections, disconnectArtistSectionObserver } from './alphabetBridge.js';
+import { scrollToArtistSection, observeArtistSections, disconnectArtistSectionObserver, getScrollY, scrollToY } from './alphabetBridge.js';
 
 describe('alphabetBridge.js', () => {
     beforeEach(() => {
@@ -265,6 +265,42 @@ describe('alphabetBridge.js', () => {
             // Ensure observer is cleared first
             disconnectArtistSectionObserver();
             expect(() => disconnectArtistSectionObserver()).not.toThrow();
+        });
+    });
+
+    // ── getScrollY ────────────────────────────────────────────────────────
+
+    describe('getScrollY', () => {
+        it('returns the current window.scrollY value', () => {
+            Object.defineProperty(window, 'scrollY', { configurable: true, value: 420 });
+
+            expect(getScrollY()).toBe(420);
+        });
+
+        it('returns 0 when page is at the top', () => {
+            Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+
+            expect(getScrollY()).toBe(0);
+        });
+    });
+
+    // ── scrollToY ─────────────────────────────────────────────────────────
+
+    describe('scrollToY', () => {
+        it('calls window.scrollTo with the given y and behavior:instant', () => {
+            window.scrollTo = vi.fn();
+
+            scrollToY(350);
+
+            expect(window.scrollTo).toHaveBeenCalledWith({ top: 350, behavior: 'instant' });
+        });
+
+        it('calls window.scrollTo with top:0 when y is 0', () => {
+            window.scrollTo = vi.fn();
+
+            scrollToY(0);
+
+            expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
         });
     });
 });

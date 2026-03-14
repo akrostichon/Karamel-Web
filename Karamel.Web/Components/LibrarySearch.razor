@@ -15,7 +15,7 @@
 
 <div class="library-search">
     <span class="spinner-border" style="display:none;" aria-hidden="true"></span>
-    <div class="search-box mb-3 position-relative">
+    <div class="search-box mb-3">
         <div class="input-group">
             <input 
                 type="text" 
@@ -84,6 +84,24 @@
             @LibraryState.Value.ErrorMessage
         </div>
     }
+    else if (LibraryState.Value.IsLoadingArtistSongs)
+    {
+        <div class="artist-songs-loader text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading songs...</span>
+            </div>
+        </div>
+    }
+    else if (LibraryState.Value.ArtistSongsError != null)
+    {
+        <div class="alert alert-warning artist-songs-error" role="alert">
+            <p class="mb-2">@LibraryState.Value.ArtistSongsError</p>
+            <button type="button" class="btn btn-sm btn-outline-warning retry-btn"
+                    @onclick="() => Dispatcher.Dispatch(new SelectArtistAction(_lastSelectedArtist!))">
+                Retry
+            </button>
+        </div>
+    }
     else if (string.IsNullOrEmpty(LibraryState.Value.SearchFilter) && (LibraryState.Value.ScanComplete || LibraryState.Value.TotalCount > 0))
     {
         @* Branch C: artist browse mode *@
@@ -106,7 +124,7 @@
                         <div id="letter-@group.Letter" class="artist-section-header">@group.Letter</div>
                         @foreach (var artist in group.Artists)
                         {
-                            <div class="artist-row" @onclick="() => SelectArtist(artist.Name)">
+                            <div class="artist-row" @onclick="async () => await SelectArtist(artist.Name)">
                                 <span class="artist-name">@artist.Name</span>
                                 <span class="artist-song-count">@artist.SongCount @(artist.SongCount == 1 ? "song" : "songs")</span>
                             </div>
@@ -148,31 +166,36 @@
             }
         }
     }
-    else if (!FilteredAndSortedSongs.Any())
+    else if (!FilteredAndSortedSongs.Any() && !LibraryState.Value.IsLoadingArtistSongs && LibraryState.Value.ArtistSongsError == null)
     {
-        <div class="alert alert-info" role="alert">
-            @if (LibraryState.Value.Songs.Any())
-            {
-                <text>No songs match your search criteria.</text>
-            }
-            else
-            {
-                <text>No songs in library.</text>
-            }
-        </div>
-
-        @if (LibraryState.Value.HasSearchedWithNoResults && LibraryState.Value.Suggestions.Count > 0)
+        @if (!LibraryState.Value.IsLoading)
         {
-            <div class="did-you-mean mt-3">
-                <p class="did-you-mean-label mb-2">Did you mean:</p>
-                @foreach (var suggestion in LibraryState.Value.Suggestions)
-                {
-                    <button type="button" class="btn btn-link suggestion-item p-0 me-2"
-                            @onclick="() => OnSuggestionClick(suggestion)">
-                        @suggestion
-                    </button>
-                }
-            </div>
+            @if (!string.IsNullOrEmpty(LibraryState.Value.SearchFilter))
+            {
+                <div class="alert alert-info" role="alert">
+                    No songs match your search criteria.
+                </div>
+            }
+            else if (LibraryState.Value.TotalCount == 0)
+            {
+                <div class="alert alert-info" role="alert">
+                    No songs in library.
+                </div>
+            }
+
+            @if (LibraryState.Value.HasSearchedWithNoResults && LibraryState.Value.Suggestions.Count > 0)
+            {
+                <div class="did-you-mean mt-3">
+                    <p class="did-you-mean-label mb-2">Did you mean:</p>
+                    @foreach (var suggestion in LibraryState.Value.Suggestions)
+                    {
+                        <button type="button" class="btn btn-link suggestion-item p-0 me-2"
+                                @onclick="() => OnSuggestionClick(suggestion)">
+                            @suggestion
+                        </button>
+                    }
+                </div>
+            }
         }
     }
     else
@@ -263,6 +286,7 @@
     {
         await base.OnInitializedAsync();
         LibraryState.StateChanged += OnLibraryStateChanged;
+        _lastSelectedArtist = string.IsNullOrEmpty(LibraryState.Value.SearchFilter) ? null : LibraryState.Value.SearchFilter;
         TryLoadArtistsIfReady();
         if (LibraryState.Value.ArtistsLoaded)
         {
@@ -275,6 +299,12 @@
         if (_alphabetModule == null && _artistGroups.Count > 0)
         {
             _alphabetModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/alphabetBridge.js");
+        }
+
+        if (_needsScrollRestore && _alphabetModule != null)
+        {
+            _needsScrollRestore = false;
+            await _alphabetModule.InvokeVoidAsync("scrollToY", _savedScrollY);
         }
 
         if (_alphabetModule != null && _artistGroups.Count > 0 && _artistGroups.Count != _lastObservedGroupCount)
@@ -334,6 +364,8 @@
     private async Task ScrollToLetter(char letter)
     {
         if (_alphabetModule is null) return;
+        _currentLetter = letter;
+        StateHasChanged();
         await _alphabetModule.InvokeVoidAsync("scrollToArtistSection", letter.ToString());
     }
 
@@ -347,14 +379,23 @@
         }
     }
 
+    private string? _lastSelectedArtist;
+    private double _savedScrollY;
+    private bool _needsScrollRestore;
+
     private IEnumerable<Song> FilteredAndSortedSongs => 
         LibraryState.Value.FilteredSongs
             .OrderBy(s => s.Artist)
             .ThenBy(s => s.Title);
 
-    private void SelectArtist(string name)
+    private async Task SelectArtist(string name)
     {
-        Dispatcher.Dispatch(new FilterSongsAction(name));
+        if (_alphabetModule != null)
+        {
+            _savedScrollY = await _alphabetModule.InvokeAsync<double>("getScrollY");
+        }
+        _lastSelectedArtist = name;
+        Dispatcher.Dispatch(new SelectArtistAction(name));
         Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false, ArtistFilter: name));
     }
 
@@ -423,6 +464,7 @@
     
     private void ClearFilter()
     {
+        _needsScrollRestore = true;
         Dispatcher.Dispatch(new FilterSongsAction(string.Empty));
         Dispatcher.Dispatch(new LoadPageAction(Page: 1, SearchQuery: null, Append: false));
         TryLoadArtistsIfReady();

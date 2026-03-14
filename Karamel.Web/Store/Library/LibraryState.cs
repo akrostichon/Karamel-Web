@@ -32,6 +32,8 @@ public record LibraryState
     public IReadOnlyList<ArtistItem> Artists { get; init; } = Array.Empty<ArtistItem>();
     public bool IsLoadingArtists { get; init; } = false;
     public bool ArtistsLoaded { get; init; } = false;
+    public bool IsLoadingArtistSongs { get; init; } = false;
+    public string? ArtistSongsError { get; init; } = null;
     
     public IReadOnlyList<Song> FilteredSongs
     {
