@@ -79,9 +79,9 @@ function Test-FeatureBranch {
         return $true
     }
     
-    if ($Branch -notmatch '^[0-9]{3}-') {
+    if ($Branch -notmatch '^(feature/)?[0-9]{3}-') {  # KARAMEL-OVERRIDE: enforce feature/ prefix
         Write-Output "ERROR: Not on a feature branch. Current branch: $Branch"
-        Write-Output "Feature branches should be named like: 001-feature-name"
+        Write-Output "Feature branches should be named like: feature/001-feature-name"
         return $false
     }
     return $true
@@ -89,7 +89,8 @@ function Test-FeatureBranch {
 
 function Get-FeatureDir {
     param([string]$RepoRoot, [string]$Branch)
-    Join-Path $RepoRoot "specs/$Branch"
+    $specBranch = $Branch -replace '^feature/', ''  # KARAMEL-OVERRIDE: spec dir uses name without feature/ prefix
+    Join-Path $RepoRoot "specs/$specBranch"
 }
 
 function Get-FeaturePathsEnv {

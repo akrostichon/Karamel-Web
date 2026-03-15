@@ -88,7 +88,34 @@
     {
         <div class="library-container">
             <div class="singer-header">
-                @if (!string.IsNullOrWhiteSpace(singerName))
+                @if (SessionState.Value.CurrentSession?.RequireSingerName == true && !string.IsNullOrWhiteSpace(singerName))
+                {
+                    @if (isEditingName)
+                    {
+                        <div class="singer-name-edit">
+                            <input type="text"
+                                   class="singer-name-input @(editNameHasError ? "is-invalid" : "")"
+                                   @bind="editNameValue"
+                                   @bind:event="oninput"
+                                   @onfocusout="CancelEditName"
+                                   @onkeyup="HandleEditKeyUp"
+                                   maxlength="50" />
+                            <button class="btn singer-name-confirm"
+                                    @onmousedown:preventDefault
+                                    @onclick="ConfirmEditName">✓</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="singer-name-display">
+                            <h3 @onclick="StartEditName">Welcome, @singerName!</h3>
+                            <button class="btn singer-edit-btn" @onclick="StartEditName" aria-label="Edit name">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(singerName))
                 {
                     <h3>Welcome, @singerName!</h3>
                 }
@@ -181,6 +208,9 @@
     private bool isSessionValid = false;
     private bool isInitializing = true;
     private string _activeView = "library"; // "library" or "upnext"
+    private bool isEditingName = false;
+    private string editNameValue = string.Empty;
+    private bool editNameHasError = false;
     private IJSObjectReference? themeToggleModule;
 
     protected override void OnInitialized()
@@ -367,6 +397,44 @@
         if (e.Key == "Enter")
         {
             ConfirmName();
+        }
+    }
+
+    private void StartEditName()
+    {
+        editNameValue = singerName;
+        editNameHasError = false;
+        isEditingName = true;
+    }
+
+    private void ConfirmEditName()
+    {
+        var trimmed = editNameValue.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            editNameHasError = true;
+            return;
+        }
+        singerName = trimmed;
+        isEditingName = false;
+        editNameHasError = false;
+    }
+
+    private void CancelEditName()
+    {
+        isEditingName = false;
+        editNameHasError = false;
+    }
+
+    private void HandleEditKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            ConfirmEditName();
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelEditName();
         }
     }
 
