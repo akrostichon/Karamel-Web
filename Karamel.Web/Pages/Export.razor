@@ -1,0 +1,158 @@
+@page "/export"
+@using Karamel.Web.Contracts
+@using Karamel.Web.Helpers
+@using Karamel.Web.Models
+@using static Karamel.Web.Contracts.SongConverters
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Export Library - Karamel</PageTitle>
+
+<div class="export-page container py-4">
+    <div class="export-card card shadow">
+        <div class="card-header card-header-title">
+            <h1 class="h3 mb-0">Export Song Library</h1>
+        </div>
+        <div class="card-body">
+            <p class="muted-on-surface mb-4">
+                Select a music folder to scan, then download your library as CSV files.
+                All processing happens locally in your browser.
+            </p>
+
+            <button class="btn k-btn-outline btn-lg w-100 select-folder-btn"
+                    @onclick="SelectFolder"
+                    disabled="@_isScanning">
+                @if (_isScanning)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>Scanning…</span>
+                }
+                else if (_scanComplete)
+                {
+                    <span>✓ Folder Scanned (@SongCount songs) — Change Folder</span>
+                }
+                else
+                {
+                    <span>Select Folder</span>
+                }
+            </button>
+
+            @if (_scanError != null)
+            {
+                <div class="alert alert-danger mt-3" role="alert">
+                    <strong>Scan failed:</strong> @_scanError
+                </div>
+            }
+
+            @if (ShowDownloadButtons)
+            {
+                <div class="download-buttons mt-4">
+                    <h5 class="mb-3">Download CSV files (@SongCount songs)</h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn k-btn-primary download-artists-btn" @onclick="DownloadArtists">
+                            <i class="bi bi-download me-2"></i>Download Artist-Title (artists.csv)
+                        </button>
+                        <button class="btn k-btn-primary download-titles-btn" @onclick="DownloadTitles">
+                            <i class="bi bi-download me-2"></i>Download Title-Artist (titles.csv)
+                        </button>
+                        <button class="btn k-btn-outline-secondary download-duplicates-btn" @onclick="DownloadDuplicates" disabled="@_isGeneratingDuplicates">
+                            @if (_isGeneratingDuplicates)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Generating…</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-copy me-2"></i><span>Find & Download Duplicates (duplicates.csv)</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private IJSObjectReference? _module;
+    private List<Song>? _songs;
+    private bool _isScanning;
+    private bool _scanComplete;
+    private bool _isGeneratingDuplicates;
+    private string? _scanError;
+    private string _filenamePattern = "%artist - %title";
+
+    private bool ShowDownloadButtons => _scanComplete && !_isScanning;
+    private int SongCount => _songs?.Count ?? 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/exportBridge.js");
+        }
+    }
+
+    private async Task SelectFolder()
+    {
+        _isScanning = true;
+        _scanError = null;
+        StateHasChanged();
+
+        try
+        {
+            var dtos = await _module!.InvokeAsync<SongDto[]>("scanDirectory", _filenamePattern);
+            _songs = dtos.Select(dto => ConvertDtoToSong(dto)).ToList();
+            _scanComplete = true;
+        }
+        catch (JSException ex)
+        {
+            _scanError = ex.Message;
+            _scanComplete = false;
+        }
+        catch (Exception ex)
+        {
+            _scanError = ex.Message;
+            _scanComplete = false;
+        }
+        finally
+        {
+            _isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadArtists()
+    {
+        if (_songs == null) return;
+        var content = CsvExportHelper.GenerateArtistsCsv(_songs);
+        await _module!.InvokeVoidAsync("triggerDownload", content, "artists.csv");
+    }
+
+    private async Task DownloadTitles()
+    {
+        if (_songs == null) return;
+        var content = CsvExportHelper.GenerateTitlesCsv(_songs);
+        await _module!.InvokeVoidAsync("triggerDownload", content, "titles.csv");
+    }
+
+    private async Task DownloadDuplicates()
+    {
+        if (_songs == null) return;
+        _isGeneratingDuplicates = true;
+        StateHasChanged();
+        await Task.Delay(1); // yield to let the spinner render before blocking computation
+        var content = CsvExportHelper.GenerateDuplicatesCsv(_songs);
+        await _module!.InvokeVoidAsync("triggerDownload", content, "duplicates.csv");
+        _isGeneratingDuplicates = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module != null)
+        {
+            await _module.DisposeAsync();
+        }
+    }
+}

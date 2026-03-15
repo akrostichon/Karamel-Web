@@ -1,4 +1,4 @@
-# Custom Agents for Karamel-Web
+﻿# Custom Agents for Karamel-Web
 
 This document provides a registry of all available custom agents for GitHub Copilot in the Karamel-Web repository. These agents provide specialized expertise for specific development tasks.
 
