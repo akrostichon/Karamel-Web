@@ -71,6 +71,67 @@ html[data-theme="dark"] .name-entry-card .form-control::placeholder {
     font-weight: bold;
 }
 
+/* Edit name controls */
+.singer-name-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.singer-name-display h3 {
+    cursor: pointer;
+}
+
+.singer-edit-btn {
+    padding: 0.25rem 0.5rem;
+    color: var(--color-text-on-gradient);
+    opacity: 0.7;
+    line-height: 1;
+    border: none;
+    background: transparent;
+}
+
+.singer-edit-btn:hover {
+    opacity: 1;
+    color: var(--color-text-on-gradient);
+}
+
+.singer-name-edit {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.singer-name-input {
+    font-size: 1.25rem;
+    font-weight: bold;
+    border-radius: 0.375rem;
+    border: 2px solid var(--color-primary);
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--color-text-on-gradient);
+    padding: 0.25rem 0.5rem;
+    min-width: 150px;
+}
+
+.singer-name-input.is-invalid {
+    border-color: #dc3545;
+}
+
+.singer-name-confirm {
+    padding: 0.25rem 0.625rem;
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    line-height: 1.2;
+    border: none;
+}
+
+.singer-name-confirm:hover {
+    opacity: 0.9;
+    color: #fff;
+}
+
 .song-count {
     font-size: 1.1rem;
     font-weight: 500;

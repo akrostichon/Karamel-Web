@@ -1082,5 +1082,277 @@ public class SingerViewTests : SessionTestBase
         var markup = cut.Markup;
         Assert.Contains("No songs in queue", markup);
     }
+
+    // ── Phase 2: Edit Singer Name (US1) ───────────────────────────────────────
+
+    [Fact]
+    public void EditName_WhenPencilIconClicked_ShowsInlineEditMode()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter name to get past the name-entry form
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Act: click the pencil icon button
+        cut.Find("button.singer-edit-btn").Click();
+
+        // Assert: inline edit input appears pre-filled with current name
+        var editInput = cut.Find("input.singer-name-input");
+        Assert.NotNull(editInput);
+        Assert.Equal("Alice", editInput.GetAttribute("value"));
+    }
+
+    [Fact]
+    public void EditName_WhenNameClicked_ShowsInlineEditMode()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter name to get past the name-entry form
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Act: click the h3 name text directly
+        cut.Find(".singer-name-display h3").Click();
+
+        // Assert: inline edit input appears
+        Assert.NotNull(cut.Find("input.singer-name-input"));
+    }
+
+    [Fact]
+    public void EditName_ConfirmWithValidName_SavesNameAndExitsEditMode()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter initial name
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Enter edit mode and change name
+        cut.Find("button.singer-edit-btn").Click();
+        cut.Find("input.singer-name-input").Input("AliceRenamed");
+
+        // Act: confirm
+        cut.Find("button.singer-name-confirm").Click();
+
+        // Assert: edit mode closed, pencil visible again, header shows new name
+        Assert.Throws<ElementNotFoundException>(() => cut.Find("input.singer-name-input"));
+        cut.Find("button.singer-edit-btn");
+        Assert.Contains("AliceRenamed", cut.Find(".singer-header h3").TextContent);
+    }
+
+    [Fact]
+    public void EditName_UpdatedNameUsedForSubsequentQueueAdditions()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        var (_, dispatcher, _) = SetupTestWithSession(sessionState, new PlaylistState(), libraryState, view: "singer");
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter initial name and rename
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+        cut.Find("button.singer-edit-btn").Click();
+        cut.Find("input.singer-name-input").Input("AliceRenamed");
+        cut.Find("button.singer-name-confirm").Click();
+
+        // Act: invoke HandleAddToQueue via reflection
+        cut.Instance.GetType()
+            .GetMethod("HandleAddToQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
+            .Invoke(cut.Instance, new object[] { _testSongs[0] });
+
+        // Assert: dispatched action carries the updated name
+        dispatcher.Verify(d => d.Dispatch(It.Is<AddToPlaylistAction>(
+            a => a.SingerName == "AliceRenamed"
+        )), Times.Once);
+    }
+
+    // ── Phase 3: Edit Singer Name — Cancel (US2) ──────────────────────────────
+
+    [Fact]
+    public void EditName_WhenFocusLost_CancelsEditAndRestoresOriginalName()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter initial name
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Enter edit mode and change the value without confirming
+        cut.Find("button.singer-edit-btn").Click();
+        cut.Find("input.singer-name-input").Input("PartialEdit");
+
+        // Act: trigger focusout on the input (simulates clicking away)
+        cut.Find("input.singer-name-input").TriggerEvent("onfocusout", EventArgs.Empty);
+
+        // Assert: edit mode closed, original name unchanged
+        Assert.Throws<ElementNotFoundException>(() => cut.Find("input.singer-name-input"));
+        Assert.Contains("Alice", cut.Find(".singer-header h3").TextContent);
+    }
+
+    [Fact]
+    public void EditName_CancelDoesNotSavePartialEdit()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter initial name
+        cut.Find("input#singerNameInput").Input("Bob");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Enter edit mode, type partial new name, then cancel via focus loss
+        cut.Find("button.singer-edit-btn").Click();
+        cut.Find("input.singer-name-input").Input("SomethingDifferent");
+        cut.Find("input.singer-name-input").TriggerEvent("onfocusout", EventArgs.Empty);
+
+        // Assert: the header still shows the original name "Bob", not the partial edit
+        var header = cut.Find(".singer-header h3");
+        Assert.Contains("Bob", header.TextContent);
+        Assert.DoesNotContain("SomethingDifferent", header.TextContent);
+    }
+
+    // ── Phase 4: Edit Singer Name — Empty Name Validation (US3) ──────────────
+
+    [Fact]
+    public void EditName_ConfirmWithEmptyInput_DoesNotSaveAndShowsError()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter initial name
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Enter edit mode and clear the input
+        cut.Find("button.singer-edit-btn").Click();
+        cut.Find("input.singer-name-input").Input(string.Empty);
+
+        // Act: click confirm with empty input
+        cut.Find("button.singer-name-confirm").Click();
+
+        // Assert: is-invalid class present, edit mode still active
+        var editInput = cut.Find("input.singer-name-input");
+        Assert.NotNull(editInput);
+        Assert.Contains("is-invalid", editInput.ClassName);
+
+        // Cancel edit and verify original name was preserved
+        cut.Find("input.singer-name-input").TriggerEvent("onfocusout", EventArgs.Empty);
+        Assert.Contains("Alice", cut.Find(".singer-header h3").TextContent);
+    }
+
+    [Fact]
+    public void EditName_ConfirmWithWhitespaceOnly_TreatedAsEmpty()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter initial name
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Enter edit mode and set whitespace-only value
+        cut.Find("button.singer-edit-btn").Click();
+        cut.Find("input.singer-name-input").Input("   ");
+
+        // Act: click confirm
+        cut.Find("button.singer-name-confirm").Click();
+
+        // Assert: treated as empty — is-invalid shown, edit mode still open, original name intact
+        var editInput = cut.Find("input.singer-name-input");
+        Assert.NotNull(editInput);
+        Assert.Contains("is-invalid", editInput.ClassName);
+
+        // Cancel edit and verify original name was preserved
+        cut.Find("input.singer-name-input").TriggerEvent("onfocusout", EventArgs.Empty);
+        Assert.Contains("Alice", cut.Find(".singer-header h3").TextContent);
+    }
+
+    [Fact]
+    public void EditName_AfterErrorState_ValidNameSavesAndClearsError()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithNameRequired, IsInitialized = true };
+        var libraryState = new LibraryState { Songs = _testSongs };
+        SetupTestWithSession(sessionState, new PlaylistState(), libraryState, "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithNameRequired.SessionId);
+
+        // Enter initial name
+        cut.Find("input#singerNameInput").Input("Alice");
+        cut.Find("button.k-btn-primary").Click();
+
+        // Enter edit mode, submit empty to trigger error state
+        cut.Find("button.singer-edit-btn").Click();
+        cut.Find("input.singer-name-input").Input(string.Empty);
+        cut.Find("button.singer-name-confirm").Click();
+
+        // Verify error state is active
+        Assert.Contains("is-invalid", cut.Find("input.singer-name-input").ClassName);
+
+        // Act: type a valid name and confirm
+        cut.Find("input.singer-name-input").Input("AliceNew");
+        cut.Find("button.singer-name-confirm").Click();
+
+        // Assert: edit mode exits, error class gone, new name shown
+        Assert.Throws<ElementNotFoundException>(() => cut.Find("input.singer-name-input"));
+        Assert.Contains("AliceNew", cut.Find(".singer-header h3").TextContent);
+    }
+
+    // ── Phase 5: Edit Controls Hidden When RequireSingerName Is Disabled (US4) ─
+
+    [Fact]
+    public void EditName_WhenRequireSingerNameFalse_NoPencilIconRendered()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithoutNameRequired, IsInitialized = true };
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
+
+        // Act
+        var cut = RenderSingerViewComponent(_testSessionWithoutNameRequired.SessionId);
+
+        // Assert: button.singer-edit-btn must not exist in the DOM
+        Assert.Throws<ElementNotFoundException>(() => cut.Find("button.singer-edit-btn"));
+    }
+
+    [Fact]
+    public void EditName_WhenRequireSingerNameFalse_ClickingNameDoesNotTriggerEditMode()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSessionWithoutNameRequired, IsInitialized = true };
+        SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), "singer", false);
+        var cut = RenderSingerViewComponent(_testSessionWithoutNameRequired.SessionId);
+
+        // Assert: the h3 in the singer-header has no onclick attribute — edit mode is structurally unreachable
+        var heading = cut.Find(".singer-header h3");
+        Assert.False(heading.HasAttribute("onclick"), "h3 must not have an onclick when RequireSingerName is false");
+
+        // Assert: no edit input in DOM
+        Assert.Throws<ElementNotFoundException>(() => cut.Find("input.singer-name-input"));
+    }
 }
 

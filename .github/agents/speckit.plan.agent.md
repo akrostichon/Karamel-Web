@@ -75,14 +75,13 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Examples: public APIs for libraries, command schemas for CLI tools, endpoints for web services, grammars for parsers, UI contracts for applications
    - Skip if project is purely internal (build scripts, one-off tools, etc.)
 
-3. **Agent context update**:
-   - Run `.specify/scripts/powershell/update-agent-context.ps1 -AgentType copilot`
-   - These scripts detect which AI agent is in use
-   - Update the appropriate agent-specific context file
-   - Add only new technology from current plan
-   - Preserve manual additions between markers
+3. **copilot-instructions policy**:
+   - Do **NOT** update `.github/copilot-instructions.md` or `.github/agents/copilot-instructions.md` automatically.
+   - Only edit those files when the feature introduces a genuinely new **cross-cutting interface, mechanism, or architectural pattern** that all future development must know about — for example: a new authentication mechanism, a new cross-tab synchronization channel, a new persistent service boundary, or any change that directly invalidates existing guidance in those files.
+   - Routine domain features (new pages, new playlist fields, new UI components, background jobs, etc.) with no architectural impact **do NOT qualify**.
+   - If an edit is warranted, make a targeted, minimal change and explain why it meets the bar above.
 
-**Output**: data-model.md, /contracts/*, quickstart.md, agent-specific file
+**Output**: data-model.md, /contracts/*, quickstart.md
 
 ## Key rules
 
