@@ -137,6 +137,43 @@ describe('player.js - Dual-mode architecture', () => {
         });
     });
 
+    describe('restartPlayback', () => {
+        it('should reset currentTime to 0 and call play when in video mode', async () => {
+            const videoUrl = 'blob:http://localhost/test-video';
+            await player.initializeVideoPlayer(videoUrl, mockDotNetRef);
+
+            player.restartPlayback();
+
+            expect(mockVideoElement.currentTime).toBe(0);
+            expect(mockVideoElement.play).toHaveBeenCalled();
+        });
+
+        it('should call play even when video is paused (CDG while paused: always resumes from beginning)', async () => {
+            const videoUrl = 'blob:http://localhost/test-video';
+            await player.initializeVideoPlayer(videoUrl, mockDotNetRef);
+            player.pausePlayback();
+            vi.clearAllMocks();
+
+            player.restartPlayback();
+
+            expect(mockVideoElement.currentTime).toBe(0);
+            expect(mockVideoElement.play).toHaveBeenCalled();
+        });
+
+        it('should be a no-op and not throw when player is not initialized', () => {
+            // playerMode is null before any initialization
+            player.dispose();
+            expect(() => player.restartPlayback()).not.toThrow();
+        });
+
+        it('should be exported as a function (CDG while playing: restartPlayback is available for CDG mode)', () => {
+            // CDG mode initialization requires CDGraphics which cannot be mocked in this test suite;
+            // this test verifies the function is exported and callable (mirrors CDG mode unchanged pattern)
+            expect(player.restartPlayback).toBeDefined();
+            expect(typeof player.restartPlayback).toBe('function');
+        });
+    });
+
     describe('getPlaybackPosition', () => {
         it('should return 0 when no player is active', () => {
             // After dispose, playerMode is null so should return 0
