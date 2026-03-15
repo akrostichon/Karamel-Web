@@ -1,0 +1,29 @@
+.export-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 2rem;
+}
+
+.export-card {
+    max-width: 600px;
+    width: 100%;
+}
+
+.select-folder-btn {
+    min-height: 56px;
+}
+
+.download-buttons {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    padding-top: 1.5rem;
+}
+
+.download-buttons h5 {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
