@@ -21,6 +21,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-22
 - No storage changes — scroll offset is ephemeral component-level state only (007-library-ux-polish)
 - C# 14 / .NET 10 (backend), CSS3 (frontend styling) + Entity Framework Core (backend), Blazor CSS isolation (frontend) (008-library-search-fixes)
 - SQLite (dev), SQL Server (prod) — fix is EF LINQ, tested on SQLite (008-library-search-fixes)
+- C# 13 / .NET 10.0 (Blazor WebAssembly), JavaScript ES2022 (modules) + Blazor WebAssembly, Fluxor, Bootstrap Icons v1.x, IJSObjectReference (JS interop) (001-player-next-prev)
+- N/A — no new persistence (001-player-next-prev)
 
 - C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop. + ASP.NET Core, SignalR, Fluxor on the frontend, xUnit/bUnit tests, Vitest for JS. (001-admin-session-control)
 
@@ -41,9 +43,9 @@ npm test; npm run lint
 C# 10/.NET 10 for backend and Blazor WebAssembly for frontend; JavaScript modules for client interop.: Follow standard conventions
 
 ## Recent Changes
+- 001-player-next-prev: Added C# 13 / .NET 10.0 (Blazor WebAssembly), JavaScript ES2022 (modules) + Blazor WebAssembly, Fluxor, Bootstrap Icons v1.x, IJSObjectReference (JS interop)
 - 008-library-search-fixes: Added C# 14 / .NET 10 (backend), CSS3 (frontend styling) + Entity Framework Core (backend), Blazor CSS isolation (frontend)
 - 007-library-ux-polish: Added C# 14 / .NET 10 (Blazor WebAssembly) + JavaScript ES modules + Fluxor 6.9.0, bUnit 1.32.7 (tests), Vitest 4.0.16 (JS tests)
-- 006-library-view-enhancements: Added C# 14 / .NET 10, Blazor WebAssembly + Fluxor 6.9.0 (state), bUnit 1.32.7 (tests), Bootstrap 5 (layout), Vitest 4 (JS tests)
 
 
 <!-- MANUAL ADDITIONS START -->

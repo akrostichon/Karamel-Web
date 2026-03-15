@@ -276,6 +276,16 @@ export function stopPlayback() {
     }
 }
 
+export function restartPlayback() {
+    if (playerMode === 'video' && videoElement) {
+        videoElement.currentTime = 0;
+        videoElement.play().catch(err => logger.error('Video restart failed', { error: err.message }));
+    } else if (playerMode === 'cdg' && audioElement) {
+        audioElement.currentTime = 0;
+        audioElement.play().catch(err => logger.error('Restart failed', { error: err.message }));
+    }
+}
+
 export function getPlaybackPosition() {
     if (playerMode === 'cdg' && audioElement) {
         return audioElement.currentTime;

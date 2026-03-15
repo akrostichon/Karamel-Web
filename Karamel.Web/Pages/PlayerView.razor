@@ -91,11 +91,14 @@
                     </div>
                 }
                 <div class="controls">
+                    <button class="btn btn-control" @onclick="RestartSong">
+                        <i class="bi bi-skip-start-circle"></i>
+                    </button>
                     <button class="btn btn-control" @onclick="TogglePlayPause">
                         <i class="bi @(isPlaying ? "bi-pause-circle" : "bi-play-circle")"></i>
                     </button>
-                    <button class="btn btn-control" @onclick="StopPlayback">
-                        <i class="bi bi-stop-circle"></i>
+                    <button class="btn btn-control" @onclick="NextSong">
+                        <i class="bi bi-skip-end-circle"></i>
                     </button>
                     <button class="btn btn-control" @onclick="ToggleFullscreen">
                         <i class="bi @(isFullscreen ? "bi-fullscreen-exit" : "bi-fullscreen")"></i>
@@ -603,7 +606,14 @@
         }, null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
     }
 
-    private async Task StopPlayback()
+    private async Task RestartSong()
+    {
+        if (playerModule == null) return;
+        await playerModule.InvokeVoidAsync("restartPlayback");
+        isPlaying = true;
+    }
+
+    private async Task NextSong()
     {
         try
         {

@@ -163,7 +163,7 @@ public class PlayerViewTests : SessionTestBase
         Assert.NotNull(controls);
         
         var buttons = controls.QuerySelectorAll(".btn-control");
-        Assert.Equal(3, buttons.Length); // Play/Pause, Stop and Fullscreen buttons
+        Assert.Equal(4, buttons.Length); // Previous, Play/Pause, Next and Fullscreen buttons
     }
 
     [Fact]
@@ -476,7 +476,8 @@ public class PlayerViewTests : SessionTestBase
     }
 
     [Fact(Skip = "Control buttons not rendering properly with session validation changes")]
-    public async Task Component_StopButton_NavigatesToNextSongView()
+    public async Task Component_NextButton_NavigatesToNextSongView()
+    // Was: Component_StopButton_NavigatesToNextSongView
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
@@ -501,12 +502,42 @@ public class PlayerViewTests : SessionTestBase
         });
         cut.Render();
 
-        var stopButton = cut.FindAll(".controls .btn-control")[1]; // Second button is stop
-        await stopButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+        var nextButton = cut.FindAll(".controls .btn-control")[2]; // Third button is Next
+        await nextButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
 
         // Assert
         Assert.Contains("/nextsong?session=", fakeNavManager.Uri);
         Assert.Contains(_testSession.SessionId.ToString(), fakeNavManager.Uri);
+    }
+
+    [Fact(Skip = "JSInterop mocking limitations")]
+    public async Task Component_PreviousButton_RestartsCurrentSong()
+    {
+        // Arrange
+        var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
+        var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
+        SetupTestWithSession(sessionState, playlistState, view: "player");
+
+        var mockPlayer = new Mock<IJSObjectReference>();
+        SetupJSRuntimeWithPlayerModule(mockPlayer.Object);
+
+        // Act
+        var cut = RenderComponent<PlayerView>();
+
+        await cut.InvokeAsync(() =>
+        {
+            cut.Instance.GetType().GetMethod("ShowControls",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.Invoke(cut.Instance, null);
+        });
+        cut.Render();
+
+        var previousButton = cut.FindAll(".controls .btn-control")[0]; // First button is Previous
+        await previousButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+
+        // Assert
+        mockPlayer.Verify(m => m.InvokeAsync<Microsoft.JSInterop.Infrastructure.IJSVoidResult>(
+            "restartPlayback", It.IsAny<object[]>()), Times.Once);
     }
 
     [Fact]
