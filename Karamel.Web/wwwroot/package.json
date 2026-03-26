@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "@vitest/ui": "^4.0.16",
-    "happy-dom": "^20.1.0",
+    "happy-dom": "^20.8.8",
     "jsmediatags": "^3.9.7",
     "jszip": "^3.10.1",
     "vitest": "^4.0.16"
