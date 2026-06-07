@@ -38,15 +38,10 @@ public class SongEnrichmentService : ISongEnrichmentService
             var song = songs[i];
             
             // Skip if already has file information (check based on MediaType)
-            if (song.MediaType == MediaType.Mp3Cdg)
+            if (IsMp3SongWithFilledFileInformation(song) ||
+                IsVideoSongWithFilledFileInformation(song))
             {
-                if (!string.IsNullOrEmpty(song.Mp3FileName) && !string.IsNullOrEmpty(song.CdgFileName))
-                    continue;
-            }
-            else if (song.MediaType == MediaType.Video)
-            {
-                if (!string.IsNullOrEmpty(song.VideoFileName))
-                    continue;
+                continue;
             }
             
             // Look up in local library by ID
@@ -70,5 +65,18 @@ public class SongEnrichmentService : ISongEnrichmentService
                 Console.WriteLine($"SongEnrichmentService: WARNING - Could not find song ID {song.Id} ('{song.Artist} - {song.Title}') in local library");
             }
         }
+    }
+
+    private bool IsMp3SongWithFilledFileInformation(Song song)
+    {
+        return song.MediaType == MediaType.Mp3Cdg &&
+               !string.IsNullOrEmpty(song.Mp3FileName) &&
+               !string.IsNullOrEmpty(song.CdgFileName);
+    }
+
+    private bool IsVideoSongWithFilledFileInformation(Song song)
+    {
+        return song.MediaType == MediaType.Video &&
+               !string.IsNullOrEmpty(song.VideoFileName);
     }
 }
