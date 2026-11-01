@@ -13,7 +13,7 @@ namespace Karamel.Web.Tests;
 /// bUnit tests for the artist browse mode in LibrarySearch.
 /// Covers US1: artist list visible when search is empty.
 /// </summary>
-public class ArtistBrowseTests : TestContext
+public class ArtistBrowseTests : BunitContext
 {
     private readonly List<ArtistItem> _testArtists = new()
     {
@@ -38,7 +38,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – three rows, each showing name and song count
         var rows = cut.FindAll(".artist-row");
@@ -67,7 +67,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – artist loading spinner is visible
         var spinner = cut.Find(".artist-list-loader .spinner-border");
@@ -88,7 +88,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – songs table is not rendered in browse mode
         var songsTables = cut.FindAll("table.table-striped");
@@ -115,7 +115,7 @@ public class ArtistBrowseTests : TestContext
         var mockDispatcher = SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – LoadArtistsAction dispatched exactly once on init
         mockDispatcher.Verify(
@@ -138,7 +138,7 @@ public class ArtistBrowseTests : TestContext
         var mockDispatcher = SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – no LoadArtistsAction dispatched
         mockDispatcher.Verify(
@@ -161,7 +161,7 @@ public class ArtistBrowseTests : TestContext
         var mockDispatcher = SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – no LoadArtistsAction dispatched
         mockDispatcher.Verify(
@@ -212,7 +212,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – artist browse branch is not shown; falls through to songs table
         var artistRows = cut.FindAll(".artist-row");
@@ -233,7 +233,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         var mockDispatcher = SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act – click first artist row ("ABBA")
         cut.Find(".artist-row").Click();
@@ -257,7 +257,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         var mockDispatcher = SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act – click first artist row ("ABBA")
         cut.Find(".artist-row").Click();
@@ -283,7 +283,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – browse branch is not rendered when search filter is active
         var artistRows = cut.FindAll(".artist-row");
@@ -309,7 +309,7 @@ public class ArtistBrowseTests : TestContext
             .Setup(d => d.Dispatch(It.IsAny<SelectArtistAction>()))
             .Callback<object>(a => captured = (SelectArtistAction)a);
 
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act – click third artist row ("The Beatles")
         cut.FindAll(".artist-row")[2].Click();
@@ -336,7 +336,7 @@ public class ArtistBrowseTests : TestContext
         var mockDispatcher = SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – artist list shows immediately with no spinner and no fetch
         var artistRows = cut.FindAll(".artist-row");
@@ -363,7 +363,7 @@ public class ArtistBrowseTests : TestContext
             IsLoadingArtists = false
         };
         var mockDispatcher = SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
         // OnInit already dispatched LoadArtistsAction once
 
         // Act – click the X button to clear the search
@@ -388,7 +388,7 @@ public class ArtistBrowseTests : TestContext
             IsLoadingArtists = false
         };
         var mockDispatcher = SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
         // OnInit already dispatched LoadArtistsAction once
 
         // Act – simulate user deleting all text in the search input
@@ -418,7 +418,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert — exactly 27 buttons in the alphabet bar (# + A–Z)
         var buttons = cut.FindAll(".alpha-btn");
@@ -437,7 +437,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert active letters A, Q, T are NOT disabled
         var activeLetters = new[] { 'A', 'Q', 'T' };
@@ -468,7 +468,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert — one header per letter group (A, Q, T)
         var headers = cut.FindAll(".artist-section-header");
@@ -495,7 +495,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act — click the first non-disabled letter button (should be 'A')
         cut.Find("button.alpha-btn:not([disabled])").Click();
@@ -517,7 +517,7 @@ public class ArtistBrowseTests : TestContext
             ArtistsLoaded = false
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert — no alphabet bar rendered
         var navs = cut.FindAll(".alphabet-bar");
@@ -536,7 +536,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert — no alphabet bar in search results view
         var navs = cut.FindAll(".alphabet-bar");
@@ -560,7 +560,7 @@ public class ArtistBrowseTests : TestContext
             Artists = artistsWithHash
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert — "4 Non Blondes" row IS rendered
         var rows = cut.FindAll(".artist-row");
@@ -592,7 +592,7 @@ public class ArtistBrowseTests : TestContext
             Artists = artistsWithS
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Pre-condition — no button has the .alpha-btn--current class initially
         Assert.Empty(cut.FindAll(".alpha-btn--current"));
@@ -628,7 +628,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – artist-songs loader spinner is visible
         var loader = cut.Find(".artist-songs-loader");
@@ -653,7 +653,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – no artist-songs loader
         var loaders = cut.FindAll(".artist-songs-loader");
@@ -676,7 +676,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – no "No songs" alert-info messages while loading
         var infoAlerts = cut.FindAll(".alert-info");
@@ -700,7 +700,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – error card is rendered with the error message
         var errorCard = cut.Find(".artist-songs-error");
@@ -724,7 +724,7 @@ public class ArtistBrowseTests : TestContext
         };
         var mockDispatcher = SetupFluxorWithState(state);
 
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act – click the retry button
         cut.Find(".retry-btn").Click();
@@ -751,7 +751,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – no spinner (artist-songs-loader) is shown alongside the error card
         var loaders = cut.FindAll(".artist-songs-loader");
@@ -780,7 +780,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Trigger a render cycle so _alphabetModule is initialised
         cut.WaitForState(() => true);
@@ -810,7 +810,7 @@ public class ArtistBrowseTests : TestContext
             Artists = _testArtists
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act — click the clear-filter button
         cut.Find(".clear-filter-btn").Click();
@@ -842,7 +842,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
         cut.WaitForState(() => true);
 
         // Assert — scrollToY should NOT have been called on initial render
@@ -867,7 +867,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – "No songs in library." is shown
         var infoAlert = cut.Find(".alert-info");
@@ -892,7 +892,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – "No songs match" is shown, NOT "No songs in library."
         var infoAlert = cut.Find(".alert-info");
@@ -918,7 +918,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – "No songs match" is shown; NOT "No songs in library."
         var infoAlert = cut.Find(".alert-info");
@@ -948,7 +948,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – no empty-state message while server fetch is in progress
         var infoAlerts = cut.FindAll(".alert-info");
@@ -977,7 +977,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert – no empty-state alert; songs table is rendered instead
         var infoAlerts = cut.FindAll(".alert-info");
@@ -1010,7 +1010,7 @@ public class ArtistBrowseTests : TestContext
             }
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Pre-condition — no letter highlighted initially
         Assert.Empty(cut.FindAll(".alpha-btn--current"));
@@ -1044,7 +1044,7 @@ public class ArtistBrowseTests : TestContext
             }
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act — tap 'A' twice
         var aButton = cut.Find("button.alpha-btn[title='Jump to A']");
@@ -1078,7 +1078,7 @@ public class ArtistBrowseTests : TestContext
             }
         };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act — tap 'R' first, then 'A'
         cut.Find("button.alpha-btn[title='Jump to R']").Click();
@@ -1109,7 +1109,7 @@ public class ArtistBrowseTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert — alphabet bar is rendered (CSS layout is validated manually via quickstart.md)
         var bars = cut.FindAll(".alphabet-bar");

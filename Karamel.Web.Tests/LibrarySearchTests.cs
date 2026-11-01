@@ -13,7 +13,7 @@ namespace Karamel.Web.Tests;
 /// Unit tests for the LibrarySearch component.
 /// Tests filtering, sorting, display, and AddToPlaylist action dispatch.
 /// </summary>
-public class LibrarySearchTests : TestContext
+public class LibrarySearchTests : BunitContext
 {
     private readonly List<Song> _testSongs;
 
@@ -38,7 +38,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var alert = cut.Find(".alert-info");
@@ -53,7 +53,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var spinner = cut.Find(".spinner-border");
@@ -69,7 +69,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var alert = cut.Find(".alert-danger");
@@ -84,7 +84,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var rows = cut.FindAll("tbody tr");
@@ -121,7 +121,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var rows = cut.FindAll("tbody tr");
@@ -141,7 +141,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var rows = cut.FindAll("tbody tr");
@@ -160,7 +160,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var alert = cut.Find(".alert-info");
@@ -173,7 +173,7 @@ public class LibrarySearchTests : TestContext
         // Arrange
         var state = new LibraryState { Songs = _testSongs };
         var dispatcher = SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act
         var addButtons = cut.FindAll("button.k-btn-primary");
@@ -191,7 +191,7 @@ public class LibrarySearchTests : TestContext
         // Arrange
         var state = new LibraryState { Songs = _testSongs };
         SetupFluxorWithState(state);
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act
         var addButtons = cut.FindAll("button.k-btn-primary");
@@ -214,7 +214,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var countText = cut.Find(".form-text.small");
@@ -233,7 +233,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var countText = cut.Find(".form-text.small");
@@ -257,7 +257,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var rows = cut.FindAll("tbody tr");
@@ -273,7 +273,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert
         var addButtons = cut.FindAll("button.k-btn-primary");
@@ -321,7 +321,7 @@ public class LibrarySearchTests : TestContext
         var state = new LibraryState { Songs = _testSongs, IsLoading = false };
         var mockDispatcher = SetupFluxorWithState(state);
 
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
         var searchInput = cut.Find("input[type='text']");
 
         // Act: Type search text (note: bUnit doesn't support async debounce well, so we test the dispatch directly)
@@ -362,7 +362,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert: "Did you mean?" section renders with suggestion text
         var section = cut.Find(".did-you-mean");
@@ -382,7 +382,7 @@ public class LibrarySearchTests : TestContext
         };
         var mockDispatcher = SetupFluxorWithState(state);
 
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Act: click the suggestion
         var suggestionButton = cut.Find(".suggestion-item");
@@ -414,7 +414,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert: "Did you mean?" section must not render
         var sections = cut.FindAll(".did-you-mean");
@@ -434,7 +434,7 @@ public class LibrarySearchTests : TestContext
         SetupFluxorWithState(state);
 
         // Act
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
 
         // Assert: Standard "No songs in library." message, no suggestion section
         var sections = cut.FindAll(".did-you-mean");
@@ -454,7 +454,7 @@ public class LibrarySearchTests : TestContext
         };
         var mockDispatcher = SetupFluxorWithState(state);
 
-        var cut = RenderComponent<LibrarySearch>();
+        var cut = Render<LibrarySearch>();
         
         // Find and click the clear button
         var clearButton = cut.Find(".clear-filter-btn");

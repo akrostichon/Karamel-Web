@@ -13,7 +13,7 @@ namespace Karamel.Web.Tests;
 /// Verifies that duration is displayed for songs with DurationSeconds > 0,
 /// and that no duration element is rendered when DurationSeconds == 0.
 /// </summary>
-public class UpNextListTests : TestContext
+public class UpNextListTests : BunitContext
 {
     private void SetupPlaylistState(PlaylistState playlistState)
     {
@@ -47,7 +47,7 @@ public class UpNextListTests : TestContext
         SetupPlaylistState(playlistState);
 
         // Act
-        var cut = RenderComponent<UpNextList>();
+        var cut = Render<UpNextList>();
 
         // Assert
         var durationEl = cut.Find(".up-next-song-duration");
@@ -73,7 +73,7 @@ public class UpNextListTests : TestContext
         SetupPlaylistState(playlistState);
 
         // Act
-        var cut = RenderComponent<UpNextList>();
+        var cut = Render<UpNextList>();
 
         // Assert
         Assert.Throws<ElementNotFoundException>(() => cut.Find(".up-next-song-duration"));
@@ -102,7 +102,7 @@ public class UpNextListTests : TestContext
         SetupPlaylistState(playlistState);
 
         // Act
-        var cut = RenderComponent<UpNextList>();
+        var cut = Render<UpNextList>();
 
         // Assert
         var durationEl = cut.Find(".up-next-song-duration");
@@ -132,7 +132,7 @@ public class UpNextListTests : TestContext
         SetupPlaylistState(playlistState);
 
         // Act
-        var cut = RenderComponent<UpNextList>();
+        var cut = Render<UpNextList>();
 
         // Assert
         Assert.Throws<ElementNotFoundException>(() => cut.Find(".up-next-song-duration"));

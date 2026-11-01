@@ -73,7 +73,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var alert = cut.Find(".alert-danger");
@@ -91,7 +91,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var artistName = cut.Find(".artist-name");
@@ -114,7 +114,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var qrcodeSection = cut.Find(".qrcode-section");
@@ -137,7 +137,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var emptyQueueContainer = cut.Find(".empty-queue-container");
@@ -163,7 +163,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var qrcodeContainer = cut.Find("#qrcode-container");
@@ -189,7 +189,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var artistName = cut.Find(".artist-name");
@@ -212,7 +212,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
         await cut.InvokeAsync(() => { }); // Force render cycle
 
         // Assert
@@ -245,7 +245,7 @@ public class NextSongViewTests : SessionTestBase
         Services.AddSingleton(mockStateSynchronizer.Object);
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         cut.WaitForAssertion(() =>
@@ -269,7 +269,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var expectedUrl = $"http://localhost/singer?session={sessionId}";
@@ -287,7 +287,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         // Component should render without errors and not navigate
@@ -311,7 +311,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         // Component should render without errors
@@ -329,7 +329,7 @@ public class NextSongViewTests : SessionTestBase
             SetupTestWithSession(sessionState, playlistState, view: "nextsong");
             SetupJSRuntime();
 
-            var cut = RenderComponent<NextSongView>();
+            var cut = Render<NextSongView>();
 
             var artistName = cut.Find(".artist-name");
             Assert.Equal("Beatles", artistName.TextContent);
@@ -339,7 +339,7 @@ public class NextSongViewTests : SessionTestBase
         }
 
         // Test 2: Different song (new test context required)
-        // Note: Since bUnit TestContext is per-test, this validates different queue contents work
+        // Note: Since bUnit BunitContext is per-test, this validates different queue contents work
     }
 
     [Fact]
@@ -352,7 +352,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - Component should show empty queue state
         var emptyQueueContainer = cut.FindAll(".empty-queue-container");
@@ -383,7 +383,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         Assert.Equal(validGuid, session.SessionId);
@@ -411,7 +411,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         Assert.Equal(duration, session.PauseBetweenSongsSeconds);
@@ -436,7 +436,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert – countdown-progress must be absent when the session is paused
         var progressBars = cut.FindAll(".countdown-progress");
@@ -458,7 +458,7 @@ public class NextSongViewTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Verify baseline: paused → no countdown shown
         Assert.Empty(cut.FindAll(".countdown-progress"));
@@ -490,7 +490,7 @@ public class NextSongViewTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Wait for the countdown to begin (timer fires after ≤ 100 ms)
         cut.WaitForAssertion(
@@ -530,7 +530,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert – next-song card must NOT be rendered
         Assert.Empty(cut.FindAll(".artist-name"));
@@ -556,7 +556,7 @@ public class NextSongViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert – next-song card IS rendered
         Assert.NotEmpty(cut.FindAll(".artist-name"));
@@ -578,7 +578,7 @@ public class NextSongViewTests : SessionTestBase
         SetupTestWithSession(pausedState, playlistState, view: "nextsong");
         SetupJSRuntime();
 
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Confirm card is hidden while paused
         Assert.Empty(cut.FindAll(".artist-name"));

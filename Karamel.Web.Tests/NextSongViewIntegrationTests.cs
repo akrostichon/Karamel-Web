@@ -53,7 +53,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(new List<PlaylistItemDto> { playlistItem }, null));
 
         // Act - render component with song in queue
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - should show the song
         Assert.Contains("Test Artist", cut.Markup);
@@ -73,7 +73,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Dispatcher.Dispatch(new InitializeSessionAction(initialSession));
 
         // Act - render component with initial empty queue state
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - should show empty queue state
         Assert.Contains("empty-queue-container", cut.Markup);
@@ -92,7 +92,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Dispatcher.Dispatch(new InitializeSessionAction(session));
 
         // Act - render component
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - QR code container should be present
         var qrContainer = cut.Find("#qrcode-container");
@@ -111,7 +111,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Dispatcher.Dispatch(new InitializeSessionAction(session));
 
         // Act - render component with empty queue
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - QR code should have large styling
         var qrContainer = cut.Find("#qrcode-container");
@@ -149,7 +149,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(new List<PlaylistItemDto> { item1 }, null));
 
         // Act - render component AFTER state is set up
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - should show the song
         Assert.Contains("Test Artist 1", cut.Markup);
@@ -231,7 +231,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(new List<PlaylistItemDto> { playlistItem }, null));
 
         // Render component
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Wait for song to appear
         cut.WaitForState(() => 
@@ -304,7 +304,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Dispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(playlistItems, null));
 
         // Render component AFTER state setup
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - should show first song
         Assert.Contains("Artist 1", cut.Markup);

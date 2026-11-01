@@ -12,7 +12,7 @@ jobs:
   deploy-infrastructure:
     runs-on: [self-hosted, linux, rg-karamel-prod-runner]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Login to Azure (Managed Identity)
         run: az login --identity
@@ -75,7 +75,7 @@ jobs:
           echo "✓ App Service configured"
 
       - name: Upload deployment outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deployment-outputs
           path: deployment-outputs.json

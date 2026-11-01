@@ -82,7 +82,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert
         var emptyMessage = cut.Find(".alert-info");
@@ -107,7 +107,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert
         var nowPlaying = cut.Find(".now-playing");
@@ -130,7 +130,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert
         var upNextSection = cut.Find(".up-next");
@@ -163,7 +163,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert - Now Playing should show, but Up Next should not (queue is empty)
         var upNextSections = cut.FindAll(".up-next");
@@ -183,7 +183,7 @@ public class PlaylistPageTests : SessionTestBase
         };
         var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Act
         var removeButtons = cut.FindAll("button.btn-remove");
@@ -213,7 +213,7 @@ public class PlaylistPageTests : SessionTestBase
         var confirmHandler = JSInterop.Setup<bool>("confirm", "Are you sure you want to clear all queued songs? The currently playing song will not be affected.");
         confirmHandler.SetResult(true);
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Act - Find and click the clear button
         var clearButton = cut.Find("button.btn-clear-playlist");
@@ -249,7 +249,7 @@ public class PlaylistPageTests : SessionTestBase
         JSInterop.Setup<bool>("confirm", "Are you sure you want to clear all queued songs? The currently playing song will not be affected.")
             .SetResult(false);
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Act - Find and click the clear button
         var clearButton = cut.Find("button.btn-clear-playlist");
@@ -277,7 +277,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert
         var upNextSection = cut.Find(".up-next");
@@ -306,7 +306,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert
         var upNextSection = cut.Find(".up-next");
@@ -341,7 +341,7 @@ public class PlaylistPageTests : SessionTestBase
         roleHandler.SetResult("admin");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert: Verify draggable=true attribute on playlist items
         var upNextSection = cut.Find(".up-next");
@@ -373,7 +373,7 @@ public class PlaylistPageTests : SessionTestBase
         roleHandler.SetResult("singer");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert: Verify draggable=false or absent
         var upNextSection = cut.Find(".up-next");
@@ -405,7 +405,7 @@ public class PlaylistPageTests : SessionTestBase
         roleHandler.SetResult("singer");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert: Verify draggable=true attribute on playlist items
         var upNextSection = cut.Find(".up-next");
@@ -431,7 +431,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert
         var upNextSection = cut.Find(".up-next");
@@ -458,7 +458,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert - Check "Now Playing"
         var nowPlaying = cut.Find(".now-playing");
@@ -482,7 +482,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist"); // no adminRole
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert – segmented control must not be rendered for non-admin
         Assert.Throws<ElementNotFoundException>(() => cut.Find(".playlist-segment-control"));
@@ -497,7 +497,7 @@ public class PlaylistPageTests : SessionTestBase
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
         // Act
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert – segmented control must be visible
         Assert.NotNull(cut.Find(".playlist-segment-control"));
@@ -511,7 +511,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert – both segment buttons exist
         var buttons = cut.FindAll(".segment-btn");
@@ -528,7 +528,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert – "Playlist" segment button is active by default
         var playlistBtn = cut.FindAll(".segment-btn")[0];
@@ -546,7 +546,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Act – click "Session Controls" segment button
         var sessionControlsBtn = cut.FindAll(".segment-btn")[1];
@@ -565,7 +565,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Confirm playlist content is visible initially
         Assert.NotNull(cut.Find(".up-next"));
@@ -586,7 +586,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Switch to session controls
         cut.FindAll(".segment-btn")[1].Click();
@@ -607,7 +607,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Switch to session controls
         cut.FindAll(".segment-btn")[1].Click();
@@ -624,7 +624,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Switch to session controls
         cut.FindAll(".segment-btn")[1].Click();
@@ -657,7 +657,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert – duration cell shows "3:00"
         var durationSpan = cut.Find(".playlist-song-duration");
@@ -682,7 +682,7 @@ public class PlaylistPageTests : SessionTestBase
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
-        var cut = RenderComponent<Playlist>();
+        var cut = Render<Playlist>();
 
         // Assert – duration cell shows em-dash fallback
         var durationSpan = cut.Find(".playlist-song-duration");

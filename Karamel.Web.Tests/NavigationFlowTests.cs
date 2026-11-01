@@ -17,7 +17,7 @@ namespace Karamel.Web.Tests;
 /// Tests that MainLayout no longer includes NavMenu and has minimal structure.
 /// Tests that views validate session and handle routing correctly.
 /// </summary>
-public class NavigationFlowTests : TestContext
+public class NavigationFlowTests : BunitContext
 {
     private static string GetLayoutFilePath()
     {
@@ -95,7 +95,7 @@ public class NavigationFlowTests : TestContext
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/nextsong");
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var alert = cut.Find(".alert-danger");
@@ -112,7 +112,7 @@ public class NavigationFlowTests : TestContext
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/nextsong?session=invalid-guid");
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert
         var alert = cut.Find(".alert-danger");
@@ -132,7 +132,7 @@ public class NavigationFlowTests : TestContext
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/player");
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var alert = cut.Find(".alert-danger");
@@ -158,7 +158,7 @@ public class NavigationFlowTests : TestContext
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, $"http://localhost/nextsong?session={sessionIdInUrl}");
 
         // Act
-        var cut = RenderComponent<NextSongView>();
+        var cut = Render<NextSongView>();
 
         // Assert - Should show invalid session because IDs don't match
         var alert = cut.Find(".alert-danger");
@@ -178,7 +178,7 @@ public class NavigationFlowTests : TestContext
         var (_, _, _) = SetupFluxorWithStates(sessionState, playlistState, libraryState, "http://localhost/");
 
         // Act
-        var cut = RenderComponent<Home>();
+        var cut = Render<Home>();
 
         // Assert - Should render without errors
         var heading = cut.Find("h1");
@@ -208,7 +208,7 @@ public class NavigationFlowTests : TestContext
         var libraryState1 = new LibraryState();
         var (_, _, _) = SetupFluxorWithStates(sessionState1, playlistState1, libraryState1, $"http://localhost/nextsong?session={sessionId2}");
 
-        var cut1 = RenderComponent<NextSongView>();
+        var cut1 = Render<NextSongView>();
 
         // Assert - Should show error because session IDs don't match
         var alerts1 = cut1.FindAll(".alert-danger");

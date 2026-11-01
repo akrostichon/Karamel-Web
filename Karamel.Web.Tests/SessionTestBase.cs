@@ -19,7 +19,7 @@ namespace Karamel.Web.Tests;
 /// Provides centralized setup for Fluxor state, NavigationManager with session parameters,
 /// and common test utilities.
 /// </summary>
-public abstract class SessionTestBase : TestContext
+public abstract class SessionTestBase : BunitContext
 {
     /// <summary>
     /// Sets up a test context with a valid session and proper URL with session parameter.
@@ -204,7 +204,7 @@ public abstract class SessionTestBase : TestContext
         }
         navManager.NavigateTo(uri);
         
-        var cut = RenderComponent<SingerView>();
+        var cut = Render<SingerView>();
         
         // Wait for initialization to complete (component should no longer show spinner)
         cut.WaitForState(() => 

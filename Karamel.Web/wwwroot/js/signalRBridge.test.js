@@ -125,35 +125,15 @@ describe('signalRBridge', () => {
 
         // Set up global mocks
         global.BroadcastChannel = MockBroadcastChannel;
-        global.sessionStorage = mockSessionStorage;
+        Object.defineProperty(global, 'sessionStorage', {
+            configurable: true,
+            value: mockSessionStorage
+        });
         global.window = mockWindow;
         global.Date = {
             ...Date,
             now: vi.fn(() => 1234567890)
         };
-        global.URL = class {
-            constructor(path, base) {
-                this.pathname = path;
-                this.origin = base;
-                this.searchParams = new Map();
-            }
-            set(key, value) {
-                this.searchParams.set(key, value);
-            }
-            toString() {
-                const params = Array.from(this.searchParams.entries())
-                    .map(([k, v]) => `${k}=${v}`)
-                    .join('&');
-                return `${this.origin}${this.pathname}${params ? '?' + params : ''}`;
-            }
-        };
-        global.URL.prototype.searchParams = {
-            set: function(key, value) {
-                if (!this._params) this._params = new Map();
-                this._params.set(key, value);
-            }
-        };
-        
         // CRITICAL: Always mock signalR globally to prevent script loading attempts
         // This prevents happy-dom from trying to fetch from localhost:3000
         if (!global.signalR) {
@@ -974,4 +954,3 @@ describe('signalRBridge', () => {
     });
 });
 // T027 fetchLibraryPage tests moved to fetchLibraryPage.test.js (isolated worker)
-

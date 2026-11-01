@@ -15,7 +15,7 @@ using Moq;
 namespace Karamel.Web.Tests
 {
     /// <summary>
-    /// Simulates two tabs (Singer view + NextSongView) by creating two TestContexts.
+    /// Simulates two tabs (Singer view + NextSongView) by creating two BunitContexts.
     /// Singer tab dispatches AddToPlaylistAction; test simulates broadcast by
     /// applying UpdatePlaylistFromBroadcastAction to the secondary tab's store.
     /// </summary>
@@ -49,7 +49,7 @@ namespace Karamel.Web.Tests
             var sessionId = Guid.NewGuid();
 
             // --- Setup Singer (main tab) context ---
-            using var singerCtx = new TestContext();
+            using var singerCtx = new BunitContext();
             // Navigation URL includes session param
             var singerUrl = $"https://karaoke.example.com/singer?session={sessionId}";
             singerCtx.Services.AddSingleton<NavigationManager>(new FakeNavigationManager(singerUrl));
@@ -111,7 +111,7 @@ namespace Karamel.Web.Tests
             Assert.Single(itemsList); // ensure singer side has the song
 
             // --- Setup NextSong (secondary tab) context ---
-            using var nextCtx = new TestContext();
+            using var nextCtx = new BunitContext();
             var nextUrl = $"https://karaoke.example.com/nextsong?session={sessionId}";
             nextCtx.Services.AddSingleton<NavigationManager>(new FakeNavigationManager(nextUrl));
             nextCtx.Services.AddSingleton<IJSRuntime>(new SimpleMockJSRuntime());
@@ -152,7 +152,7 @@ namespace Karamel.Web.Tests
             nextDispatcher.Dispatch(new UpdatePlaylistFromBroadcastAction(broadcastItems, broadcastCurrentSong));
 
             // Render NextSongView in nextCtx
-            var cut = nextCtx.RenderComponent<NextSongView>();
+            var cut = nextCtx.Render<NextSongView>();
 
             // Assert the markup contains the song details
             Assert.Contains("Sim Artist", cut.Markup);

@@ -52,7 +52,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var alert = cut.Find(".alert-danger");
@@ -70,7 +70,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var alert = cut.Find(".alert-warning");
@@ -88,7 +88,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var canvas = cut.Find("#cdgCanvas");
@@ -107,7 +107,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var audio = cut.Find("#audioPlayer");
@@ -125,7 +125,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var controlsOverlay = cut.Find(".controls-overlay");
@@ -146,7 +146,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         var controlsOverlay = cut.Find(".controls-overlay");
         
         // Simulate mouse enter by directly invoking the component method
@@ -176,7 +176,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Show controls first
         cut.InvokeAsync(() =>
@@ -211,7 +211,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var leftEdge = cut.Find(".left-edge-detector");
@@ -231,7 +231,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Simulate hover
         cut.InvokeAsync(() =>
@@ -257,7 +257,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var sidePanels = cut.FindAll(".side-panel");
@@ -274,7 +274,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Show expand icon first
         cut.InvokeAsync(() =>
@@ -303,7 +303,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Show and click expand icon
         cut.InvokeAsync(() =>
@@ -332,7 +332,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Show and click expand icon
         cut.InvokeAsync(() =>
@@ -364,7 +364,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Show and click expand icon
         cut.InvokeAsync(() =>
@@ -397,7 +397,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Invoke OnSongEnded using InvokeAsync to handle StateHasChanged properly
         await cut.InvokeAsync(async () => await cut.Instance.OnSongEnded());
@@ -418,7 +418,7 @@ public class PlayerViewTests : SessionTestBase
         var (_, _, fakeNavManager) = SetupTestWithSession(sessionState, playlistState, view: "player");
         SetupJSRuntime();
 
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Track navigation by counting calls - FakeNavigationManager from SetupTestWithSession already tracks history
         var initialNavigations = fakeNavManager.NavigationHistory.Count;
@@ -450,7 +450,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Show controls first
         cut.InvokeAsync(() =>
@@ -491,7 +491,7 @@ public class PlayerViewTests : SessionTestBase
         Services.AddSingleton<NavigationManager>(fakeNavManager);
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Show controls first
         await cut.InvokeAsync(() =>
@@ -522,7 +522,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntimeWithPlayerModule(mockPlayer.Object);
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         await cut.InvokeAsync(() =>
         {
@@ -553,7 +553,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         cut.WaitForAssertion(() => 
         {
             var modalBackdrop = cut.Find(".modal-backdrop");
@@ -654,7 +654,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var videoElement = cut.Find("#videoPlayer");
@@ -671,7 +671,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert
         var canvas = cut.Find("#cdgCanvas");
@@ -699,7 +699,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Assert - both elements exist in DOM
         var videoElement = cut.Find("#videoPlayer");
@@ -765,7 +765,7 @@ public class PlayerViewTests : SessionTestBase
         Services.AddSingleton(mockJSRuntime.Object);
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Wait for async initialization and video loading to complete
         await cut.InvokeAsync(async () =>
@@ -838,7 +838,7 @@ public class PlayerViewTests : SessionTestBase
         Services.AddSingleton(mockJSRuntime.Object);
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Wait for async initialization and video loading to complete
         await cut.InvokeAsync(async () =>
@@ -899,7 +899,7 @@ public class PlayerViewTests : SessionTestBase
         Services.AddSingleton(mockJSRuntime.Object);
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         
         // Wait for async initialization to complete
         await cut.InvokeAsync(async () =>
@@ -953,7 +953,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         cut.InvokeAsync(() =>
         {
             cut.Instance.GetType().GetMethod("ShowControls",
@@ -978,7 +978,7 @@ public class PlayerViewTests : SessionTestBase
         SetupJSRuntime();
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
         cut.InvokeAsync(() =>
         {
             cut.Instance.GetType().GetMethod("ShowControls",

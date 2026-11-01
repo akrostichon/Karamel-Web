@@ -11,15 +11,15 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '26'
       - name: Install npm dependencies
         working-directory: Karamel.Web/wwwroot
         run: npm ci
@@ -29,7 +29,7 @@ jobs:
       - name: Publish Blazor WASM
         run: dotnet publish Karamel.Web -c Release -o publish
       - name: Upload published app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: blazor-app
           path: publish/wwwroot
@@ -40,7 +40,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Download published app
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: blazor-app
           path: ./app

@@ -12,7 +12,7 @@ namespace Karamel.Web.Tests
             // The default for bool is false, which simulates File System Access API being unavailable.
 
             // Act
-            var cut = RenderComponent<Home>();
+            var cut = Render<Home>();
 
             // Allow OnAfterRenderAsync to complete
             await Task.Delay(50);
