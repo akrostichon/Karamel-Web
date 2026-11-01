@@ -21,14 +21,17 @@ describe('logger', () => {
 
         // Mock sessionStorage with proper implementation
         storage = {};
-        global.sessionStorage = {
-            getItem: (key) => storage[key] || null,
-            setItem: (key, value) => { storage[key] = value; },
-            removeItem: (key) => { delete storage[key]; },
-            clear: () => { Object.keys(storage).forEach(k => delete storage[k]); },
-            get length() { return Object.keys(storage).length; },
-            key: (index) => Object.keys(storage)[index] || null
-        };
+        Object.defineProperty(global, 'sessionStorage', {
+            configurable: true,
+            value: {
+                getItem: (key) => storage[key] || null,
+                setItem: (key, value) => { storage[key] = value; },
+                removeItem: (key) => { delete storage[key]; },
+                clear: () => { Object.keys(storage).forEach(k => delete storage[k]); },
+                get length() { return Object.keys(storage).length; },
+                key: (index) => Object.keys(storage)[index] || null
+            }
+        });
 
         // Spy on console methods and clear any existing calls
         if (consoleLogSpy) {

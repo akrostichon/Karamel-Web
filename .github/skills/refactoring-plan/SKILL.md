@@ -1,9 +1,9 @@
 ---
-agent: agent
+name: refactoring-plan
 description: Implement a refactoring plan from a provided markdown file
+disable-model-invocation: true
 argument-hint: "Provide a markdown file with a detailed refactoring plan, and optional step number"
 ---
-
 You are implementing refactoring steps from the markdown file provided in context. Follow these instructions precisely.
 
 ## Orchestration Steps

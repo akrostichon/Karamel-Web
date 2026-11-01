@@ -41,7 +41,7 @@ public class FallbackBehaviorTests : SessionTestBase
         Services.AddSingleton(mockJSRuntime.Object);
 
         // Act
-        var cut = RenderComponent<PlayerView>();
+        var cut = Render<PlayerView>();
 
         // Allow async initialization to complete
         await Task.Delay(100);

@@ -49,7 +49,7 @@ namespace Karamel.Web.Tests
             JSInterop.Mode = JSRuntimeMode.Loose;
 
             // Act
-            var cut = RenderComponent<NextSongView>();
+            var cut = Render<NextSongView>();
 
             // Assert
             var gearButton = cut.Find(".admin-gear-button");
@@ -66,7 +66,7 @@ namespace Karamel.Web.Tests
 
             JSInterop.Mode = JSRuntimeMode.Loose;
 
-            var cut = RenderComponent<NextSongView>();
+            var cut = Render<NextSongView>();
 
             // Act - Click gear icon
             var gearButton = cut.Find(".admin-gear-button");
@@ -96,7 +96,7 @@ namespace Karamel.Web.Tests
             JSInterop.Mode = JSRuntimeMode.Loose;
             JSInterop.SetupVoid("open", _ => true);
 
-            var cut = RenderComponent<NextSongView>();
+            var cut = Render<NextSongView>();
 
             // Act - Open dropdown
             var gearButton = cut.Find(".admin-gear-button");
@@ -120,7 +120,7 @@ namespace Karamel.Web.Tests
             JSInterop.Mode = JSRuntimeMode.Loose;
             JSInterop.SetupVoid("open", _ => true);
 
-            var cut = RenderComponent<NextSongView>();
+            var cut = Render<NextSongView>();
 
             // Act - Open dropdown
             var gearButton = cut.Find(".admin-gear-button");
@@ -148,7 +148,7 @@ namespace Karamel.Web.Tests
             JSInterop.Mode = JSRuntimeMode.Loose;
 
             // Act
-            var cut = RenderComponent<PlayerView>();
+            var cut = Render<PlayerView>();
 
             // Assert
             var gearButton = cut.Find(".admin-gear-button");
@@ -166,7 +166,7 @@ namespace Karamel.Web.Tests
 
             JSInterop.Mode = JSRuntimeMode.Loose;
 
-            var cut = RenderComponent<PlayerView>();
+            var cut = Render<PlayerView>();
 
             // Act - Open dropdown
             var gearButton = cut.Find(".admin-gear-button");

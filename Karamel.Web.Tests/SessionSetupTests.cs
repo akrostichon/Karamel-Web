@@ -31,7 +31,7 @@ namespace Karamel.Web.Tests
             SetupTestWithSession(sessionState, new PlaylistState(), view: "session-setup");
 
             // Act
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Assert
             var warningBox = cut.Find(".warning-box");
@@ -48,7 +48,7 @@ namespace Karamel.Web.Tests
             SetupTestWithSession(sessionState, new PlaylistState(), view: "session-setup");
 
             // Act
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Assert
             var startButton = cut.Find(".start-button");
@@ -62,7 +62,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession };
             SetupTestWithSession(sessionState, new PlaylistState(), view: "session-setup");
 
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Act
             var checkbox = cut.Find("input[type='checkbox']");
@@ -84,7 +84,7 @@ namespace Karamel.Web.Tests
             JSInterop.Mode = JSRuntimeMode.Loose;
             JSInterop.SetupVoid("open", _ => true);
 
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Act & Assert - verify button exists
             var openPlaylistButton = cut.Find(".open-playlist-button");
@@ -102,7 +102,7 @@ namespace Karamel.Web.Tests
             JSInterop.Mode = JSRuntimeMode.Loose;
             JSInterop.SetupVoid("open", _ => true);
 
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Act & Assert - verify button exists
             var openSingerButton = cut.Find(".open-singer-button");
@@ -117,7 +117,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession };
             var (_, _, navMan) = SetupTestWithSession(sessionState, new PlaylistState(), view: "session-setup");
 
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Act - check checkbox and click start button
             var checkbox = cut.Find("input[type='checkbox']");
@@ -139,7 +139,7 @@ namespace Karamel.Web.Tests
             SetupTestWithSession(sessionState, new PlaylistState(), view: "session-setup");
 
             // Act
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Assert
             var details = cut.Find("details");
@@ -157,7 +157,7 @@ namespace Karamel.Web.Tests
                 $"http://localhost/session-setup?session={wrongSession.SessionId}");
 
             // Act
-            var cut = RenderComponent<SessionSetup>();
+            var cut = Render<SessionSetup>();
 
             // Assert
             var errorMessage = cut.Find(".error-message");

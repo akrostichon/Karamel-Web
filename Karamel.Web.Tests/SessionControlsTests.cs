@@ -20,7 +20,7 @@ namespace Karamel.Web.Tests
     /// - Clicking each button dispatches the correct Fluxor action.
     /// - Next button is disabled while session is paused.
     /// </summary>
-    public class SessionControlsTests : TestContext
+    public class SessionControlsTests : BunitContext
     {
         private readonly Session _testSession;
 
@@ -69,7 +69,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, false));
 
             // Non-admin tab: the panel must be absent
@@ -82,7 +82,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             // Pause button visible, resume button absent
@@ -96,7 +96,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = true };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             // Resume button visible, pause button absent
@@ -112,7 +112,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             var (mockDispatcher, _) = SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             cut.Find(".btn-pause").Click();
@@ -128,7 +128,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = true };
             var (mockDispatcher, _) = SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             cut.Find(".btn-resume").Click();
@@ -149,7 +149,7 @@ namespace Karamel.Web.Tests
             };
             var (mockDispatcher, _) = SetupServices(sessionState, playlistState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             cut.Find(".btn-next").Click();
@@ -173,7 +173,7 @@ namespace Karamel.Web.Tests
             };
             var (mockDispatcher, _) = SetupServices(sessionState, playlistState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             cut.Find(".btn-next").Click();
@@ -195,7 +195,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = true };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             var nextBtn = cut.Find(".btn-next");
@@ -210,7 +210,7 @@ namespace Karamel.Web.Tests
             var playlistState = new PlaylistState { Items = [MakeItem("item-1", SongStatus.UpNext)] };
             SetupServices(sessionState, playlistState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             var nextBtn = cut.Find(".btn-next");
@@ -224,7 +224,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState, new PlaylistState());
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true));
 
             var nextBtn = cut.Find(".btn-next");
@@ -239,7 +239,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, false));
 
@@ -253,7 +253,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -278,13 +278,13 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = session, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
             var requireCheck = cut.Find(".config-input-require-singer-name");
             Assert.True(requireCheck.HasAttribute("checked") || requireCheck.GetAttribute("checked") != null
-                || requireCheck.ToMarkup().Contains("checked"));
+                || requireCheck.OuterHtml.Contains("checked"));
 
             var pauseInput = cut.Find(".config-input-pause-seconds");
             Assert.Equal("30", pauseInput.GetAttribute("value"));
@@ -299,7 +299,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             var (mockDispatcher, _) = SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -319,7 +319,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -334,7 +334,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -349,7 +349,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -364,7 +364,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -379,7 +379,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -394,7 +394,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -409,7 +409,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -426,7 +426,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
 
@@ -446,7 +446,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, false));
 
@@ -460,7 +460,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true));
             // OnNavigateBack not added → HasDelegate is false
@@ -475,7 +475,7 @@ namespace Karamel.Web.Tests
             var sessionState = new SessionState { CurrentSession = _testSession, IsPaused = false };
             SetupServices(sessionState);
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true)
                 .Add(x => x.OnNavigateBack, EventCallback.Factory.Create(this, () => { })));
@@ -492,7 +492,7 @@ namespace Karamel.Web.Tests
 
             var callbackInvoked = false;
 
-            var cut = RenderComponent<SessionControls>(p => p
+            var cut = Render<SessionControls>(p => p
                 .Add(x => x.IsAdminTab, true)
                 .Add(x => x.ConfigEnabled, true)
                 .Add(x => x.OnNavigateBack, EventCallback.Factory.Create(this, () => { callbackInvoked = true; })));

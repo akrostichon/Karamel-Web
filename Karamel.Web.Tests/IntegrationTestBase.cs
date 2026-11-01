@@ -14,7 +14,7 @@ namespace Karamel.Web.Tests;
 /// Base class for integration tests that use real Fluxor store for testing state management.
 /// Provides centralized setup for Fluxor, mocked services, and common test utilities.
 /// </summary>
-public abstract class IntegrationTestBase : TestContext
+public abstract class IntegrationTestBase : BunitContext
 {
     /// <summary>
     /// Real Fluxor store for integration testing

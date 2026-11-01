@@ -52,7 +52,7 @@ public class SingerViewTests : SessionTestBase
         SetupTestWithSession(sessionState, new PlaylistState(), new LibraryState(), view: "singer");
 
         // Act - don't pass SessionParam, triggering error state
-        var cut = RenderComponent<SingerView>();
+        var cut = Render<SingerView>();
         
         // Wait for initialization to complete (should show error)
         cut.WaitForState(() => cut.Markup.Contains("Session Loading Failed"), timeout: TimeSpan.FromSeconds(2));

@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run Bicep build (install & validate)
-        uses: azure/CLI@v1
+        uses: azure/CLI@v3
         with:
           inlineScript: |
             set -euo pipefail
@@ -30,7 +30,7 @@ jobs:
             az bicep build --file infra/azure/main.bicep --outdir infra/azure/_gen
 
       - name: Upload generated ARM templates (artifact)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bicep-arm
           path: infra/azure/_gen

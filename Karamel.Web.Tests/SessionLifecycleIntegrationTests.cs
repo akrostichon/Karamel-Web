@@ -62,7 +62,7 @@ namespace Karamel.Web.Tests
             Mock<ISignalRPlaylistBridge> bridgeMock)>
             BuildContextAsync(Guid sessionId)
         {
-            var ctx = new TestContext();
+            var ctx = new BunitContext();
 
             ctx.Services.AddSingleton<NavigationManager>(
                 new FakeNavigationManagerForLifecycle($"http://localhost/playlist?session={sessionId}"));

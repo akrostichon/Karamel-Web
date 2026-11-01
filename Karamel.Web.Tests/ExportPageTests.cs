@@ -11,7 +11,7 @@ namespace Karamel.Web.Tests;
 /// <summary>
 /// bUnit component tests for Export.razor and xUnit unit tests for CsvExportHelper.
 /// </summary>
-public class ExportPageTests : TestContext
+public class ExportPageTests : BunitContext
 {
     // ── Phase 3: Page shell (US4) ────────────────────────────────────────────
 
@@ -23,7 +23,7 @@ public class ExportPageTests : TestContext
         moduleInterop.SetupVoid("triggerDownload", _ => true);
 
         // Act — render without any session parameter (simulates direct URL navigation)
-        var cut = RenderComponent<Export>();
+        var cut = Render<Export>();
 
         // Assert — page title rendered and no session error
         Assert.Contains("Export", cut.Markup);
@@ -38,7 +38,7 @@ public class ExportPageTests : TestContext
         JSInterop.SetupModule("./js/exportBridge.js");
 
         // Act
-        var cut = RenderComponent<Export>();
+        var cut = Render<Export>();
 
         // Assert
         var button = cut.Find("button.select-folder-btn");
@@ -53,7 +53,7 @@ public class ExportPageTests : TestContext
         JSInterop.SetupModule("./js/exportBridge.js");
 
         // Act
-        var cut = RenderComponent<Export>();
+        var cut = Render<Export>();
 
         // Assert — download button section is not rendered
         var downloadSection = cut.FindAll(".download-buttons");
@@ -75,7 +75,7 @@ public class ExportPageTests : TestContext
         moduleInterop.Setup<SongDto[]>("scanDirectory", _ => true).SetResult(songDtos);
         moduleInterop.SetupVoid("triggerDownload", _ => true);
 
-        var cut = RenderComponent<Export>();
+        var cut = Render<Export>();
         await Task.Delay(50);
         cut.Render();
 
@@ -96,7 +96,7 @@ public class ExportPageTests : TestContext
         moduleInterop.Setup<object[]>("scanDirectory", _ => true)
                      .SetException(new JSException("User cancelled directory selection"));
 
-        var cut = RenderComponent<Export>();
+        var cut = Render<Export>();
 
         // Trigger OnAfterRenderAsync to load module
         await Task.Delay(50);
@@ -119,7 +119,7 @@ public class ExportPageTests : TestContext
                      .SetResult(Array.Empty<SongDto>());
         moduleInterop.SetupVoid("triggerDownload", _ => true);
 
-        var cut = RenderComponent<Export>();
+        var cut = Render<Export>();
         await Task.Delay(50);
         cut.Render();
 

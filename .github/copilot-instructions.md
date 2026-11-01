@@ -37,7 +37,7 @@ dotnet test Karamel.Web.Tests
 **C# Backend Tests** (xUnit + Integration Tests):
 ```powershell
 dotnet test Karamel.Backend.Tests -v minimal
-# Test time: ~40 seconds 
+# Full suite: ~95-100 seconds (117 tests; 112 passed, 5 skipped in the latest run)
 # Command: dotnet test .\Karamel.Backend.Tests\ -v minimal
 ```
 
@@ -98,7 +98,7 @@ git push origin feature/your-feature-name
 1. Run `dotnet build` and resolve any errors
 2. Run `dotnet test Karamel.Web.Tests` and ensure at least 251 tests pass (9 skipped is expected)
 3. For JavaScript changes: `cd Karamel.Web\wwwroot; npm run test:run`
-4. **For backend changes**: Request user to manually run `dotnet test .\Karamel.Backend.Tests\ -v minimal`
+4. **For backend changes**: Run the relevant backend tests, using `--filter "FullyQualifiedName~<TestClassOrMethod>"` to target a class or test. The full suite takes about 95-100 seconds.
 5. Test the running application manually if UI changes were made
 
 
