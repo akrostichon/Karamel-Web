@@ -1,8 +1,8 @@
 ---
+name: logging-observability
 description: "Logging and observability patterns for Karamel-Web with Application Insights integration"
-applyTo: "**"
+disable-model-invocation: true
 ---
-
 # Logging & Observability
 
 **Application Insights Integration**: Production telemetry enabled for both backend and frontend.

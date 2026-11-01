@@ -1,9 +1,9 @@
 ---
-agent: agent
-description: Implement plan steps from a provided markdown file, with a choice of implementation-first (with-tests) or TDD workflow
+name: implement-plan
+description: "Implement plan steps from a provided markdown file, with a choice of implementation-first (with-tests) or TDD workflow"
+disable-model-invocation: true
 argument-hint: "Provide a markdown file, optional step number, and optional --workflow=with-tests|tdd"
 ---
-
 You are implementing steps from the markdown file provided in context. Follow these instructions precisely.
 
 ## Parameters
