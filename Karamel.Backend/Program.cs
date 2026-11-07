@@ -144,6 +144,16 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<Karamel.Backend.Se
 
 var app = builder.Build();
 
+// Data is ephemeral (sessions expire after 30 minutes), so the SQLite schema is always created fresh from the model.
+if (!string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase) && !app.Environment.IsEnvironment("Testing"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<Karamel.Backend.Data.BackendDbContext>();
+    db.Database.EnsureDeleted();
+    db.Database.EnsureCreated();
+    db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
