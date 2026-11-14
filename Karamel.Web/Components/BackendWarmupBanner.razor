@@ -1,0 +1,177 @@
+@inject HttpClient Http
+@implements IAsyncDisposable
+
+@if (_showBanner)
+{
+    <div class="backend-warmup-banner" role="status" aria-live="polite">
+        <div class="backend-warmup-banner__content">
+            <span class="backend-warmup-banner__icon" aria-hidden="true">⏳</span>
+            <span>@_bannerMessage</span>
+            @if (_showRetryButton)
+            {
+                <button type="button" class="backend-warmup-banner__retry" @onclick="RetryAsync">
+                    Retry
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private readonly TimeSpan _successThreshold = TimeSpan.FromSeconds(1.5);
+    private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(3);
+    private readonly TimeSpan _maxWarmupDuration = TimeSpan.FromSeconds(150);
+    private readonly TimeSpan _requestTimeout = TimeSpan.FromSeconds(8);
+
+    private CancellationTokenSource? _loopCancellation;
+    private bool _showBanner;
+    private bool _showRetryButton;
+    private string _bannerMessage = "Waking up the server… this can take up to a minute.";
+    private bool _loopStarted;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _loopStarted)
+        {
+            return;
+        }
+
+        _loopStarted = true;
+        _ = StartWarmupLoopAsync();
+        await Task.CompletedTask;
+    }
+
+    private async Task StartWarmupLoopAsync()
+    {
+        var loopCancellation = new CancellationTokenSource();
+        _loopCancellation = loopCancellation;
+        var loopToken = loopCancellation.Token;
+        var startTime = DateTime.UtcNow;
+
+        while (!loopToken.IsCancellationRequested)
+        {
+            try
+            {
+                var result = await CheckHealthAsync(loopToken);
+
+                if (result == HealthCheckResult.Success)
+                {
+                    _showBanner = false;
+                    _showRetryButton = false;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                if (result == HealthCheckResult.Timeout)
+                {
+                    ShowRetryBanner();
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                if (DateTime.UtcNow - startTime >= _maxWarmupDuration)
+                {
+                    ShowRetryBanner();
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                if (DateTime.UtcNow - startTime >= _successThreshold && !_showBanner)
+                {
+                    _showBanner = true;
+                    _bannerMessage = "Waking up the server… this can take up to a minute.";
+                    _showRetryButton = false;
+                    await InvokeAsync(StateHasChanged);
+                }
+
+                await Task.Delay(_pollInterval, loopToken);
+            }
+            catch (OperationCanceledException) when (loopToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception)
+            {
+                if (!_showBanner && DateTime.UtcNow - startTime >= _successThreshold)
+                {
+                    _showBanner = true;
+                    _bannerMessage = "Waking up the server… this can take up to a minute.";
+                    _showRetryButton = false;
+                    await InvokeAsync(StateHasChanged);
+                }
+
+                try
+                {
+                    await Task.Delay(_pollInterval, loopToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task<HealthCheckResult> CheckHealthAsync(CancellationToken loopToken)
+    {
+        using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(loopToken);
+        requestCancellation.CancelAfter(_requestTimeout);
+
+        try
+        {
+            using var response = await Http.GetAsync("/health", HttpCompletionOption.ResponseHeadersRead, requestCancellation.Token);
+            return response.IsSuccessStatusCode ? HealthCheckResult.Success : HealthCheckResult.Failed;
+        }
+        catch (OperationCanceledException) when (!loopToken.IsCancellationRequested)
+        {
+            return HealthCheckResult.Timeout;
+        }
+        catch (Exception)
+        {
+            return HealthCheckResult.Failed;
+        }
+    }
+
+    private void ShowRetryBanner()
+    {
+        _showBanner = true;
+        _showRetryButton = true;
+        _bannerMessage = "The server is not reachable right now.";
+    }
+
+    private async Task RetryAsync()
+    {
+        _showBanner = false;
+        _showRetryButton = false;
+        _bannerMessage = "Waking up the server… this can take up to a minute.";
+        await InvokeAsync(StateHasChanged);
+
+        if (_loopCancellation != null)
+        {
+            _loopCancellation.Cancel();
+            _loopCancellation.Dispose();
+            _loopCancellation = null;
+        }
+
+        await StartWarmupLoopAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_loopCancellation != null)
+        {
+            _loopCancellation.Cancel();
+            _loopCancellation.Dispose();
+            _loopCancellation = null;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private enum HealthCheckResult
+    {
+        Success,
+        Failed,
+        Timeout
+    }
+}
