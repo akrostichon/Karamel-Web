@@ -13,12 +13,14 @@ namespace Karamel.Backend.Controllers
         private readonly ISessionRepository _repo;
         private readonly ITokenService _tokenService;
         private readonly ILogger<SessionsController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public SessionsController(ISessionRepository repo, ITokenService tokenService, ILogger<SessionsController> logger)
+        public SessionsController(ISessionRepository repo, ITokenService tokenService, ILogger<SessionsController> logger, IConfiguration configuration)
         {
             _repo = repo;
             _tokenService = tokenService;
             _logger = logger;
+            _configuration = configuration;
         }
 
         [HttpPost]
@@ -26,6 +28,14 @@ namespace Karamel.Backend.Controllers
         {
             try
             {
+                var maxActiveSessions = _configuration.GetValue("Karamel:MaxActiveSessions", 100);
+                var activeSessionCount = (await _repo.ListAsync()).Count();
+                if (activeSessionCount >= maxActiveSessions)
+                {
+                    Response.Headers["Retry-After"] = "60";
+                    return StatusCode(StatusCodes.Status503ServiceUnavailable, "Server is busy, try again later");
+                }
+
                 var session = new Session
                 {
                     Id = Guid.NewGuid(),

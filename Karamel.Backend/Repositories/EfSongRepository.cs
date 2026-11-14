@@ -105,6 +105,11 @@ namespace Karamel.Backend.Repositories
         }
     }
 
+        public async Task<int> CountBySessionAsync(Guid sessionId)
+        {
+            return await _db.Songs.AsNoTracking().CountAsync(s => s.SessionId == sessionId);
+        }
+
         public async Task<PagedResult<SongListItemDto>> GetPageAsync(Guid sessionId, int page, int pageSize, string? search, string? sort, string? artist = null)
         {
             _logger.LogDebug("SongRepository.GetPageAsync: sessionId={SessionId}, page={Page}, pageSize={PageSize}, search={Search}, artist={Artist}",

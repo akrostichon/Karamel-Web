@@ -11,16 +11,19 @@ namespace Karamel.Backend.Controllers
         private readonly ISongRepository _songRepo;
         private readonly ILogger<LibraryController> _logger;
         private readonly ITokenService _tokenService;
+        private readonly IConfiguration _configuration;
 
-        public LibraryController(ISongRepository songRepo, ILogger<LibraryController> logger, ITokenService tokenService)
+        public LibraryController(ISongRepository songRepo, ILogger<LibraryController> logger, ITokenService tokenService, IConfiguration configuration)
         {
             _songRepo = songRepo;
             _logger = logger;
             _tokenService = tokenService;
+            _configuration = configuration;
         }
 
         // Bulk upload sanitized library entries for a session
         [HttpPost("bulk")]
+        [RequestSizeLimit(16_000_000)]
         public async Task<IActionResult> BulkUpsert(Guid sessionId, [FromBody] IEnumerable<SongUploadDto> songs)
         {
             // Require valid admin token
@@ -39,14 +42,38 @@ namespace Karamel.Backend.Controllers
                     return BadRequest("Payload missing");
                 }
 
-                // Security: Ensure payload does not contain forbidden fields
-                // Since model binding already mapped allowed fields, we defensively inspect raw JSON is not available here.
-                // Basic validation: reject if count is excessive
+                var maxSongsPerUpload = _configuration.GetValue("Karamel:MaxSongsPerUpload", 20_000);
+                var maxSongsPerSession = _configuration.GetValue("Karamel:MaxSongsPerSession", 25_000);
                 var list = songs.ToList();
-                if (list.Count > 5000)
+                if (list.Count > maxSongsPerUpload)
                 {
                     _logger.LogWarning("BulkUpsert rejected: Too many songs ({Count}) for session {SessionId}", list.Count, sessionId);
                     return BadRequest("Too many songs in single upload");
+                }
+
+                foreach (var song in list)
+                {
+                    var artist = (song.Artist ?? string.Empty).Trim();
+                    var title = (song.Title ?? string.Empty).Trim();
+                    if (artist.Length > 512 || title.Length > 512)
+                    {
+                        _logger.LogWarning("BulkUpsert rejected: Song metadata too long for session {SessionId}", sessionId);
+                        return BadRequest("Invalid song metadata");
+                    }
+
+                    if (song.MetadataJson != null && song.MetadataJson.Length > 4096)
+                    {
+                        _logger.LogWarning("BulkUpsert rejected: Metadata too large for session {SessionId}", sessionId);
+                        return BadRequest("Metadata too large");
+                    }
+                }
+
+                var existingCount = await _songRepo.CountBySessionAsync(sessionId);
+                if (existingCount + list.Count > maxSongsPerSession)
+                {
+                    _logger.LogWarning("BulkUpsert rejected: Library too large for session {SessionId} ({ExistingCount} + {UploadCount} > {MaxSongsPerSession})",
+                        sessionId, existingCount, list.Count, maxSongsPerSession);
+                    return BadRequest("Library too large");
                 }
 
                 // Video validation: reject videos with duration > 15 minutes (heuristic for 500MB+ files)

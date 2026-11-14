@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.HttpOverrides;
 using Karamel.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,12 +41,14 @@ builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new K
 // Add SignalR
 builder.Services.AddSignalR(options =>
 {
-    options.EnableDetailedErrors = true;
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     // Increase timeouts to handle Azure App Service cold starts and network latency
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(60); // Default: 30s
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);      // Default: 15s (send ping every 15s)
     options.HandshakeTimeout = TimeSpan.FromSeconds(30);       // Default: 15s
 });
+
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1_048_576);
 
 // Allow cross-origin requests from the frontend during local development so
 // the browser can POST/OPTIONS to the API when frontend is served from a
@@ -76,11 +79,10 @@ builder.Services.AddCors(options =>
         .WithExposedHeaders("X-Total-Count");
     });
     
-    // Production CORS policy for Azure Static Web App
+    // Production CORS policy for public deployments.
     options.AddPolicy("ProductionCors", policy =>
     {
-        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
-            ?? new[] { "https://polite-grass-037bbc503.2.azurestaticapps.net" };
+        var allowedOrigins = CorsOriginParser.Parse(builder.Configuration, builder.Environment);
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
@@ -99,7 +101,25 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<Karamel.Backend.Services.SessionCleanupService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Karamel.Backend.Services.SessionCleanupService>());
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    // Render terminates TLS at the edge proxy, so we trust only the immediate proxy and
+    // do not accept arbitrary forwarded headers from other network hops.
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    await next();
+});
 
 // Data is ephemeral (sessions expire after 30 minutes), so the SQLite schema is always created fresh from the model.
 if (!app.Environment.IsEnvironment("Testing"))
@@ -122,6 +142,10 @@ if (app.Environment.IsDevelopment())
         app.UseSwaggerUI();
     }
 }
+else if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHsts();
+}
 
 // Enable CORS in the request pipeline for development environment so the
 // frontend running on a different port can make API requests without preflight failures.
@@ -134,7 +158,6 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    // Production CORS for Azure Static Web App
     app.UseCors("ProductionCors");
     Console.WriteLine("CORS enabled for production environment");
 }

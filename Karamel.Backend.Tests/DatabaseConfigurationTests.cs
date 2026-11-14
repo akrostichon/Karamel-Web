@@ -32,10 +32,7 @@ public class DatabaseConfigurationTests
         Assert.Equal("Information", logLevels.GetProperty("Microsoft.Hosting.Lifetime").GetString());
         Assert.False(logLevels.TryGetProperty("Microsoft.EntityFrameworkCore.Database.Command", out _));
         Assert.Equal(string.Empty, root.GetProperty("Karamel").GetProperty("TokenSecret").GetString());
-        Assert.Single(corsOrigins.EnumerateArray());
-        Assert.Equal(
-            "https://polite-grass-037bbc503.2.azurestaticapps.net",
-            corsOrigins.EnumerateArray().Single().GetString());
+        Assert.Equal(0, corsOrigins.GetArrayLength());
     }
 
     [Fact]
