@@ -57,6 +57,25 @@ Karamel is a modern browser-based karaoke system built for real nights out. Your
 
 ---
 
+## Backend configuration (environment variables)
+
+The backend reads configuration from environment variables using double underscores for nested keys.
+
+| Environment variable | Description | Default |
+|---|---|---|
+| `Karamel__TokenSecret` | Token-signing secret; required outside Development/Testing and must be at least 32 characters. | Development/Testing fallback only |
+| `Cors__AllowedOrigins__0..n` | Allowed frontend origins, one indexed value per origin. Required in Production; omit trailing slashes. | No origins |
+| `ConnectionStrings__DefaultConnection` | SQLite connection string. | `Data Source=karamel.db` |
+| `Karamel__MaxActiveSessions` | Maximum active sessions. | `100` |
+| `Karamel__MaxSongsPerUpload` | Maximum songs accepted in one library upload. | `20000` |
+| `Karamel__MaxSongsPerSession` | Maximum songs stored per session library. | `25000` |
+| `RateLimiting__Enabled` | Enables the per-IP and global rate limits. Defaults to enabled except in Testing. | `true` |
+| `RateLimiting__SessionCreatePerMinute` | Session creation requests allowed per client IP per minute. | `10` |
+| `RateLimiting__BulkUploadPerMinute` | Bulk library uploads allowed per client IP per minute. | `6` |
+| `RateLimiting__GlobalPerMinute` | Requests allowed per client IP per minute across the API. | `1200` |
+
+---
+
 ## Attributions
 
 This project uses the following third-party libraries. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for details and license information.
