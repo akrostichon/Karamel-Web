@@ -27,83 +27,85 @@ namespace Karamel.Backend.Repositories
                         .Select(s => new { s.Id, Artist = (s.Artist ?? string.Empty).Trim(), Title = (s.Title ?? string.Empty).Trim(), MetadataJson = s.MetadataJson })
                         .ToList();
 
-        if (!list.Any()) return;
+            if (!list.Any()) return;
 
-        try
-        {
-            _logger.LogInformation("BulkUpsert: Processing {Count} songs for session {SessionId}", list.Count, sessionId);
-
-            // Use IDs for deduplication (client controls uniqueness)
-            var ids = list.Select(s => s.Id).Distinct().ToList();
-            _logger.LogDebug("BulkUpsert: {UniqueCount} unique songs after deduplication by ID", ids.Count);
-
-            // Get existing songs for session by ID
-            var existing = await _db.Songs.Where(s => s.SessionId == sessionId && ids.Contains(s.Id))
-                                         .ToListAsync();
-            _logger.LogDebug("BulkUpsert: Found {ExistingCount} existing songs in database", existing.Count);
-
-            var existingIds = existing.Select(e => e.Id).ToHashSet();
-
-            // Update existing songs
-            int updatedCount = 0;
-            foreach (var existingSong in existing)
+            try
             {
-                var updated = list.FirstOrDefault(s => s.Id == existingSong.Id);
-                if (updated != null)
+                _logger.LogInformation("BulkUpsert: Processing {Count} songs for session {SessionId}", list.Count, sessionId);
+
+                // Use IDs for deduplication (client controls uniqueness)
+                var ids = list.Select(s => s.Id).Distinct().ToList();
+                _logger.LogDebug("BulkUpsert: {UniqueCount} unique songs after deduplication by ID", ids.Count);
+
+                // Get existing songs for session by ID
+                var existing = await _db.Songs.Where(s => s.SessionId == sessionId && ids.Contains(s.Id))
+                                             .ToListAsync();
+                _logger.LogDebug("BulkUpsert: Found {ExistingCount} existing songs in database", existing.Count);
+
+                var existingIds = existing.Select(e => e.Id).ToHashSet();
+
+                // Update existing songs
+                int updatedCount = 0;
+                foreach (var existingSong in existing)
                 {
-                    existingSong.Artist = updated.Artist;
-                    existingSong.Title = updated.Title;
-                    existingSong.MetadataJson = updated.MetadataJson;
-                    // Note: AddedAt is NOT updated (preserves original timestamp)
-                    updatedCount++;
-                }
-            }
-
-            if (updatedCount > 0)
-            {
-                _logger.LogInformation("BulkUpsert: Updated {UpdatedCount} existing songs for session {SessionId}", updatedCount, sessionId);
-            }
-
-            // Add new songs
-            var toAdd = new List<Song>();
-            foreach (var s in list)
-            {
-                if (!existingIds.Contains(s.Id))
-                {
-                    toAdd.Add(new Song
+                    var updated = list.FirstOrDefault(s => s.Id == existingSong.Id);
+                    if (updated != null)
                     {
-                        Id = s.Id,  // Use client-provided ID
-                        SessionId = sessionId,
-                        Artist = s.Artist,
-                        Title = s.Title,
-                        MetadataJson = s.MetadataJson,
-                        AddedAt = DateTime.UtcNow
-                    });
+                        existingSong.Artist = updated.Artist;
+                        existingSong.Title = updated.Title;
+                        existingSong.SearchKey = SearchText.Fold(updated.Artist + " " + updated.Title);
+                        existingSong.MetadataJson = updated.MetadataJson;
+                        // Note: AddedAt is NOT updated (preserves original timestamp)
+                        updatedCount++;
+                    }
+                }
+
+                if (updatedCount > 0)
+                {
+                    _logger.LogInformation("BulkUpsert: Updated {UpdatedCount} existing songs for session {SessionId}", updatedCount, sessionId);
+                }
+
+                // Add new songs
+                var toAdd = new List<Song>();
+                foreach (var s in list)
+                {
+                    if (!existingIds.Contains(s.Id))
+                    {
+                        toAdd.Add(new Song
+                        {
+                            Id = s.Id,  // Use client-provided ID
+                            SessionId = sessionId,
+                            Artist = s.Artist,
+                            Title = s.Title,
+                            SearchKey = SearchText.Fold(s.Artist + " " + s.Title),
+                            MetadataJson = s.MetadataJson,
+                            AddedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                if (toAdd.Any())
+                {
+                    _logger.LogInformation("BulkUpsert: Adding {NewCount} new songs to database", toAdd.Count);
+                    await _db.Songs.AddRangeAsync(toAdd);
+                }
+
+                if (toAdd.Any() || updatedCount > 0)
+                {
+                    await _db.SaveChangesAsync();
+                    _logger.LogInformation("BulkUpsert: Successfully saved {NewCount} new and {UpdatedCount} updated songs for session {SessionId}", toAdd.Count, updatedCount, sessionId);
+                }
+                else
+                {
+                    _logger.LogInformation("BulkUpsert: No changes (all duplicates) for session {SessionId}", sessionId);
                 }
             }
-
-            if (toAdd.Any())
+            catch (Exception ex)
             {
-                _logger.LogInformation("BulkUpsert: Adding {NewCount} new songs to database", toAdd.Count);
-                await _db.Songs.AddRangeAsync(toAdd);
-            }
-
-            if (toAdd.Any() || updatedCount > 0)
-            {
-                await _db.SaveChangesAsync();
-                _logger.LogInformation("BulkUpsert: Successfully saved {NewCount} new and {UpdatedCount} updated songs for session {SessionId}", toAdd.Count, updatedCount, sessionId);
-            }
-            else
-            {
-                _logger.LogInformation("BulkUpsert: No changes (all duplicates) for session {SessionId}", sessionId);
+                _logger.LogError(ex, "BulkUpsert failed for session {SessionId}. Attempted to add songs from {TotalCount} input items", sessionId, list.Count);
+                throw;
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "BulkUpsert failed for session {SessionId}. Attempted to add songs from {TotalCount} input items", sessionId, list.Count);
-            throw;
-        }
-    }
 
         public async Task<int> CountBySessionAsync(Guid sessionId)
         {
@@ -114,16 +116,15 @@ namespace Karamel.Backend.Repositories
         {
             _logger.LogDebug("SongRepository.GetPageAsync: sessionId={SessionId}, page={Page}, pageSize={PageSize}, search={Search}, artist={Artist}",
                 sessionId, page, pageSize, search ?? "null", artist ?? "null");
-            
+
             if (page < 1) page = 1;
             if (pageSize <= 0) pageSize = 50;
 
-            // ── Artist-exact-match path: bypasses fuzzy entirely, no pool limit ──
             if (!string.IsNullOrWhiteSpace(artist))
             {
                 var artistQuery = _db.Songs.AsNoTracking()
                     .Where(s => s.SessionId == sessionId && s.Artist == artist)
-                    .OrderBy(s => s.Title);
+                    .OrderBy(s => s.SearchKey);
                 var artistTotal = await artistQuery.LongCountAsync();
                 var artistItems = await artistQuery
                     .Skip((page - 1) * pageSize).Take(pageSize)
@@ -135,8 +136,8 @@ namespace Karamel.Backend.Repositories
             }
 
             var trimmedSearch = search?.Trim();
+            var foldedQuery = SearchText.Fold(trimmedSearch);
 
-            // ── Short/empty query: DB-only pagination (no fuzzy) ─────────────
             bool useFuzzy = !string.IsNullOrWhiteSpace(trimmedSearch)
                             && trimmedSearch.Length >= IFuzzySearchService.MinFuzzyQueryLength;
 
@@ -144,16 +145,15 @@ namespace Karamel.Backend.Repositories
             {
                 var query = _db.Songs.AsNoTracking().Where(s => s.SessionId == sessionId);
 
-                if (!string.IsNullOrWhiteSpace(trimmedSearch))
+                if (!string.IsNullOrWhiteSpace(trimmedSearch) && !string.IsNullOrEmpty(foldedQuery))
                 {
-                    var q = trimmedSearch;
-                    query = query.Where(s => EF.Functions.Like(s.Artist, $"%{q}%") || EF.Functions.Like(s.Title, $"%{q}%"));
+                    query = query.Where(s => EF.Functions.Like(s.SearchKey, $"%{foldedQuery}%"));
                 }
 
                 query = sort switch
                 {
                     "addedAt" => query.OrderByDescending(s => s.AddedAt),
-                    _ => query.OrderBy(s => s.Artist).ThenBy(s => s.Title)
+                    _ => query.OrderBy(s => s.SearchKey)
                 };
 
                 var total = await query.LongCountAsync();
@@ -167,26 +167,16 @@ namespace Karamel.Backend.Repositories
                 return new PagedResult<SongListItemDto>(items, page, pageSize, total);
             }
 
-            // ── Two-phase fuzzy strategy ──────────────────────────────────────
-            // Phase 1: SQL LIKE fetches all candidates (up to MaxCandidateForFuzzy), no Skip/Take
             _logger.LogDebug("SongRepository: Fuzzy search activated for query {Query}", trimmedSearch);
 
-            // Stage A: LIKE pre-filter — fetches every song whose artist or title contains the
-            // search term as a substring, regardless of alphabetical position.
-            // This fixes the UC1 bug where an unfiltered Take(MaxCandidateForFuzzy) would silently
-            // exclude late-alphabet artists (e.g. "Queen" at alphabetical position >500 in a large library).
             var likeCandidates = await _db.Songs.AsNoTracking()
                 .Where(s => s.SessionId == sessionId)
-                .Where(s => EF.Functions.Like(s.Artist, $"%{trimmedSearch}%") || EF.Functions.Like(s.Title, $"%{trimmedSearch}%"))
-                .OrderBy(s => s.Artist).ThenBy(s => s.Title)
+                .Where(s => EF.Functions.Like(s.SearchKey, $"%{foldedQuery}%"))
+                .OrderBy(s => s.SearchKey)
                 .Take(IFuzzySearchService.MaxCandidateForFuzzy)
                 .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
                 .ToListAsync();
 
-            // Stage B: fill any remaining capacity with alphabetically-first songs not yet in the
-            // pool.  This preserves fuzzy / typo matching (e.g. "Rapsody" → "Rhapsody") for queries
-            // that produce no LIKE hits — the first-N alphabetical songs are very likely to contain
-            // the intended song in small-to-medium libraries, exactly as the original code did.
             List<SongListItemDto> allCandidates;
             int slotsLeft = IFuzzySearchService.MaxCandidateForFuzzy - likeCandidates.Count;
             if (slotsLeft > 0)
@@ -194,7 +184,7 @@ namespace Karamel.Backend.Repositories
                 var likeIds = likeCandidates.Select(c => c.Id).ToHashSet();
                 var supplement = await _db.Songs.AsNoTracking()
                     .Where(s => s.SessionId == sessionId && !likeIds.Contains(s.Id))
-                    .OrderBy(s => s.Artist).ThenBy(s => s.Title)
+                    .OrderBy(s => s.SearchKey)
                     .Take(slotsLeft)
                     .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
                     .ToListAsync();
@@ -208,18 +198,15 @@ namespace Karamel.Backend.Repositories
             _logger.LogDebug("SongRepository: Fuzzy candidate pool size={Count} (LIKE={LikeCount}) for session {SessionId}",
                 allCandidates.Count, likeCandidates.Count, sessionId);
 
-            // Phase 2: ScoreAndSort in memory, then C#-side Skip/Take
             var scored = _fuzzy.ScoreAndSort(allCandidates, trimmedSearch!);
 
-            // Zero-results branch: generate spelling suggestions from first-char filtered candidates
             if (scored.Count == 0)
             {
-                var firstChar = trimmedSearch![0].ToString();
+                var firstChar = SearchText.Fold(trimmedSearch![0].ToString());
                 var suggestionCandidates = await _db.Songs.AsNoTracking()
                     .Where(s => s.SessionId == sessionId)
-                    .Where(s => EF.Functions.Like(s.Artist, $"%{firstChar}%")
-                             || EF.Functions.Like(s.Title,  $"%{firstChar}%"))
-                    .OrderBy(s => s.Artist)
+                    .Where(s => EF.Functions.Like(s.SearchKey, $"%{firstChar}%"))
+                    .OrderBy(s => s.SearchKey)
                     .Take(IFuzzySearchService.MaxSuggestionCandidates)
                     .Select(s => new SongListItemDto(s.Id, s.SessionId, s.Artist, s.Title, s.MetadataJson, s.AddedAt))
                     .ToListAsync();
@@ -276,7 +263,7 @@ namespace Karamel.Backend.Repositories
                     .ToListAsync();
 
                 return grouped
-                    .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(a => SearchText.Fold(a.Name))
                     .ToList();
             }
             catch (Exception ex)

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Models;
 using Karamel.Backend.Services;
@@ -24,6 +25,7 @@ namespace Karamel.Backend.Controllers
         }
 
         [HttpPost]
+        [EnableRateLimiting("session-create")]
         public async Task<IActionResult> Create([FromBody] CreateSessionRequest req)
         {
             try

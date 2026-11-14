@@ -1,6 +1,9 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Karamel.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -93,6 +96,77 @@ builder.Services.AddCors(options =>
 // Register controllers for API endpoints
 builder.Services.AddControllers();
 
+var rateLimitingEnabled = builder.Configuration.GetValue("RateLimiting:Enabled", builder.Environment.IsEnvironment("Testing") ? false : true);
+var sessionCreatePerMinute = builder.Configuration.GetValue("RateLimiting:SessionCreatePerMinute", 10);
+var bulkUploadPerMinute = builder.Configuration.GetValue("RateLimiting:BulkUploadPerMinute", 6);
+var globalPerMinute = builder.Configuration.GetValue("RateLimiting:GlobalPerMinute", 1200);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = async (context, token) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers["Retry-After"] = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+        }
+
+        context.HttpContext.Response.ContentType = "text/plain";
+        await context.HttpContext.Response.WriteAsync("Too many requests");
+    };
+
+    if (!rateLimitingEnabled)
+    {
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ => RateLimitPartition.GetNoLimiter("disabled"));
+        options.AddPolicy("session-create", _ => RateLimitPartition.GetNoLimiter("disabled"));
+        options.AddPolicy("bulk-upload", _ => RateLimitPartition.GetNoLimiter("disabled"));
+        return;
+    }
+
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var path = httpContext.Request.Path;
+        if (path.StartsWithSegments("/hubs") || path == "/health")
+        {
+            return RateLimitPartition.GetNoLimiter("exempt");
+        }
+
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = globalPerMinute,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+
+    options.AddPolicy("session-create", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = sessionCreatePerMinute,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+
+    options.AddPolicy("bulk-upload", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = bulkUploadPerMinute,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+});
+
 // Register Swagger services BEFORE building the app
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -161,6 +235,8 @@ else
     app.UseCors("ProductionCors");
     Console.WriteLine("CORS enabled for production environment");
 }
+
+app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Text("Healthy", "text/plain"))
     .WithName("Health");

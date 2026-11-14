@@ -18,6 +18,9 @@ namespace Karamel.Backend.Models
         [MaxLength(512)]
         public string Title { get; set; } = string.Empty;
 
+        [MaxLength(1100)]
+        public string SearchKey { get; set; } = string.Empty;
+
         /// <summary>
         /// Optional JSON metadata for the song.
         /// For videos, contains: {"mediaType": "video", "extension": ".mp4", "durationSeconds": 180, "width": 1920, "height": 1080}

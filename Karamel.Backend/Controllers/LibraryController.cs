@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Karamel.Backend.Repositories;
 using Karamel.Backend.Services;
 
@@ -24,6 +25,7 @@ namespace Karamel.Backend.Controllers
         // Bulk upload sanitized library entries for a session
         [HttpPost("bulk")]
         [RequestSizeLimit(16_000_000)]
+        [EnableRateLimiting("bulk-upload")]
         public async Task<IActionResult> BulkUpsert(Guid sessionId, [FromBody] IEnumerable<SongUploadDto> songs)
         {
             // Require valid admin token
