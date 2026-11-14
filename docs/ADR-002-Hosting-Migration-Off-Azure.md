@@ -1,6 +1,6 @@
 # ADR-002: Move Hosting off Azure to Cloudflare (frontend) + Render Free (backend) with ephemeral SQLite
 
-- **Status**: Proposed — becomes **Accepted** only when the performance gate G1 (see "Validation") passes
+- **Status**: Accepted (user-approved GO on 2026-11-14; M7 memory measurement unavailable on Render Free)
 - **Date**: 2026-11-07
 - **Owners**: Karamel-Web maintainer
 - **Related**: ADR-001 (service boundaries, unaffected), execution plans `plan-hostingMigration-*.md` (local, git-ignored)
@@ -94,6 +94,17 @@ Render Free is "best effort, no SLA, 0.1 CPU / 512 MB RAM (per Render docs), may
 - Pass thresholds are defined in `plan-hostingMigration-00-overview.md` (section "Gate G1"). If G1 fails after the documented mitigations, execute **fallback-1 (Cloud Run)** with the same image, then re-run the same harness.
 
 No hardening or refactoring work starts before G1 is decided.
+
+## Gate G1 result (2026-11-14)
+
+The maintainer approved GO and proceeding with the migration plans. All measured hard-limit metrics passed after the documented mitigations. The M7 peak-memory metric was **not measured** because Render Application Metrics require a paid plan; the maintainer explicitly accepted this limitation and overrode the plan's default rule that an unmeasured metric is a failure. See [hosting-spike-results.md](./hosting-spike-results.md) for measurements and the complete verdict tables.
+
+Mitigations retained for the Render service:
+
+- Logging levels and .NET GC/JIT environment variables set by the maintainer as recorded in [plan-hostingMigration-03-gate-g1.md](../plan-hostingMigration-03-gate-g1.md) (working note).
+- ReadyToRun publishing in `Karamel.Backend/Dockerfile`.
+
+The recorded F1 search casing difference and R1 restart/session-loss behavior remain known observations; the maintainer approved proceeding despite them.
 
 ## Consequences
 

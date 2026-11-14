@@ -139,4 +139,4 @@ Worst applicable Render measurements after the mitigation round. M6 uses the pre
 | M7 — Peak memory | NOT MEASURED | ≤450 MB | ≤300 MB | FAIL |
 | M8 — HTTP 5xx / `database is locked` | 0 / 0 reported | 0 / 0 | — | PASS |
 
-Step 3 outcome: **NO-GO** under the plan's rule because M7 remains NOT MEASURED and thus FAIL, despite the measured latency scenarios completing within the listed targets. The user reports Render memory metrics are unavailable. This is the end of the requested Steps 1–3; the ADR and fallback decision are not changed here.
+Strict metric-table outcome: **NO-GO** under the plan's rule because M7 remains NOT MEASURED and thus FAIL; Render Application Metrics require a paid plan. On 2026-11-14, the user explicitly overrode that mechanical outcome and approved **GO**, accepting the missing M7 measurement. All other measured metrics met their hard limits. This owner-approved exception is recorded in ADR-002.
