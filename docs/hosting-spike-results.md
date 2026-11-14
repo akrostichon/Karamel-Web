@@ -140,3 +140,18 @@ Worst applicable Render measurements after the mitigation round. M6 uses the pre
 | M8 — HTTP 5xx / `database is locked` | 0 / 0 reported | 0 / 0 | — | PASS |
 
 Strict metric-table outcome: **NO-GO** under the plan's rule because M7 remains NOT MEASURED and thus FAIL; Render Application Metrics require a paid plan. On 2026-11-14, the user explicitly overrode that mechanical outcome and approved **GO**, accepting the missing M7 measurement. All other measured metrics met their hard limits. This owner-approved exception is recorded in ADR-002.
+
+## After hardening
+
+The `search` scenario was run against `https://karamel-web.onrender.com` on 2026-11-14 after the hardening changes were pushed and the service responded to `/health`. Raw harness output is in the ignored local file `tools/perf/results/render-search-after-hardening.json`.
+
+| Metric | Result | Hard limit | Outcome |
+|---|---:|---:|---|
+| Library pages, n=100 | p50 801.24 ms; p95 1,330.78 ms; max 3,855.21 ms | p95 ≤600 ms | Exceeded |
+| Search requests, n=60 | p50 756.24 ms; p95 1,063.23 ms; max 3,782.61 ms | p95 ≤1,000 ms | Exceeded |
+| Artist lists, n=20 | p50 460.70 ms; p95 3,290.50 ms; max 5,760.96 ms | No hard limit specified | Informational |
+| HTTP 5xx | 0 | 0 | Met |
+| Harness functional counts (`Ärzte`, `ärzte`, `aerzte`, `Arzte`) | 6, 6, 3, 6 | Equal first two; plain `arzte` should match | First two equal |
+| Targeted exact-query counts (`Ärzte`, `ärzte`, `arzte`, `Arzte`) | 1, 1, 1, 1 | Equal | Met |
+
+The targeted check created a temporary session, uploaded `Die Ärzte`, queried each exact spelling, and then ended the session. Search equivalence passed. The measured library-page and search p95 values exceeded their Gate-G1 hard limits in this run; the latency gate therefore did not pass and should not be represented as meeting the target.
