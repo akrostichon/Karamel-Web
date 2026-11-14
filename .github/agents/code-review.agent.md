@@ -171,7 +171,7 @@ Apply comprehensive code review following [.github/skills/code-review/SKILL.md](
 - Verify test coverage against [TESTING_STRATEGY.md](TESTING_STRATEGY.md)
 - Check UI changes against [STYLING_GUIDE.md](STYLING_GUIDE.md)
 - For C# code: apply [.github/instructions/csharp.instructions.md](.github/instructions/csharp.instructions.md)
-- For migrations: apply [.github/instructions/database-migrations.instructions.md](.github/instructions/database-migrations.instructions.md)
+- Database changes: the backend uses SQLite and recreates its schema at startup; EF migrations are not used.
 
 **Comment format** (use this template for each finding):
 
