@@ -3,46 +3,9 @@ using Microsoft.AspNetCore.SignalR;
 using Karamel.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-// Configure EF Core DbContext with provider-agnostic options
-var dbProvider = builder.Configuration["DB_PROVIDER"] ?? System.Environment.GetEnvironmentVariable("DB_PROVIDER") ?? "Sqlite";
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? builder.Configuration["DefaultConnection"];
-var useAad = (builder.Configuration["DB_USE_AAD"] ?? Environment.GetEnvironmentVariable("DB_USE_AAD")) == "true";
-
-if (string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
-{
-    if (useAad && !string.IsNullOrWhiteSpace(connectionString))
-    {
-        // Use managed identity access token via a custom DbConnection
-        builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>((serviceProvider, options) =>
-        {
-            var conn = Karamel.Backend.Services.ManagedIdentitySqlConnectionFactory.Create(connectionString);
-            options.UseSqlServer(conn, sqlOptions =>
-            {
-                sqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 2,
-                    maxRetryDelay: TimeSpan.FromSeconds(10),
-                    errorNumbersToAdd: null);
-            });
-        });
-    }
-    else
-    {
-        builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
-            options.UseSqlServer(connectionString ?? "Server=(local);Database=Karamel;Trusted_Connection=True;", sqlOptions =>
-            {
-                sqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 2,
-                    maxRetryDelay: TimeSpan.FromSeconds(10),
-                    errorNumbersToAdd: null);
-            }));
-    }
-}
-else
-{
-    // Default to SQLite (file-based) unless overridden
-    builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
-        options.UseSqlite(connectionString ?? "Data Source=karamel.db"));
-}
+builder.Services.AddDbContext<Karamel.Backend.Data.BackendDbContext>(options =>
+    options.UseSqlite(string.IsNullOrWhiteSpace(connectionString) ? "Data Source=karamel.db" : connectionString));
 
 // Register repositories
 builder.Services.AddScoped<Karamel.Backend.Repositories.ISessionRepository, Karamel.Backend.Repositories.SessionRepository>();
@@ -83,12 +46,6 @@ builder.Services.AddSignalR(options =>
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);      // Default: 15s (send ping every 15s)
     options.HandshakeTimeout = TimeSpan.FromSeconds(30);       // Default: 15s
 });
-
-// Add Application Insights telemetry with IP masking
-builder.Services.AddApplicationInsightsTelemetry();
-
-// Add custom telemetry initializer to mask IP addresses (Privacy-by-Design: Always mask IP addresses)
-builder.Services.AddSingleton<Microsoft.ApplicationInsights.Extensibility.ITelemetryInitializer, IpMaskingTelemetryInitializer>();
 
 // Allow cross-origin requests from the frontend during local development so
 // the browser can POST/OPTIONS to the API when frontend is served from a
@@ -145,7 +102,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<Karamel.Backend.Se
 var app = builder.Build();
 
 // Data is ephemeral (sessions expire after 30 minutes), so the SQLite schema is always created fresh from the model.
-if (!string.Equals(dbProvider, "SqlServer", StringComparison.OrdinalIgnoreCase) && !app.Environment.IsEnvironment("Testing"))
+if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<Karamel.Backend.Data.BackendDbContext>();
