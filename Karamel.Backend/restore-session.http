@@ -1,0 +1,27 @@
+@baseUrl = http://localhost:5001
+@sessionId = 00000000-0000-0000-0000-000000000000
+@adminToken = replace-with-the-admin-token-for-this-session
+
+### Restore a session after a backend restart
+POST {{baseUrl}}/api/sessions/{{sessionId}}/restore
+X-Link-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "requireSingerName": true,
+  "pauseBetweenSongsSeconds": 5,
+  "allowSingersToReorder": false,
+  "theme": "dark"
+}
+
+### Invalid token is rejected
+POST {{baseUrl}}/api/sessions/{{sessionId}}/restore
+X-Link-Token: invalid-token
+Content-Type: application/json
+
+{
+  "requireSingerName": true,
+  "pauseBetweenSongsSeconds": 5,
+  "allowSingersToReorder": false,
+  "theme": "dark"
+}

@@ -80,6 +80,94 @@ namespace Karamel.Backend.Controllers
             }
         }
 
+        [HttpPost("{id:guid}/restore")]
+        [EnableRateLimiting("session-create")]
+        public async Task<IActionResult> Restore(Guid id, [FromBody] CreateSessionRequest req)
+        {
+            var token = Request.Headers["X-Link-Token"].FirstOrDefault();
+            if (string.IsNullOrEmpty(token))
+            {
+                return Unauthorized("Missing X-Link-Token header");
+            }
+
+            var (role, isValid) = _tokenService.ValidateToken(token, id);
+            if (!isValid || role != "admin")
+            {
+                return Unauthorized("Invalid or expired token");
+            }
+
+            try
+            {
+                var existingSession = await _repo.GetByIdAsync(id);
+                if (existingSession is not null)
+                {
+                    existingSession.ExpiresAt = DateTime.UtcNow.AddMinutes(DefaultTtlMinutes);
+                    await _repo.UpdateAsync(existingSession);
+
+                    _logger.LogInformation("Restored session {SessionId}", id);
+
+                    return Ok(new
+                    {
+                        existingSession.Id,
+                        adminToken = existingSession.AdminToken,
+                        singerToken = existingSession.SingerToken,
+                        expiresAt = existingSession.ExpiresAt,
+                        requireSingerName = existingSession.Config.RequireSingerName,
+                        pauseBetweenSongsSeconds = existingSession.Config.PauseBetweenSongsSeconds,
+                        allowSingersToReorder = existingSession.Config.AllowSingersToReorder,
+                        theme = existingSession.Config.Theme,
+                        restored = false
+                    });
+                }
+
+                var maxActiveSessions = _configuration.GetValue("Karamel:MaxActiveSessions", 100);
+                var activeSessionCount = (await _repo.ListAsync()).Count();
+                if (activeSessionCount >= maxActiveSessions)
+                {
+                    Response.Headers["Retry-After"] = "60";
+                    return StatusCode(StatusCodes.Status503ServiceUnavailable, "Server is busy, try again later");
+                }
+
+                // Tokens do not expire, so an old admin link can recreate an empty session for its ID. This is accepted because it grants no access beyond that ID and session creation is rate-limited and capped.
+                var session = new Session
+                {
+                    Id = id,
+                    AdminToken = token,
+                    SingerToken = _tokenService.GenerateSingerToken(id),
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(DefaultTtlMinutes),
+                    Config = new SessionConfig
+                    {
+                        RequireSingerName = req.RequireSingerName,
+                        PauseBetweenSongsSeconds = req.PauseBetweenSongsSeconds,
+                        AllowSingersToReorder = req.AllowSingersToReorder,
+                        Theme = req.Theme
+                    }
+                };
+
+                await _repo.AddAsync(session);
+                _logger.LogInformation("Restored session {SessionId}", id);
+
+                return CreatedAtAction(nameof(Get), new { id }, new
+                {
+                    session.Id,
+                    adminToken = session.AdminToken,
+                    singerToken = session.SingerToken,
+                    expiresAt = session.ExpiresAt,
+                    requireSingerName = session.Config.RequireSingerName,
+                    pauseBetweenSongsSeconds = session.Config.PauseBetweenSongsSeconds,
+                    allowSingersToReorder = session.Config.AllowSingersToReorder,
+                    theme = session.Config.Theme,
+                    restored = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error restoring session {SessionId}", id);
+                return StatusCode(500, "Failed to restore session");
+            }
+        }
+
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> Get(Guid id)
         {
