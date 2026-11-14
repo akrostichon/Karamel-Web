@@ -98,3 +98,7 @@ Raw output: ignored `tools/perf/results/render-g1-round-1.json`.
 | hub | parallel burst | 5,208.03 ms; complete |
 
 The measured M2–M5 values improved relative to the original Render runs, but this run cannot attribute the change to a specific environment-variable group. M7 remains unmeasured and therefore FAIL per the gate rules; the Render dashboard did not expose memory metrics to the user. The final round 2 verdict remains pending the ReadyToRun redeployment and re-measurement.
+
+## ReadyToRun deployment build issue
+
+The first Render build with ReadyToRun failed with `NETSDK1094`: restore had been run for `linux-x64` without `PublishReadyToRun=true`, while publish enabled ReadyToRun and used `--no-restore`. The restore command was updated to include `-p:PublishReadyToRun=true`. The matching Linux RID restore and ReadyToRun publish then completed locally; the Render image build still needs to be retried after pushing this correction.
