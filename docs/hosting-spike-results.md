@@ -5,7 +5,7 @@
 - Date recorded: 2026-11-14
 - Render service: `karamel-web.onrender.com`, Frankfurt, Free Web Service
 - Harness: `tools/perf`, Node.js ES modules; revision `e0a0c78`.
-- Raw harness output: ignored files under `tools/perf/results/` (`local.json`, `render-all-1.json`, `render-all-2.json`, `render-coldstart-1.json`, `render-coldstart-2.json`, `render-wsidle.json`). These files are local-only and are not committed.
+- Raw harness output: ignored files under `tools/perf/results/` (`local.json`, `render-all-1.json`, `render-all-2.json`, `render-coldstart-1.json`, `render-coldstart-2.json`, `render-wsidle.json`, `render-g1-round-1.json`, `render-g1-coldstart.json`, `render-g1-all.json`). These files are local-only and are not committed.
 
 The limits and targets below are the proposed measurements from the hosting overview. This report records measurements and observations only; it does not assign verdicts.
 
@@ -101,4 +101,42 @@ The measured M2–M5 values improved relative to the original Render runs, but t
 
 ## ReadyToRun deployment build issue
 
-The first Render build with ReadyToRun failed with `NETSDK1094`: restore had been run for `linux-x64` without `PublishReadyToRun=true`, while publish enabled ReadyToRun and used `--no-restore`. The restore command was updated to include `-p:PublishReadyToRun=true`. The matching Linux RID restore and ReadyToRun publish then completed locally; the Render image build still needs to be retried after pushing this correction.
+The first Render build with ReadyToRun failed with `NETSDK1094`: restore had been run for `linux-x64` without `PublishReadyToRun=true`, while publish enabled ReadyToRun and used `--no-restore`. The restore command was updated to include `-p:PublishReadyToRun=true` in commit `e03d56e`. The matching Linux RID restore and ReadyToRun publish completed locally, and the user confirmed the corrected Render deployment succeeded.
+
+## Gate G1 post-ReadyToRun measurements
+
+The user confirmed the corrected Render deployment was live and the service had been idle for at least 20 minutes before the cold-start probe. Raw output is in ignored `render-g1-coldstart.json` and `render-g1-all.json`.
+
+| Scenario | Metric | Result |
+|---|---|---|
+| coldstart | health first returned HTTP 200 | 13.85 s, first attempt, 0 network failures, 0 HTTP 5xx |
+| rest | createSession, n=20 | p50 58.42 ms; p95 106.07 ms; max 1,599.79 ms; 20×201 |
+| rest | HTTP 5xx | 0 |
+| bulk | bulkUpload (3 sequential) | p50 5,597.26 ms; max 6,699.02 ms; all 6 uploads HTTP 202 |
+| bulk | parallel3Ms / HTTP 5xx | 16,452.72 ms / 0 |
+| search | libraryPages (100) | p50 47.47 ms; p95 67.44 ms |
+| search | searches (60) | p50 59.95 ms; p95 111.25 ms |
+| search | artistLists (20) | p50 59.03 ms; p95 96.65 ms |
+| search | F1 counts (`Ärzte`, `ärzte`, `aerzte`, `Arzte`) / HTTP 5xx | 6, 0, 0, 0 / 0 |
+| hub | broadcast latency (60) | p50 205.86 ms; p95 609.57 ms; max 706.91 ms |
+| hub | broadcast failures / unexpected disconnects / HTTP 5xx | 0 / 0 / 0 |
+| hub | connect / `JoinSession`, p50 | 696.12 ms / 1,795.07 ms |
+| hub | parallel burst | 5,116.06 ms; complete |
+
+## Gate G1 verdict (round 2)
+
+Worst applicable Render measurements after the mitigation round. M6 uses the previous valid 20-minute WebSocket-only measurement; it was not rerun after ReadyToRun. M7 remains unavailable from the dashboard.
+
+| Metric | Worst Render value | Hard limit | Target | PASS / FAIL / PASS(hard only) |
+|---|---:|---:|---:|---|
+| M1 — Cold start | 42.96 s (3 total samples; worst of 3) | ≤120 s | ≤75 s | PASS |
+| M2 — Session creation p95 | 106.07 ms | ≤1,000 ms | ≤400 ms | PASS |
+| M3 — Sequential bulk upload max | 7,026.02 ms | ≤15,000 ms | ≤8,000 ms | PASS |
+| M4a — Library pages p95 | 102.24 ms | ≤600 ms | ≤300 ms | PASS |
+| M4b — Search p95 | 323.56 ms | ≤1,000 ms | ≤500 ms | PASS |
+| M5 — Broadcast p95 / max / unexpected disconnects | 609.57 ms / 706.91 ms / 0 | ≤1,500 ms / ≤4,000 ms / 0 | p95 ≤700 ms | PASS |
+| M6 — WebSocket-only idle health check | HTTP 200 in 203.78 ms; 0 disconnects | HTTP 200 within 2,000 ms | — | PASS |
+| M7 — Peak memory | NOT MEASURED | ≤450 MB | ≤300 MB | FAIL |
+| M8 — HTTP 5xx / `database is locked` | 0 / 0 reported | 0 / 0 | — | PASS |
+
+Step 3 outcome: **NO-GO** under the plan's rule because M7 remains NOT MEASURED and thus FAIL, despite the measured latency scenarios completing within the listed targets. The user reports Render memory metrics are unavailable. This is the end of the requested Steps 1–3; the ADR and fallback decision are not changed here.
