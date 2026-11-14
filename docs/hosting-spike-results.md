@@ -4,7 +4,7 @@
 
 - Date recorded: 2026-11-14
 - Render service: `karamel-web.onrender.com`, Frankfurt, Free Web Service
-- Harness: `tools/perf`, Node.js ES modules; committed with this report.
+- Harness: `tools/perf`, Node.js ES modules; revision `e0a0c78`.
 - Raw harness output: ignored files under `tools/perf/results/` (`local.json`, `render-all-1.json`, `render-all-2.json`, `render-coldstart-1.json`, `render-coldstart-2.json`, `render-wsidle.json`). These files are local-only and are not committed.
 
 The limits and targets below are the proposed measurements from the hosting overview. This report records measurements and observations only; it does not assign verdicts.
