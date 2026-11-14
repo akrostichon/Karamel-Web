@@ -50,3 +50,51 @@ Scan duration, upload duration, browser console errors, phone/mobile-data behavi
 - Two cold-start samples are present in the raw results; the third requested sample was not collected.
 - The Render dashboard did not expose peak memory metrics on the current plan. The user observed no `database is locked` entries or HTTP 5xx in the logs.
 - Session 4 exposed a redeployment/session-loss UX issue: after adding a song, navigation continued without the song title, ended at “No Song Selected”, and did not explain that the session had been lost.
+
+## Gate G1 verdict (round 1)
+
+Worst available Render measurements from the two recorded `all` runs and applicable standalone scenarios:
+
+| Metric | Worst Render value | Hard limit | Target | PASS / FAIL / PASS(hard only) |
+|---|---:|---:|---:|---|
+| M1 — Cold start | 42.96 s (2 of 3 samples) | ≤120 s | ≤75 s | PASS |
+| M2 — Session creation p95 | 455.46 ms | ≤1,000 ms | ≤400 ms | PASS(hard only) |
+| M3 — Sequential bulk upload max | 13,169.20 ms | ≤15,000 ms | ≤8,000 ms | PASS(hard only) |
+| M4a — Library pages p95 | 136.89 ms | ≤600 ms | ≤300 ms | PASS |
+| M4b — Search p95 | 490.56 ms | ≤1,000 ms | ≤500 ms | PASS |
+| M5 — Broadcast p95 / max / unexpected disconnects | 756.03 ms / 1,239.77 ms / 0 | ≤1,500 ms / ≤4,000 ms / 0 | p95 ≤700 ms | PASS(hard only) |
+| M6 — WebSocket-only idle health check | HTTP 200 in 203.78 ms; 0 disconnects | HTTP 200 within 2,000 ms | — | PASS |
+| M7 — Peak memory | NOT MEASURED | ≤450 MB | ≤300 MB | FAIL |
+| M8 — HTTP 5xx / `database is locked` | 0 / 0 reported | 0 / 0 | — | PASS |
+
+F1 and R1 are informational:
+
+- Umlaut searches worked, but the casing check returned counts `6, 0, 0, 0` for `Ärzte`, `ärzte`, `aerzte`, and `Arzte`.
+- Session startup felt delayed, likely due to cold start; the user considered the delay acceptable and suggested warming during library search.
+- During manual redeployment, adding a song led to a blank NextSong screen and then “No Song Selected”; the app did not explain that the session was gone.
+- The user has not explicitly judged the overall R1 experience “usable”; phone/mobile-data, duration, and other listed test details were not reported.
+
+Step 2 outcome: **MITIGATE**, because M7 is not measured and is treated as FAIL by the plan. M6 did not fail.
+
+## Gate G1 environment-variable mitigation re-run
+
+The user reports setting the environment variables listed in plan 03 mitigation items 1 and 2, including `Logging__LogLevel__Default=Warning`. The following `all` run was performed after those changes. Because the settings were applied before this measurement, the individual effect of logging versus GC/JIT settings cannot be isolated. The user previously reported Render dashboard memory metrics unavailable.
+
+Raw output: ignored `tools/perf/results/render-g1-round-1.json`.
+
+| Scenario | Metric | Result |
+|---|---|---|
+| rest | createSession, n=20 | p50 52.61 ms; p95 102.78 ms; max 1,444.40 ms; 20×201 |
+| rest | HTTP 5xx | 0 |
+| bulk | bulkUpload, n=3 | p50 6,764.09 ms; max 7,026.02 ms; all 6 uploads HTTP 202 |
+| bulk | parallel3Ms / HTTP 5xx | 17,237.84 ms / 0 |
+| search | libraryPages, n=100 | p50 50.97 ms; p95 102.24 ms |
+| search | searches, n=60 | p50 119.18 ms; p95 323.56 ms |
+| search | artistLists, n=20 | p50 49.21 ms; p95 75.29 ms |
+| search | F1 counts (`Ärzte`, `ärzte`, `aerzte`, `Arzte`) / HTTP 5xx | 6, 0, 0, 0 / 0 |
+| hub | broadcast latency, n=60 | p50 345.42 ms; p95 493.21 ms; max 637.62 ms |
+| hub | broadcast failures / unexpected disconnects / HTTP 5xx | 0 / 0 / 0 |
+| hub | connect / `JoinSession`, p50 | 406.49 ms / 961.49 ms |
+| hub | parallel burst | 5,208.03 ms; complete |
+
+The measured M2–M5 values improved relative to the original Render runs, but this run cannot attribute the change to a specific environment-variable group. M7 remains unmeasured and therefore FAIL per the gate rules; the Render dashboard did not expose memory metrics to the user. The final round 2 verdict remains pending the ReadyToRun redeployment and re-measurement.
