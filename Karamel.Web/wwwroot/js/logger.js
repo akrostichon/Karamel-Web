@@ -1,5 +1,5 @@
 /**
- * Centralized logging infrastructure with Application Insights integration
+ * Centralized logging infrastructure
  * 
  * Usage:
  *   import { createLogger } from './logger.js';
@@ -50,19 +50,6 @@ function getCurrentSessionId() {
     } catch (e) {
         // SessionStorage access might fail in some environments (e.g., private browsing)
         return null;
-    }
-    return null;
-}
-
-/**
- * Get Application Insights instance (only if telemetry is enabled via user consent)
- * @returns {object|null}
- */
-function getAppInsights() {
-    // CRITICAL: Only return appInsights if user has given consent (GDPR compliance)
-    // The window.karamel.telemetryStarted flag is set to true ONLY after user accepts cookies
-    if (window.karamel && window.karamel.telemetryStarted && window.appInsights) {
-        return window.appInsights;
     }
     return null;
 }
@@ -139,15 +126,6 @@ export function createLogger(moduleName) {
         if (currentLogLevel <= LogLevel.Info) {
             console.log(formatMessage(moduleName, 'INFO', message), buildProperties(moduleName, properties));
         }
-        
-        // Track as custom event in Application Insights
-        const appInsights = getAppInsights();
-        if (appInsights) {
-            appInsights.trackEvent({
-                name: `${moduleName}.Info`,
-                properties: buildProperties(moduleName, { message, ...properties })
-            });
-        }
     }
 
     /**
@@ -158,15 +136,6 @@ export function createLogger(moduleName) {
     function warn(message, properties = {}) {
         if (currentLogLevel <= LogLevel.Warn) {
             console.warn(formatMessage(moduleName, 'WARN', message), buildProperties(moduleName, properties));
-        }
-        
-        // Track as custom event in Application Insights
-        const appInsights = getAppInsights();
-        if (appInsights) {
-            appInsights.trackEvent({
-                name: `${moduleName}.Warning`,
-                properties: buildProperties(moduleName, { message, ...properties })
-            });
         }
     }
 
@@ -182,23 +151,6 @@ export function createLogger(moduleName) {
                 console.error(formatMessage(moduleName, 'ERROR', message), errorObj, buildProperties(moduleName, properties));
             } else {
                 console.error(formatMessage(moduleName, 'ERROR', message), buildProperties(moduleName, properties));
-            }
-        }
-        
-        // Track as exception in Application Insights
-        const appInsights = getAppInsights();
-        if (appInsights) {
-            if (errorObj instanceof Error) {
-                appInsights.trackException({
-                    exception: errorObj,
-                    properties: buildProperties(moduleName, { message, ...properties })
-                });
-            } else {
-                // If no Error object, create one from message
-                appInsights.trackException({
-                    exception: new Error(message),
-                    properties: buildProperties(moduleName, properties)
-                });
             }
         }
     }

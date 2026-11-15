@@ -842,7 +842,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 				tokenLength: currentToken.length 
 			});
 		} else {
-			// CRITICAL: This will track in Application Insights as an error
+			// Log the missing token because the request is expected to fail.
 			logger.error(`[ERROR:${correlationId}] NO currentToken available - request will likely fail`, { 
 				sessionId, 
 				url,
@@ -862,7 +862,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		
 		if (!resp.ok) {
 			const errorBody = await resp.text();
-			// CRITICAL: This will track in Application Insights as an error
+			// Log the failed request for browser-console diagnostics.
 			logger.error(`[ERROR:${correlationId}] REST request failed`, { 
 				status: resp.status, 
 				errorBody: errorBody.substring(0, 200), // Truncate long error messages
@@ -890,7 +890,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		
 		return { items, page, pageSize, totalCount: total, suggestions };
 	} catch (e) {
-		// CRITICAL: This will track in Application Insights as an exception
+		// Log the exception for browser-console diagnostics.
 		logger.error(`[ERROR:${correlationId}] fetchLibraryPage exception`, { 
 			error: e.message, 
 			stack: e.stack?.substring(0, 500),

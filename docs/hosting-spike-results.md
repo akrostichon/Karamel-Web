@@ -155,3 +155,24 @@ The `search` scenario was run against `https://karamel-web.onrender.com` on 2026
 | Targeted exact-query counts (`Ärzte`, `ärzte`, `arzte`, `Arzte`) | 1, 1, 1, 1 | Equal | Met |
 
 The targeted check created a temporary session, uploaded `Die Ärzte`, queried each exact spelling, and then ended the session. Search equivalence passed. The measured library-page and search p95 values exceeded their Gate-G1 hard limits in this run; the latency gate therefore did not pass and should not be represented as meeting the target.
+
+## Final acceptance (2026-11-15)
+
+The Cloudflare account subdomain was changed to `karaoke-stage`. After propagation, `https://karamel.karaoke-stage.workers.dev/` returned HTTP 200. Render `/health` returned `Healthy`, and an API CORS preflight returned HTTP 204 with the new frontend origin.
+
+The combined `all` harness run returned HTTP 429 when it started the bulk scenario after REST. To avoid changing the production rate limit, the `rest`, `bulk`, `search`, and `hub` scenarios were run separately; each completed and wrote an ignored result file under `tools/perf/results/`. Cold start was measured after at least 20 minutes idle.
+
+| Metric | Final result | Gate-G1 hard limit | Outcome |
+|---|---:|---:|---|
+| M1 — Cold start | 12.61 s; first attempt returned HTTP 200; 0 network failures | ≤120 s | Met |
+| M2 — Session creation, n=20 | p50 72.25 ms; p95 114.29 ms; max 126.28 ms; 20×201 | p95 ≤1,000 ms | Met |
+| M3 — Bulk upload of 3,700 songs | n=3; p50 2,668.92 ms; max 2,672.77 ms; all 6 uploads HTTP 202; parallel-three total 8,153.69 ms | sequential max ≤15 s | Met |
+| M4a — Library pages, n=100 | p50 66.66 ms; p95 189.56 ms; max 241.49 ms | p95 ≤600 ms | Met |
+| M4b — Search requests, n=60 | p50 71.66 ms; p95 233.74 ms; max 565.32 ms | p95 ≤1,000 ms | Met |
+| M5 — SignalR broadcast, 20 clients, n=60 | p95 326.51 ms; max 415.06 ms; 0 failures / unexpected disconnects; burst completed | p95 ≤1,500 ms; max ≤4,000 ms; 0 disconnects | Met |
+| M6 — WebSocket-only idle | Prior valid run: HTTP 200 in 203.78 ms; 0 disconnects | HTTP 200 within 2 s | Met |
+| M7 — Peak memory | Not available in the Render dashboard | ≤450 MB | Not measured; prior owner-approved exception remains |
+| M8 — HTTP 5xx / `database is locked` | 0 HTTP 5xx across final harness scenarios; no new database-lock report | 0 / 0 | No 5xx; logs not independently inspected |
+| F1 — Search counts (`Ärzte`, `ärzte`, `aerzte`, `Arzte`) | 6, 6, 3, 6 | first two equal | Met |
+
+The user confirmed that R1 was completed with the real library, phone on mobile data, at least 60 minutes of use, and a Render restart while a song was queued; the user judged the experience usable. No final cutover or Azure cleanup was performed.

@@ -20,71 +20,36 @@
             <section class="mb-5">
                 <h2>2. Hosting</h2>
                 <p>
-                    Diese Website wird auf Microsoft Azure in der EU (Region North Europe, Irland) gehostet. 
-                    Bei jedem Zugriff auf die Website werden technische Verbindungsdaten (IP-Adresse, Browser-Typ, Zeitstempel) 
-                    von Azure verarbeitet. Diese Verarbeitung ist zur Bereitstellung der Website technisch erforderlich und 
-                    basiert auf Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse).
+                    Die statischen Dateien dieser Website werden über Cloudflare, Inc. ausgeliefert. Der Server für Sessions und Playlisten läuft bei Render Services, Inc. in Frankfurt am Main (Deutschland/EU). Bei jedem Zugriff verarbeiten diese Dienstleister technisch notwendige Verbindungsdaten (z. B. IP-Adresse, Zeitpunkt, angefragte Ressource) in Server-Logs.
+                </p>
+                <p>
+                    Es werden keine Analyse- oder Tracking-Dienste eingesetzt.
                 </p>
             </section>
 
             <section class="mb-5">
-                <h2>3. Analytics (Application Insights)</h2>
+                <h2>3. LocalStorage und SessionStorage (Browser-Speicher)</h2>
                 <p>
-                    Diese Website nutzt Microsoft Application Insights zur Analyse der Nutzung und Verbesserung der Funktionalität.
-                    <strong>Dies erfolgt nur mit Ihrer ausdrücklichen Einwilligung</strong> (Art. 6 Abs. 1 lit. a DSGVO).
-                </p>
-                
-                <h3>Was wird erfasst?</h3>
-                <ul>
-                    <li><strong>Anonymisierte IP-Adressen</strong>: Das letzte Oktett wird maskiert (z.B. 192.168.1.142 → 192.168.1.0)</li>
-                    <li><strong>Session-Daten</strong>: Technische Informationen über Ihre Sitzung (Session-ID, Zeitstempel)</li>
-                    <li><strong>Performance-Metriken</strong>: Ladezeiten, Fehler, Ausnahmen</li>
-                    <li><strong>Browser-Informationen</strong>: Browser-Typ, Betriebssystem, Bildschirmauflösung</li>
-                </ul>
-
-                <h3>Was wird NICHT erfasst?</h3>
-                <ul>
-                    <li><strong>Vollständige IP-Adressen</strong>: Privacy-by-Design – IP-Anonymisierung ist immer aktiv</li>
-                    <li><strong>Seitenverweilzeiten</strong>: Tracking der Zeit auf einzelnen Seiten ist dauerhaft deaktiviert</li>
-                    <li><strong>Personenbezogene Daten</strong>: Keine Erfassung von Namen, E-Mail-Adressen oder anderen Identifikatoren</li>
-                </ul>
-
-                <h3>Speicherort und Retention</h3>
-                <p>
-                    Daten werden in <strong>Azure North Europe (Irland)</strong> gespeichert und nach <strong>90 Tagen automatisch gelöscht</strong>.
+                    Diese Website nutzt den LocalStorage und SessionStorage Ihres Browsers für Einstellungen und die Wiederherstellung von Session-Zustand.
                 </p>
 
-                <h3>Widerruf der Einwilligung</h3>
-                <p>
-                    Sie können Ihre Einwilligung jederzeit widerrufen, indem Sie den LocalStorage Ihres Browsers löschen 
-                    (im Browser: F12 → Application → Local Storage → <code>karamel-analytics-consent</code> löschen).
-                    Beim nächsten Besuch wird Ihnen das Consent-Banner erneut angezeigt.
-                </p>
-            </section>
-
-            <section class="mb-5">
-                <h2>4. LocalStorage (Browser-Speicher)</h2>
-                <p>
-                    Diese Website nutzt den LocalStorage Ihres Browsers, um Einstellungen und technisch notwendige Daten zu speichern.
-                    Dies ist für die Funktionalität der Website erforderlich (Art. 6 Abs. 1 lit. f DSGVO).
-                </p>
-
-                <h3>Gespeicherte Daten:</h3>
+                <h3>LocalStorage</h3>
                 <ul>
                     <li><code>karamel-theme</code>: Theme-Einstellung (dunkel/hell/system)</li>
-                    <li><code>karamel-analytics-consent</code>: Ihre Einwilligung oder Ablehnung für Analytics (true/false)</li>
-                    <li><code>karamel-consent-timestamp</code>: Zeitpunkt Ihrer Consent-Entscheidung (ISO 8601)</li>
-                    <li><code>karamel-session-{'{guid}'}</code>: Session-State Snapshots (temporär, für Multi-Tab-Synchronisation)</li>
                 </ul>
 
+                <h3>SessionStorage</h3>
+                <ul>
+                    <li><code>karamel-session-{'{guid}'}</code>: Temporärer Session-Zustand für die Wiederherstellung und Synchronisierung von Tabs auf demselben Gerät</li>
+                    <li><code>karamel-session-{'{guid}'}-role</code> und <code>karamel-session-{'{guid}'}-singerToken</code>: Session-Rolle und Zugriffstoken</li>
+                </ul>
                 <p>
-                    Diese Daten verbleiben lokal in Ihrem Browser und werden nicht an Server übertragen.
-                    Sie können sie jederzeit über die Browser-Einstellungen löschen.
+                    Browser-Speicher wird lokal auf Ihrem Gerät gehalten. Für den Betrieb übermittelt die Anwendung Session-Daten an den Backend-Server; Musikdateien und lokale Dateipfade werden nicht übertragen. Sie können den Browser-Speicher über die Browser-Einstellungen löschen.
                 </p>
             </section>
 
             <section class="mb-5">
-                <h2>5. Externe Bibliotheken (lokal gehostet)</h2>
+                <h2>4. Externe Bibliotheken (lokal gehostet)</h2>
                 <p>
                     Alle JavaScript-Bibliotheken (z. B. Bootstrap Icons, SignalR, jsmediatags, QRCode.js, CDGraphics, JSZip) werden
                     <strong>lokal in diesem Projekt</strong> unter <code>wwwroot/lib/</code> gehostet. Es erfolgt <strong>keine
@@ -98,10 +63,9 @@
             </section>
 
             <section class="mb-5">
-                <h2>6. Sängernamen und Playlist-Daten</h2>
+                <h2>5. Sängernamen und Playlist-Daten</h2>
                 <p>
-                    Wenn Sie als Sänger einen Namen eingeben oder als Admin eine Session verwalten, werden diese Daten 
-                    temporär in der Backend-Datenbank gespeichert.
+                    Künstler, Titel, Laufzeiten, Playlist-Einträge und eingegebene Sängernamen werden nur temporär im Arbeitsspeicher bzw. in einer flüchtigen Datenbank des Servers gehalten und spätestens 30 Minuten nach der letzten Aktivität gelöscht. Musikdateien verlassen das Gerät nicht.
                 </p>
 
                 <h3>Automatische Löschung</h3>
@@ -118,14 +82,14 @@
             </section>
 
             <section class="mb-5">
-                <h2>7. Cookies</h2>
+                <h2>6. Cookies</h2>
                 <p>
                     Diese Website verwendet <strong>keine Cookies</strong>. Alle Einstellungen werden im LocalStorage gespeichert.
                 </p>
             </section>
 
             <section class="mb-5">
-                <h2>8. Ihre Rechte (DSGVO)</h2>
+                <h2>7. Ihre Rechte (DSGVO)</h2>
                 <p>Sie haben folgende Rechte:</p>
                 <ul>
                     <li><strong>Auskunft</strong> (Art. 15 DSGVO): Welche Daten werden verarbeitet?</li>
@@ -149,7 +113,7 @@
             </section>
 
             <section class="mb-5">
-                <h2>9. Kontakt</h2>
+                <h2>8. Kontakt</h2>
                 <p>
                     Für Fragen zum Datenschutz kontaktieren Sie bitte den im <a href="/impressum">Impressum</a> genannten Verantwortlichen.
                 </p>

@@ -3,14 +3,11 @@ import { LogLevel, createLogger } from './logger.js';
 
 describe('logger', () => {
     let consoleLogSpy, consoleWarnSpy, consoleErrorSpy;
-    let mockAppInsights;
     let storage;
 
     beforeEach(() => {
         // Reset window globals
         delete window.logLevel;
-        delete window.appInsights;
-        delete window.karamel;
         
         // Mock location
         Object.defineProperty(window, 'location', {
@@ -52,11 +49,6 @@ describe('logger', () => {
             consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         }
 
-        // Mock Application Insights
-        mockAppInsights = {
-            trackEvent: vi.fn(),
-            trackException: vi.fn()
-        };
     });
 
     describe('LogLevel enum', () => {
@@ -113,16 +105,6 @@ describe('logger', () => {
                 expect(consoleLogSpy).not.toHaveBeenCalled();
             });
 
-            it('should NOT send debug to Application Insights', () => {
-                window.appInsights = mockAppInsights;
-                window.logLevel = LogLevel.Debug;
-                const logger = createLogger('TestModule');
-                
-                logger.debug('Test debug message');
-                
-                expect(mockAppInsights.trackEvent).not.toHaveBeenCalled();
-                expect(mockAppInsights.trackException).not.toHaveBeenCalled();
-            });
         });
 
         describe('info logging', () => {
@@ -149,33 +131,6 @@ describe('logger', () => {
                 expect(consoleLogSpy).not.toHaveBeenCalled();
             });
 
-            it('should track info as custom event in Application Insights', () => {
-                window.appInsights = mockAppInsights;
-                window.karamel = { telemetryStarted: true }; // User has given consent
-                window.logLevel = LogLevel.Info;
-                const logger = createLogger('TestModule');
-                
-                logger.info('Test info message', { operation: 'test' });
-                
-                expect(mockAppInsights.trackEvent).toHaveBeenCalledTimes(1);
-                const call = mockAppInsights.trackEvent.mock.calls[0][0];
-                expect(call.name).toBe('TestModule.Info');
-                expect(call.properties).toHaveProperty('moduleName', 'TestModule');
-                expect(call.properties).toHaveProperty('message', 'Test info message');
-                expect(call.properties).toHaveProperty('operation', 'test');
-            });
-
-            it('should track info even when console log level blocks it', () => {
-                window.appInsights = mockAppInsights;
-                window.karamel = { telemetryStarted: true }; // User has given consent
-                window.logLevel = LogLevel.Warn; // Blocks console output
-                const logger = createLogger('TestModule');
-                
-                logger.info('Test info message');
-                
-                expect(consoleLogSpy).not.toHaveBeenCalled();
-                expect(mockAppInsights.trackEvent).toHaveBeenCalledTimes(1);
-            });
         });
 
         describe('warn logging', () => {
@@ -193,20 +148,6 @@ describe('logger', () => {
                 expect(properties).toHaveProperty('reason', 'fallback');
             });
 
-            it('should track warn as custom event in Application Insights', () => {
-                window.appInsights = mockAppInsights;
-                window.karamel = { telemetryStarted: true }; // User has given consent
-                window.logLevel = LogLevel.Warn;
-                const logger = createLogger('TestModule');
-                
-                logger.warn('Test warning', { scenario: 'edge-case' });
-                
-                expect(mockAppInsights.trackEvent).toHaveBeenCalledTimes(1);
-                const call = mockAppInsights.trackEvent.mock.calls[0][0];
-                expect(call.name).toBe('TestModule.Warning');
-                expect(call.properties).toHaveProperty('message', 'Test warning');
-                expect(call.properties).toHaveProperty('scenario', 'edge-case');
-            });
         });
 
         describe('error logging', () => {
@@ -238,36 +179,6 @@ describe('logger', () => {
                 expect(properties).toHaveProperty('code', 500);
             });
 
-            it('should track error with Error object in Application Insights', () => {
-                window.appInsights = mockAppInsights;
-                window.karamel = { telemetryStarted: true }; // User has given consent
-                window.logLevel = LogLevel.Error;
-                const logger = createLogger('TestModule');
-                const testError = new Error('Test error');
-                
-                logger.error('Operation failed', testError, { operation: 'loadFile' });
-                
-                expect(mockAppInsights.trackException).toHaveBeenCalledTimes(1);
-                const call = mockAppInsights.trackException.mock.calls[0][0];
-                expect(call.exception).toBe(testError);
-                expect(call.properties).toHaveProperty('message', 'Operation failed');
-                expect(call.properties).toHaveProperty('operation', 'loadFile');
-            });
-
-            it('should create Error object if none provided for Application Insights', () => {
-                window.appInsights = mockAppInsights;
-                window.karamel = { telemetryStarted: true }; // User has given consent
-                window.logLevel = LogLevel.Error;
-                const logger = createLogger('TestModule');
-                
-                logger.error('Something went wrong', null, { code: 500 });
-                
-                expect(mockAppInsights.trackException).toHaveBeenCalledTimes(1);
-                const call = mockAppInsights.trackException.mock.calls[0][0];
-                expect(call.exception).toBeInstanceOf(Error);
-                expect(call.exception.message).toBe('Something went wrong');
-                expect(call.properties).toHaveProperty('code', 500);
-            });
         });
 
         describe('session ID integration', () => {
