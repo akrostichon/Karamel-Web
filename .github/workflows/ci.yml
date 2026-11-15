@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy:
-        description: 'Deploy the frontend to Cloudflare (use on the feature branch for the first end-to-end test)'
+        description: 'Deploy the frontend to Cloudflare (manual dispatch; feature branch deploys automatically after CI passes)'
         type: boolean
         default: false
 
@@ -58,7 +58,7 @@ jobs:
 
   deploy-frontend:
     needs: [backend, frontend]
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.deploy)
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/hosting-migration')) || (github.event_name == 'workflow_dispatch' && inputs.deploy)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
