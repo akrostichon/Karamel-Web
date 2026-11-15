@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: karamel-web
+    runtime: docker
+    region: frankfurt
+    plan: free
+    branch: feature/hosting-migration
+    dockerfilePath: ./Karamel.Backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:10000
+      - key: PORT
+        value: "10000"
+      - key: ConnectionStrings__DefaultConnection
+        value: Data Source=/tmp/karamel.db
+      - key: Karamel__TokenSecret
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        value: https://REPLACE-WITH-CLOUDFLARE-URL
+      - key: Cors__AllowedOrigins__1
+        value: http://localhost:5245
+      - key: Cors__AllowedOrigins__2
+        value: https://localhost:5245
+      - key: Logging__LogLevel__Default
+        value: Warning
+      - key: Logging__LogLevel__Karamel
+        value: Warning
+      - key: Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command
+        value: Warning
+      - key: DOTNET_gcServer
+        value: "0"
+      - key: DOTNET_gcConcurrent
+        value: "0"
+      - key: DOTNET_TieredPGO
+        value: "0"
+      - key: DOTNET_TieredCompilation
+        value: "1"

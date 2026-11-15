@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy the frontend to Cloudflare (use on the feature branch for the first end-to-end test)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet test Karamel.Backend.Tests -c Release -v minimal
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: Karamel.Web/wwwroot/package-lock.json
+      - name: JavaScript tests
+        working-directory: Karamel.Web/wwwroot
+        run: |
+          npm ci
+          npm run test:run
+      - name: C# frontend tests
+        run: dotnet test Karamel.Web.Tests -c Release -v minimal
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish Karamel.Web -c Release -o publish
+      - name: Drop pre-compressed copies (Cloudflare compresses at the edge)
+        run: find publish/wwwroot -type f \( -name '*.br' -o -name '*.gz' \) -delete
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: publish/wwwroot
+          if-no-files-found: error
+
+  deploy-frontend:
+    needs: [backend, frontend]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.deploy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: site
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
