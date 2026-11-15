@@ -4,7 +4,9 @@
 
 Karamel is a modern browser-based karaoke system built for real nights out. Your music files stay on your machine — Karamel just makes them sing. Singers join from their phones, pick their songs, and you run the show from any screen in the room.
 
-👉 **[Try the live demo](https://polite-grass-037bbc503.2.azurestaticapps.net/)**
+👉 **[Try the live demo](https://karamel.karaoke-stage.workers.dev/)**
+
+Hosted on a free tier — the first start after a pause can take up to a minute.
 
 ---
 
@@ -15,7 +17,7 @@ Karamel is a modern browser-based karaoke system built for real nights out. Your
 
 ## Why Karamel?
 
-- 🎵 **Zero upload. Zero cloud. Zero drama.** Your MP3s and CDG files never leave your device — Karamel reads them directly from your folder.
+- 🎵 **No music uploads. No drama.** Your MP3s and CDG files never leave your device; only song metadata is sent to the session server.
 - 📱 **Singers use their phones.** Share a QR code and anyone in the room can browse your library and add songs to the Playlist — no app install needed.
 - 🖥️ **Run the show from anywhere.** Pause, skip, and reorder the queue from your laptop, tablet, or front-of-house screen.
 - ⚡ **Configure once - enjoy then.** Playlist auto advances and proclaims who is the next singer. You may adjust the playlist, but if you don't want to, it runs on its own.
@@ -49,7 +51,7 @@ Karamel is a modern browser-based karaoke system built for real nights out. Your
 
 > ⚠️ **Chrome or Edge required** — Karamel uses the File System Access API, which is not supported in Firefox or Safari.
 
-1. Open **[Karamel](https://polite-grass-037bbc503.2.azurestaticapps.net/)** in Chrome or Edge.
+1. Open **[Karamel](https://karamel.karaoke-stage.workers.dev/)** in Chrome or Edge.
 2. Click **Select Folder** and choose your local karaoke song directory.
 3. Share the generated **Singer link** (or QR code) with your crowd — they're ready to pick songs.
 

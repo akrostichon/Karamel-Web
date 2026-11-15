@@ -4,7 +4,7 @@ services:
     runtime: docker
     region: frankfurt
     plan: free
-    branch: feature/hosting-migration
+    branch: main
     dockerfilePath: ./Karamel.Backend/Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -21,11 +21,7 @@ services:
       - key: Karamel__TokenSecret
         sync: false
       - key: Cors__AllowedOrigins__0
-        value: https://karamel.dominikdamerow.workers.dev
-      - key: Cors__AllowedOrigins__1
-        value: http://localhost:5245
-      - key: Cors__AllowedOrigins__2
-        value: https://localhost:5245
+        value: https://karamel.karaoke-stage.workers.dev
       - key: Logging__LogLevel__Default
         value: Warning
       - key: Logging__LogLevel__Karamel
