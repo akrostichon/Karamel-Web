@@ -46,7 +46,7 @@ Subfolders are scanned automatically — organise your library any way you like.
 ### Step 1 — Open the app
 
 Navigate to the Karamel app in Chrome or Edge:  
-👉 **[https://polite-grass-037bbc503.2.azurestaticapps.net/](https://polite-grass-037bbc503.2.azurestaticapps.net/)**
+👉 **[https://karamel.karaoke-stage.workers.dev/](https://karamel.karaoke-stage.workers.dev/)**
 
 The **Home** page is the starting point for every session. All other pages (Playlist, Singer view, Player) become active once a session is running.
 
@@ -165,7 +165,7 @@ Click **Save Settings** to apply configuration changes. Settings take effect imm
 
 The **Export** page (`/export`) lets you scan any local folder and download your song library as CSV files — entirely in your browser, with no data sent to any server.
 
-👉 Open the export page: **[/export](https://polite-grass-037bbc503.2.azurestaticapps.net/export)**
+👉 Open the export page: **[/export](https://karamel.karaoke-stage.workers.dev/export)**
 
 > ⚠️ **Chrome or Edge required** — like the main session, the Export page uses the File System Access API. The folder you select here is independent of any active karaoke session.
 

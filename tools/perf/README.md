@@ -25,4 +25,4 @@ Available scenarios:
 - `wsidle` holds one WebSocket open without HTTP traffic for the requested number of minutes.
 - `all` runs `rest`, `bulk`, `search`, and `hub` (not `coldstart` or `wsidle`).
 
-Options include `--songs 3700`, `--clients 20`, `--minutes 20`, `--label`, and `--out`. Use only approved non-Azure test endpoints. The output contains aggregate measurements and never includes session tokens or session IDs. Cold-start and idle runs take at least as long as their specified wait periods; `all` can also take several minutes.
+Options include `--songs 3700`, `--clients 20`, `--minutes 20`, `--label`, and `--out`. Use only approved Render test endpoints. The output contains aggregate measurements and never includes session tokens or session IDs. Cold-start and idle runs take at least as long as their specified wait periods; `all` can also take several minutes.

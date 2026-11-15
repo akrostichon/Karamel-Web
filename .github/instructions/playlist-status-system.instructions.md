@@ -253,19 +253,10 @@ var queueSongs = PlaylistState.Value.Items
 
 ## Observability
 
-**Backend Logging** (Application Insights):
+**Backend Logging** (structured `ILogger`, stdout, Render dashboard):
 - All status transitions logged with `_logger.LogInformation`
-- Includes sessionId, itemId, status, artist/title
+- Includes sessionId, itemId, and status; avoid logging song titles, tokens, or full client IPs
 - Auto-promotion events explicitly logged
-
-**Kusto Query Example**:
-```kusto
-traces
-| where timestamp > ago(30m)
-| where message contains "Auto-promoted" or message contains "Advanced item"
-| project timestamp, message, customDimensions
-| order by timestamp desc
-```
 
 ## Related Documentation
 

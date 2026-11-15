@@ -45,7 +45,7 @@ builder.Services.AddSingleton<Karamel.Backend.Services.ITokenService>(_ => new K
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-    // Increase timeouts to handle Azure App Service cold starts and network latency
+    // Increase timeouts to handle hosting cold starts and network latency
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(60); // Default: 30s
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);      // Default: 15s (send ping every 15s)
     options.HandshakeTimeout = TimeSpan.FromSeconds(30);       // Default: 15s

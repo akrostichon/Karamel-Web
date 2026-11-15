@@ -62,14 +62,15 @@ dotnet run --project Karamel.Web
 # Application start time: ~2-3 seconds
 ```
 
-## Azure Deployment & Resources
+## Hosting
 
-⚠️ **CRITICAL**: See [.github/instructions/azure-deployment.instructions.md](.github/instructions/azure-deployment.instructions.md) for:
-- Azure deployment warnings (production-only environment)
-- Complete resource naming conventions
-- Resource names and URLs
-
-**Quick Reference**: All resources use `rg-karamel-prod` prefix. Resource Group: `rg-karamel-prod`, Backend API: `rg-karamel-prod-api`
+- Frontend: Cloudflare Workers Static Assets, deployed by GitHub Actions after CI passes.
+- Backend: a single Render Free Docker service in Frankfurt, described by `render.yaml`.
+- Database: ephemeral SQLite in `/tmp`, recreated at startup with `EnsureDeleted()` and `EnsureCreated()`; no EF migrations exist.
+- Secrets are configured through GitHub Actions and Render environment variables; never commit them.
+- Render Free may spin down after 15 minutes; cold starts take about a minute and restarts lose in-memory and SQLite data.
+- Keep the backend single-instance; sessions and SignalR groups are held in process.
+- See [hosting.instructions.md](instructions/hosting.instructions.md) and [ADR-002](../docs/ADR-002-Hosting-Migration-Off-Azure.md).
 
 
 ## Development Workflow
@@ -137,6 +138,7 @@ await hubConnection.invoke('AddItemAsync', currentSessionId, songId, singerName)
 - `Playlists` table: `Id` (PK), `SessionId` (FK to Sessions)
 - `PlaylistItems` table: `PlaylistId` (FK to Playlists), `SongId` (nullable FK to Songs), **`Status` (INT)**, **`CompletedAt` (DATETIME)**
 - Playlist cleanup happens automatically via session TTL (30 minutes)
+- Backend persistence is ephemeral SQLite, recreated at startup; no EF migrations or SQL Server provider exist.
 
 ### Playlist Status System
 
@@ -239,9 +241,12 @@ Karamel-Web/                          # Solution root
 │   ├── Models/                       # Backend domain models
 │   ├── Repositories/                 # Data access layer (EF Core)
 │   └── Services/                     # Backend services (token management)
-└── Karamel.Backend.Tests/            # C# backend test project (xUnit + Integration)
+├── Karamel.Backend.Tests/            # C# backend test project (xUnit + Integration)
     ├── *Tests.cs                     # SignalR hub tests, REST API tests
     └── TestServerFactory.cs          # WebApplicationFactory for integration tests
+├── tools/perf/                       # Node.js performance harness for Render
+├── render.yaml                       # Render backend service definition
+└── wrangler.jsonc                    # Cloudflare Workers Static Assets configuration
 ```
 
 ### State Management (Fluxor)
@@ -318,12 +323,10 @@ Karamel-Web/                          # Solution root
 
 ### Logging & Observability
 
-📊 See [.github/prompts/logging-observability.prompt.md](.github/prompts/logging-observability.prompt.md) for:
-- Structured logging patterns with `ILogger<T>`
-- Application Insights integration (backend & frontend)
-- Log levels and when to use them
-- Viewing logs in Azure Portal
-- Best practices when adding logging to new features
+See [logging-observability](skills/logging-observability/SKILL.md) for logging guidance:
+- Use structured `ILogger<T>` logging on the backend; view stdout in the Render dashboard.
+- JavaScript logging stays in the browser console; no client telemetry is configured.
+- Never log tokens, secrets, or full client IP addresses.
 
 **Quick Reference**: Use structured logging `_logger.LogInformation("Message with {Param}", value)`, never log sensitive data
 
@@ -557,8 +560,8 @@ describe('moduleName', () => {
 - **STYLING_GUIDE.md**: UI design, color palette, typography, responsive layout
 - **README.md**: Project overview, feature list
 - **.github/instructions/playlist-status-system.instructions.md**: Playlist status architecture (auto-loaded for playlist work)
-- **.github/prompts/logging-observability.prompt.md**: Application Insights integration and structured logging
-- **.github/instructions/azure-deployment.instructions.md**: Azure resource naming and deployment warnings
+- **.github/skills/logging-observability/SKILL.md**: Structured logging and Render log access
+- **.github/instructions/hosting.instructions.md**: Hosting and deployment constraints
 
 ## Final Reminders
 1. **NEVER commit to `main`** - always use feature branches

@@ -224,7 +224,7 @@ describe('logger', () => {
             });
 
             it('should default to Warn when hostname is production domain', () => {
-                window.location.hostname = 'rg-karamel-prod.azurewebsites.net';
+                window.location.hostname = 'karamel.example.com';
                 const logger = createLogger('TestModule');
                 
                 logger.debug('Test message');
