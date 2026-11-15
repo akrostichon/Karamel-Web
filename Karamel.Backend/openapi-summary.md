@@ -1,7 +1,7 @@
 # Karamel.Backend OpenAPI & SignalR Contract Summary
 
 ## Overview
-This document summarizes the OpenAPI REST surface and the SignalR `PlaylistHub` contract. The backend persists session, playlist, and library state with dual token authentication (admin/singer), and provides real-time synchronization via SignalR. The backend uses EF Core with pluggable providers (SQLite for dev, SQL Server for production).
+This document summarizes the OpenAPI REST surface and the SignalR `PlaylistHub` contract. The backend temporarily stores session, playlist, and library state in SQLite, uses dual token authentication (admin/singer), and provides real-time synchronization via SignalR.
 
 Base path: `/api`
 SignalR hub route: `/hubs/playlist`
@@ -313,13 +313,12 @@ Tokens are stored in `Session` table and validated using HMAC-SHA256 signature v
 ## Database (EF Core)
 
 ### Provider Configuration
-- **Development**: SQLite (file-based, default `karamel.db`)
-- **Production**: SQL Server (Azure SQL with optional AAD Managed Identity)
+- SQLite is the only database provider.
+- Production uses `Data Source=/tmp/karamel.db`; the database is temporary and is recreated at startup with `EnsureDeleted()` and `EnsureCreated()`.
+- There is no SQL Server provider and no EF migration workflow.
 
 **Environment variables:**
-- `DB_PROVIDER`: `"Sqlite"` or `"SqlServer"` (default: `"Sqlite"`)
-- `DB_USE_AAD`: `"true"` to use Managed Identity authentication (SQL Server only)
-- `ConnectionStrings__DefaultConnection`: Connection string
+- `ConnectionStrings__DefaultConnection`: SQLite connection string; defaults to `Data Source=karamel.db` locally.
 
 ### Tables
 - **Sessions**: Session metadata and configuration (JSON column for `SessionConfig`)
@@ -327,59 +326,10 @@ Tokens are stored in `Session` table and validated using HMAC-SHA256 signature v
 - **PlaylistItems**: Queue items with status and position
 - **Songs**: Session-scoped song library (sanitized metadata only)
 
-### Migrations
-- Generate migrations with SQLite provider during development
-- Apply to production SQL Server using provider-agnostic syntax
-- Keep field names and types compatible across providers
-
 ### Repository Interfaces
 - `ISessionRepository`: Session CRUD operations
 - `IPlaylistRepository`: Playlist management (auto-creates playlist when accessed)
 - `ISongRepository`: Library management (bulk upsert, pagination, search)
-
----
-
-## Azure Deployment Notes
-
-### App Service Configuration
-1. **Create Azure SQL Database** and note connection string
-2. **Create App Service** with these settings:
-   - Enable WebSockets (required for SignalR)
-   - Runtime: .NET 10
-   - Always On: Enabled (production)
-
-3. **Configure App Settings:**
-   ```
-   DB_PROVIDER=SqlServer
-   DB_USE_AAD=true  # Optional - for Managed Identity
-   ConnectionStrings__DefaultConnection=<Azure SQL connection string>
-   ASPNETCORE_ENVIRONMENT=Production
-   ```
-
-4. **Run Migrations:**
-   - During deployment or as separate pipeline step
-   - Use `dotnet ef database update` or migration scripts
-
-5. **CORS Configuration:**
-   - Allow Blazor WebAssembly frontend origin
-   - Allow credentials (for SignalR)
-
-### Connection String Formats
-
-**SQL Server with username/password:**
-```
-Server=tcp:<server>.database.windows.net,1433;Initial Catalog=<database>;User ID=<username>;Password=<password>;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;
-```
-
-**SQL Server with Managed Identity (DB_USE_AAD=true):**
-```
-Server=tcp:<server>.database.windows.net,1433;Initial Catalog=<database>;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;
-```
-
-**SQLite (development):**
-```
-Data Source=karamel.db
-```
 
 ---
 

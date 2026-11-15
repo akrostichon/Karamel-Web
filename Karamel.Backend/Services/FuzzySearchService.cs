@@ -86,14 +86,14 @@ public sealed class FuzzySearchService : IFuzzySearchService
                 .ToList();
         }
 
-        var qLower     = query.ToLowerInvariant();
+        var qLower     = SearchText.Fold(query);
         var threshold  = GetThreshold(query.Length);
         var results    = new List<ScoredSongResult>();
 
         foreach (var song in candidates)
         {
-            var titleLower  = (song.Title  ?? string.Empty).ToLowerInvariant();
-            var artistLower = (song.Artist ?? string.Empty).ToLowerInvariant();
+            var titleLower  = SearchText.Fold(song.Title);
+            var artistLower = SearchText.Fold(song.Artist);
 
             // Tier 0 — ExactTitle
             if (titleLower == qLower)
@@ -147,8 +147,8 @@ public sealed class FuzzySearchService : IFuzzySearchService
         return results
             .OrderBy(r => (int)r.Tier)
             .ThenBy(r => r.EditDistance)
-            .ThenBy(r => r.Song.Artist, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(r => r.Song.Title,  StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => SearchText.Fold(r.Song.Artist))
+            .ThenBy(r => SearchText.Fold(r.Song.Title))
             .ToList();
     }
 

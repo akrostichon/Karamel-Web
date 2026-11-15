@@ -1,0 +1,15 @@
+{
+  "name": "karamel-perf-harness",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "perf": "node run.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@microsoft/signalr": "^9.0.0"
+  }
+}

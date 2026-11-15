@@ -4,11 +4,10 @@ WORKDIR /app
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["Karamel.Backend/Karamel.Backend.csproj", "Karamel.Backend/"]
-RUN dotnet restore "Karamel.Backend/Karamel.Backend.csproj"
-COPY . .
+RUN dotnet restore "Karamel.Backend/Karamel.Backend.csproj" -r linux-x64 -p:PublishReadyToRun=true
+COPY Karamel.Backend/ Karamel.Backend/
 WORKDIR "/src/Karamel.Backend"
-RUN dotnet build "Karamel.Backend.csproj" -c Release -o /app/build
-RUN dotnet publish "Karamel.Backend.csproj" -c Release -o /app/publish
+RUN dotnet publish "Karamel.Backend.csproj" -c Release -r linux-x64 --self-contained false -p:PublishReadyToRun=true -o /app/publish --no-restore
 
 FROM base AS final
 WORKDIR /app

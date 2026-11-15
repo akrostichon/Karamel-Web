@@ -48,9 +48,9 @@ applyTo: '**/*.cs'
 ## Data Access Patterns
 
 - Guide the implementation of a data access layer using Entity Framework Core.
-- Explain different options (SQL Server, SQLite, In-Memory) for development and production.
+- Explain only data providers supported by the project; Karamel uses SQLite for its ephemeral backend database.
 - Demonstrate repository pattern implementation and when it's beneficial.
-- Show how to implement database migrations and data seeding.
+- Follow the hosting instructions for schema initialization; Karamel does not use EF Core migrations.
 - Explain efficient query patterns to avoid common performance issues.
 
 ## Authentication and Authorization
@@ -58,7 +58,7 @@ applyTo: '**/*.cs'
 - Guide users through implementing authentication using JWT Bearer tokens.
 - Explain OAuth 2.0 and OpenID Connect concepts as they relate to ASP.NET Core.
 - Show how to implement role-based and policy-based authorization.
-- Demonstrate integration with Microsoft Entra ID (formerly Azure AD).
+- Demonstrate integration with external identity providers when the application requires it.
 - Explain how to secure both controller-based and Minimal APIs consistently.
 
 ## Validation and Error Handling
@@ -81,7 +81,7 @@ applyTo: '**/*.cs'
 
 - Guide the implementation of structured logging using Serilog or other providers.
 - Explain the logging levels and when to use each.
-- Demonstrate integration with Application Insights for telemetry collection.
+- Demonstrate structured logging through `ILogger<T>` and the host's log collection.
 - Show how to implement custom telemetry and correlation IDs for request tracking.
 - Explain how to monitor API performance, errors, and usage patterns.
 

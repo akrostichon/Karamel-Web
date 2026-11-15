@@ -96,6 +96,63 @@ namespace Karamel.Backend.Tests
         }
 
         [Fact]
+        public async Task JoinBeforeRestore_ReceivesPlaylistUpdateAfterSessionIsRestored()
+        {
+            var sessionId = Guid.NewGuid();
+            using var scope = _factory.Services.CreateScope();
+            var tokenService = scope.ServiceProvider.GetRequiredService<Karamel.Backend.Services.ITokenService>();
+            var adminToken = tokenService.GenerateAdminToken(sessionId);
+
+            var baseUrl = _factory.Server.BaseAddress!.ToString().TrimEnd('/');
+            _connection = new HubConnectionBuilder()
+                .WithUrl(baseUrl + "/hubs/playlist", options =>
+                {
+                    options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler();
+                    options.Headers.Add("X-Link-Token", adminToken);
+                })
+                .Build();
+
+            await _connection.StartAsync();
+            await _connection.InvokeAsync("JoinSession", sessionId.ToString());
+
+            var updateSource = new TaskCompletionSource<PlaylistUpdatedDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _connection.On<PlaylistUpdatedDto>("ReceivePlaylistUpdated", update => updateSource.TrySetResult(update));
+
+            using var restoreRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId}/restore")
+            {
+                Content = JsonContent.Create(new
+                {
+                    RequireSingerName = false,
+                    PauseBetweenSongsSeconds = 1,
+                    AllowSingersToReorder = false,
+                    Theme = (string?)null
+                })
+            };
+            restoreRequest.Headers.Add("X-Link-Token", adminToken);
+            var restoreResponse = await _client.SendAsync(restoreRequest);
+            Assert.Equal(System.Net.HttpStatusCode.Created, restoreResponse.StatusCode);
+
+            var songId = Guid.NewGuid();
+            using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId}/library/bulk")
+            {
+                Content = JsonContent.Create(new[]
+                {
+                    new { id = songId, artist = "Restored Artist", title = "Restored Song", metadataJson = (string?)null }
+                })
+            };
+            uploadRequest.Headers.Add("X-Link-Token", adminToken);
+            var uploadResponse = await _client.SendAsync(uploadRequest);
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, uploadResponse.StatusCode);
+
+            await _connection.InvokeAsync("AddItemAsync", sessionId, songId, "Singer");
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var update = await updateSource.Task.WaitAsync(timeout.Token);
+            Assert.Equal(sessionId, update.SessionId);
+            Assert.Contains(update.Items, item => item.SongId == songId);
+        }
+
+        [Fact]
         public async Task Hub_AddItemAsync_WithValidToken_Succeeds_And_Broadcasts()
         {
             // Create session and playlist

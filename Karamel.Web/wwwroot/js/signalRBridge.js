@@ -14,6 +14,20 @@ let hubConnection = null;
 let usingSignalR = false;
 let backendBaseUrl = null;
 let currentToken = null;
+export const RECONNECT_GIVE_UP_MS = 240000;
+let reconnectLoopCancelled = false;
+let reconnectLoopRunning = false;
+let reconnectLoopTimer = null;
+let reconnectHandlersRegistered = false;
+let pageIsUnloading = false;
+
+export function computeReconnectDelay(ctx) {
+	if (!ctx) return 1000;
+	if (ctx.elapsedMilliseconds >= RECONNECT_GIVE_UP_MS) return null;
+	const previousRetryCount = Number.isFinite(ctx.previousRetryCount) ? ctx.previousRetryCount : 0;
+	const base = Math.min(1000 * (2 ** previousRetryCount), 10000);
+	return base + Math.floor(Math.random() * 500);
+}
 
 function getChannelName(sessionId) {
 	return `karamel-session-${sessionId}`;
@@ -59,6 +73,104 @@ async function ensureSignalRLoaded() {
 	});
 }
 
+async function rejoinSession() {
+	if (!hubConnection || !currentSessionId) return;
+	try {
+		await hubConnection.invoke('JoinSession', currentSessionId);
+		window.dispatchEvent(new CustomEvent('karamel-connection-restored', { detail: { sessionId: currentSessionId } }));
+	} catch (error) {
+		logger.warn('Failed to rejoin session after reconnect', { error: error.message, sessionId: currentSessionId });
+	}
+}
+
+function startManualReconnectLoop() {
+	if (reconnectLoopCancelled || reconnectLoopRunning || pageIsUnloading || !hubConnection) {
+		return;
+	}
+
+	reconnectLoopRunning = true;
+
+	const attemptReconnect = async () => {
+		if (reconnectLoopCancelled || pageIsUnloading || !hubConnection) {
+			reconnectLoopRunning = false;
+			return;
+		}
+
+		const connection = hubConnection;
+		const isConnectedState = (state) => {
+			if (state === 'Connected') return true;
+			if (signalR && signalR.HubConnectionState) return state === signalR.HubConnectionState.Connected;
+			return false;
+		};
+		if (isConnectedState(connection.state)) {
+			reconnectLoopRunning = false;
+			await rejoinSession();
+			return;
+		}
+
+		try {
+			await connection.start();
+			if (connection === hubConnection && !reconnectLoopCancelled && !pageIsUnloading) {
+				reconnectLoopRunning = false;
+				await rejoinSession();
+				return;
+			}
+		} catch (error) {
+			logger.warn('Manual SignalR reconnect attempt failed', { error: error.message, sessionId: currentSessionId });
+		}
+
+		if (reconnectLoopCancelled || pageIsUnloading || connection !== hubConnection) {
+			reconnectLoopRunning = false;
+			return;
+		}
+
+		const delayMs = 15000 + Math.floor(Math.random() * 1000);
+		reconnectLoopTimer = setTimeout(() => {
+			void attemptReconnect();
+		}, delayMs);
+	};
+
+	void attemptReconnect();
+}
+
+function registerConnectionRecoveryHandlers() {
+	if (reconnectHandlersRegistered || typeof document === 'undefined' || typeof window === 'undefined') {
+		return;
+	}
+
+	reconnectHandlersRegistered = true;
+
+	const handleVisibilityOrOnlineChange = async () => {
+		if (!hubConnection || !currentSessionId) return;
+		const isConnected = hubConnection.state === 'Connected' || (signalR && signalR.HubConnectionState && hubConnection.state === signalR.HubConnectionState.Connected);
+		const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
+		if (document.visibilityState === 'visible' || isOnline) {
+			if (isConnected) {
+				await rejoinSession();
+				return;
+			}
+			startManualReconnectLoop();
+		}
+	};
+
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') {
+			void handleVisibilityOrOnlineChange();
+		}
+	});
+	window.addEventListener('online', () => {
+		void handleVisibilityOrOnlineChange();
+	});
+	window.addEventListener('beforeunload', () => {
+		pageIsUnloading = true;
+		reconnectLoopCancelled = true;
+		if (reconnectLoopTimer) {
+			clearTimeout(reconnectLoopTimer);
+			reconnectLoopTimer = null;
+		}
+	});
+}
+
 async function tryConnectSignalR(sessionId, token, backendUrl) {
 	try {
 		const ok = await ensureSignalRLoaded();
@@ -79,10 +191,24 @@ async function tryConnectSignalR(sessionId, token, backendUrl) {
 		// These must be aligned to prevent premature client disconnects during long operations (e.g., large playlist updates)
 		hubConnection = new signalR.HubConnectionBuilder()
 			.withUrl(hubUrl, urlOptions)
-			.withAutomaticReconnect()
+			.withAutomaticReconnect({
+				nextRetryDelayInMilliseconds: (ctx) => computeReconnectDelay(ctx)
+			})
 			.withServerTimeout(60000)      // Must match backend ClientTimeoutInterval (60 seconds)
 			.withKeepAliveInterval(15000)  // Must match backend KeepAliveInterval (15 seconds)
 			.build();
+
+		registerConnectionRecoveryHandlers();
+		if (typeof hubConnection.onreconnected === 'function') {
+			hubConnection.onreconnected(async () => {
+				await rejoinSession();
+			});
+		}
+		if (typeof hubConnection.onclose === 'function') {
+			hubConnection.onclose(async () => {
+				startManualReconnectLoop();
+			});
+		}
 
 		// Wire receive handler
 		hubConnection.on('ReceivePlaylistUpdated', (dto) => {
@@ -200,6 +326,8 @@ export function initializeSession(sessionId, asMainTab, token, backendUrl) {
 		backendUrl 
 	});
 
+	reconnectLoopCancelled = false;
+	pageIsUnloading = false;
 	currentSessionId = sessionId;
 	isMainTab = !!asMainTab;
 	backendBaseUrl = backendUrl || null;
@@ -714,7 +842,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 				tokenLength: currentToken.length 
 			});
 		} else {
-			// CRITICAL: This will track in Application Insights as an error
+			// Log the missing token because the request is expected to fail.
 			logger.error(`[ERROR:${correlationId}] NO currentToken available - request will likely fail`, { 
 				sessionId, 
 				url,
@@ -734,7 +862,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		
 		if (!resp.ok) {
 			const errorBody = await resp.text();
-			// CRITICAL: This will track in Application Insights as an error
+			// Log the failed request for browser-console diagnostics.
 			logger.error(`[ERROR:${correlationId}] REST request failed`, { 
 				status: resp.status, 
 				errorBody: errorBody.substring(0, 200), // Truncate long error messages
@@ -762,7 +890,7 @@ export async function fetchLibraryPage(sessionId, page = 1, pageSize = 50, searc
 		
 		return { items, page, pageSize, totalCount: total, suggestions };
 	} catch (e) {
-		// CRITICAL: This will track in Application Insights as an exception
+		// Log the exception for browser-console diagnostics.
 		logger.error(`[ERROR:${correlationId}] fetchLibraryPage exception`, { 
 			error: e.message, 
 			stack: e.stack?.substring(0, 500),
@@ -881,6 +1009,14 @@ export function getSessionState() {
 
 export function clearSessionState() {
 	try {
+		reconnectLoopCancelled = true;
+		pageIsUnloading = true;
+		if (reconnectLoopTimer) {
+			clearTimeout(reconnectLoopTimer);
+			reconnectLoopTimer = null;
+		}
+		reconnectLoopRunning = false;
+
 		if (currentSessionId) {
 			sessionStorage.removeItem(getSessionKey(currentSessionId));
 		}

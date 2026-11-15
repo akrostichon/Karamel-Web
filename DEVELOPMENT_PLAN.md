@@ -1,5 +1,7 @@
 # Karamel-Web Development Plan
 
+> Hosting moved from Azure to Cloudflare + Render; see [ADR-002](docs/ADR-002-Hosting-Migration-Off-Azure.md).
+
 ## Current Status
 ✅ **Prototype Complete** - Basic MP3+CDG playback working with File System Access API and CDGraphics.js integration
 

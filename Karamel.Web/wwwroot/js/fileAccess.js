@@ -420,25 +420,6 @@ export function getLibraryDirectoryHandle() {
 // ======================== PRIVATE HELPERS ========================
 
 /**
- * Track telemetry event for song file loading
- * @private
- */
-function trackLoadTelemetry(eventName, origin, mp3FileName, cdgFileName, duration, additionalProps = {}) {
-    if (!window.appInsights) return;
-    
-    window.appInsights.trackEvent({
-        name: eventName,
-        properties: {
-            origin,
-            mp3FileName,
-            cdgFileName,
-            durationMs: Math.round(duration),
-            ...additionalProps
-        }
-    });
-}
-
-/**
  * Resolve ZIP file handle from library directory
  * @private
  */
@@ -597,22 +578,9 @@ export async function loadSongFiles(path, mp3FileName, cdgFileName, zipInfo = nu
         // Store in byteStore and create object URL
         const mp3Url = storeSongData(mp3Bytes, cdgBytes);
 
-        // Track successful load
-        const duration = performance.now() - startTime;
-        trackLoadTelemetry('SongFileLoaded', origin, mp3FileName, cdgFileName, duration, {
-            path: path || '<root>',
-            ...(zipInfo?.zipFileName && { zipFileName: zipInfo.zipFileName })
-        });
-
         return { mp3Data: mp3Bytes, cdgData: cdgBytes, mp3Url };
 
     } catch (error) {
-        // Track failed load
-        const duration = performance.now() - startTime;
-        trackLoadTelemetry('SongFileLoadFailed', origin, mp3FileName, cdgFileName, duration, {
-            errorMessage: error instanceof Error ? error.message : String(error)
-        });
-        
         logger.error('Error loading song files', { 
             mp3FileName, 
             cdgFileName, 

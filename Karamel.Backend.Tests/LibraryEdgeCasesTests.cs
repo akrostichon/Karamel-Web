@@ -46,7 +46,11 @@ namespace Karamel.Backend.Tests
         [Fact]
         public async Task Post_Library_TooLarge_IsRejected()
         {
-            var client = _factory.CreateDefaultClient();
+            var client = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseSetting("Karamel:MaxSongsPerUpload", "2");
+            }).CreateDefaultClient();
+
             var createReq = new { RequireSingerName = true, PauseBetweenSongsSeconds = 5, AllowSingersToReorder = false };
             var resp = await client.PostAsJsonAsync("/api/sessions", createReq);
             resp.EnsureSuccessStatusCode();
@@ -55,8 +59,7 @@ namespace Karamel.Backend.Tests
             var token = created.linkToken;
             client.DefaultRequestHeaders.Add("X-Link-Token", token);
 
-            // Create >5000 items
-            var songs = Enumerable.Range(1, 6000).Select(i => new { artist = $"A{i}", title = $"T{i}" }).ToArray();
+            var songs = Enumerable.Range(1, 3).Select(i => new { artist = $"A{i}", title = $"T{i}" }).ToArray();
             var uploadResp = await client.PostAsJsonAsync($"/api/sessions/{sessionId}/library/bulk", songs);
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, uploadResp.StatusCode);
         }

@@ -48,8 +48,10 @@ namespace Karamel.Backend.Data
                 b.HasKey(s => s.Id);
                 b.Property(s => s.Artist).IsRequired().HasMaxLength(512);
                 b.Property(s => s.Title).IsRequired().HasMaxLength(512);
+                b.Property(s => s.SearchKey).HasMaxLength(1100);
                 b.HasIndex(s => new { s.SessionId, s.AddedAt });
                 b.HasIndex(s => new { s.SessionId, s.Artist, s.Title });
+                b.HasIndex(s => new { s.SessionId, s.SearchKey });
             });
         }
     }

@@ -60,7 +60,7 @@ git commit -m "Describe the outcome, not the task"
 
 | ✅ Good | ❌ Bad |
 |---|---|
-| `Add Azure deployment pipeline` | `Implement Phase 3` |
+| `Add Render deployment pipeline` | `Implement Phase 3` |
 | `Fix session cleanup after TTL expiry` | `Implement task 2.1` |
 | `Show error when session validation fails` | `WIP` |
 

@@ -4,7 +4,9 @@
 
 Karamel is a modern browser-based karaoke system built for real nights out. Your music files stay on your machine — Karamel just makes them sing. Singers join from their phones, pick their songs, and you run the show from any screen in the room.
 
-👉 **[Try the live demo](https://polite-grass-037bbc503.2.azurestaticapps.net/)**
+👉 **[Try the live demo](https://karamel.karaoke-stage.workers.dev/)**
+
+Hosted on a free tier — the first start after a pause can take up to a minute.
 
 ---
 
@@ -15,7 +17,7 @@ Karamel is a modern browser-based karaoke system built for real nights out. Your
 
 ## Why Karamel?
 
-- 🎵 **Zero upload. Zero cloud. Zero drama.** Your MP3s and CDG files never leave your device — Karamel reads them directly from your folder.
+- 🎵 **No music uploads. No drama.** Your MP3s and CDG files never leave your device; only song metadata is sent to the session server.
 - 📱 **Singers use their phones.** Share a QR code and anyone in the room can browse your library and add songs to the Playlist — no app install needed.
 - 🖥️ **Run the show from anywhere.** Pause, skip, and reorder the queue from your laptop, tablet, or front-of-house screen.
 - ⚡ **Configure once - enjoy then.** Playlist auto advances and proclaims who is the next singer. You may adjust the playlist, but if you don't want to, it runs on its own.
@@ -49,11 +51,41 @@ Karamel is a modern browser-based karaoke system built for real nights out. Your
 
 > ⚠️ **Chrome or Edge required** — Karamel uses the File System Access API, which is not supported in Firefox or Safari.
 
-1. Open **[Karamel](https://polite-grass-037bbc503.2.azurestaticapps.net/)** in Chrome or Edge.
+1. Open **[Karamel](https://karamel.karaoke-stage.workers.dev/)** in Chrome or Edge.
 2. Click **Select Folder** and choose your local karaoke song directory.
 3. Share the generated **Singer link** (or QR code) with your crowd — they're ready to pick songs.
 
 📖 **[Read the full User Manual](MANUAL.md)** for everything from session sharing to CSV exports.
+
+---
+
+## Backend configuration (environment variables)
+
+The backend reads configuration from environment variables using double underscores for nested keys.
+
+| Environment variable | Description | Default |
+|---|---|---|
+| `Karamel__TokenSecret` | Token-signing secret; required outside Development/Testing and must be at least 32 characters. | Development/Testing fallback only |
+| `Cors__AllowedOrigins__0..n` | Allowed frontend origins, one indexed value per origin. Required in Production; omit trailing slashes. | No origins |
+| `ConnectionStrings__DefaultConnection` | SQLite connection string. | `Data Source=karamel.db` |
+| `Karamel__MaxActiveSessions` | Maximum active sessions. | `100` |
+| `Karamel__MaxSongsPerUpload` | Maximum songs accepted in one library upload. | `20000` |
+| `Karamel__MaxSongsPerSession` | Maximum songs stored per session library. | `25000` |
+| `RateLimiting__Enabled` | Enables the per-IP and global rate limits. Defaults to enabled except in Testing. | `true` |
+| `RateLimiting__SessionCreatePerMinute` | Session creation requests allowed per client IP per minute. | `10` |
+| `RateLimiting__BulkUploadPerMinute` | Bulk library uploads allowed per client IP per minute. | `6` |
+| `RateLimiting__GlobalPerMinute` | Requests allowed per client IP per minute across the API. | `1200` |
+
+---
+
+## Deployment
+
+- **Frontend:** Cloudflare Workers Static Assets, configured by `wrangler.jsonc`. GitHub Actions runs tests and deploys after they pass on pushes to `main`. The hosting migration feature branch also deploys after passing tests while the migration is being verified.
+- **Backend:** A single-instance Docker web service on Render Free in Frankfurt, defined by `render.yaml`. Do not scale it to multiple instances; session coordination and SignalR groups are held in memory.
+- **GitHub Actions secrets:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- **Required Render environment variables:** `Karamel__TokenSecret` (a private value of at least 32 characters) and `Cors__AllowedOrigins__0` (the exact frontend origin, without a trailing slash).
+- **Cold starts:** Render Free may spin the backend down after about 15 minutes of inactivity. Waking it can take around a minute; the app displays a startup banner while the backend responds.
+- **Persistence:** The backend uses SQLite in `/tmp` and recreates its schema on startup. Database data is not persisted across restarts by design; karaoke sessions are temporary and expire after inactivity.
 
 ---
 

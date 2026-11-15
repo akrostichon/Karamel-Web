@@ -8,7 +8,9 @@ import {
     generateSessionUrl,
     getSessionIdFromUrl,
     checkMainTabAlive,
-    setupStateUpdateListener
+    setupStateUpdateListener,
+    RECONNECT_GIVE_UP_MS,
+    computeReconnectDelay
 } from './signalRBridge.js';
 
 // Test session ID
@@ -198,6 +200,150 @@ describe('signalRBridge', () => {
         it('should throw error if BroadcastChannel not supported', () => {
             global.BroadcastChannel = undefined;
             expect(() => initializeSession(true)).toThrow('Broadcast Channel API is not supported');
+        });
+    });
+
+    describe('reconnect handling', () => {
+        it('should compute increasing reconnect delays capped at about 10.5s and null after the give-up window', () => {
+            const firstDelay = computeReconnectDelay({ elapsedMilliseconds: 0, previousRetryCount: 0 });
+            const secondDelay = computeReconnectDelay({ elapsedMilliseconds: 1000, previousRetryCount: 1 });
+            const fifthDelay = computeReconnectDelay({ elapsedMilliseconds: 30000, previousRetryCount: 4 });
+            const giveUpDelay = computeReconnectDelay({ elapsedMilliseconds: RECONNECT_GIVE_UP_MS, previousRetryCount: 12 });
+
+            expect(firstDelay).toBeGreaterThanOrEqual(1000);
+            expect(firstDelay).toBeLessThanOrEqual(1500);
+            expect(secondDelay).toBeGreaterThanOrEqual(2000);
+            expect(secondDelay).toBeLessThanOrEqual(2500);
+            expect(fifthDelay).toBeGreaterThanOrEqual(10000);
+            expect(fifthDelay).toBeLessThanOrEqual(10500);
+            expect(giveUpDelay).toBeNull();
+        });
+
+        it('should rejoin the session after a reconnect event', async () => {
+            const mockConnection = {
+                handlers: {},
+                on: vi.fn((eventName, handler) => {
+                    mockConnection.handlers[eventName] = handler;
+                }),
+                onreconnected: vi.fn((handler) => {
+                    mockConnection.reconnectedHandler = handler;
+                }),
+                onclose: vi.fn((handler) => {
+                    mockConnection.closeHandler = handler;
+                }),
+                start: vi.fn().mockResolvedValue(undefined),
+                invoke: vi.fn().mockResolvedValue(undefined),
+                stop: vi.fn().mockResolvedValue(undefined),
+                state: 'Disconnected'
+            };
+
+            global.signalR = {
+                HubConnectionBuilder: class {
+                    withUrl() { return this; }
+                    withAutomaticReconnect(options) { this.options = options; return this; }
+                    withServerTimeout() { return this; }
+                    withKeepAliveInterval() { return this; }
+                    build() { return mockConnection; }
+                },
+                HubConnectionState: {
+                    Connected: 2,
+                    Disconnected: 0
+                }
+            };
+
+            initializeSession(TEST_SESSION_ID, true, 'test-token', 'http://backend:5000');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            await mockConnection.reconnectedHandler();
+
+            expect(mockConnection.invoke).toHaveBeenCalledWith('JoinSession', TEST_SESSION_ID);
+        });
+
+        it('should start the manual reconnect loop on close and rejoin once start succeeds', async () => {
+            const mockConnection = {
+                handlers: {},
+                on: vi.fn((eventName, handler) => {
+                    mockConnection.handlers[eventName] = handler;
+                }),
+                onreconnected: vi.fn((handler) => {
+                    mockConnection.reconnectedHandler = handler;
+                }),
+                onclose: vi.fn((handler) => {
+                    mockConnection.closeHandler = handler;
+                }),
+                start: vi.fn().mockResolvedValue(undefined),
+                invoke: vi.fn().mockResolvedValue(undefined),
+                stop: vi.fn().mockResolvedValue(undefined),
+                state: 'Disconnected'
+            };
+
+            global.signalR = {
+                HubConnectionBuilder: class {
+                    withUrl() { return this; }
+                    withAutomaticReconnect() { return this; }
+                    withServerTimeout() { return this; }
+                    withKeepAliveInterval() { return this; }
+                    build() { return mockConnection; }
+                },
+                HubConnectionState: {
+                    Connected: 2,
+                    Disconnected: 0
+                }
+            };
+
+            initializeSession(TEST_SESSION_ID, true, 'test-token', 'http://backend:5000');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            await mockConnection.closeHandler();
+
+            expect(mockConnection.start).toHaveBeenCalled();
+            expect(mockConnection.invoke).toHaveBeenCalledWith('JoinSession', TEST_SESSION_ID);
+        });
+
+        it('should reconnect immediately when the page becomes visible while disconnected', async () => {
+            const mockConnection = {
+                handlers: {},
+                on: vi.fn((eventName, handler) => {
+                    mockConnection.handlers[eventName] = handler;
+                }),
+                onreconnected: vi.fn((handler) => {
+                    mockConnection.reconnectedHandler = handler;
+                }),
+                onclose: vi.fn((handler) => {
+                    mockConnection.closeHandler = handler;
+                }),
+                start: vi.fn().mockResolvedValue(undefined),
+                invoke: vi.fn().mockResolvedValue(undefined),
+                stop: vi.fn().mockResolvedValue(undefined),
+                state: 'Disconnected'
+            };
+
+            global.signalR = {
+                HubConnectionBuilder: class {
+                    withUrl() { return this; }
+                    withAutomaticReconnect() { return this; }
+                    withServerTimeout() { return this; }
+                    withKeepAliveInterval() { return this; }
+                    build() { return mockConnection; }
+                },
+                HubConnectionState: {
+                    Connected: 2,
+                    Disconnected: 0
+                }
+            };
+
+            Object.defineProperty(document, 'visibilityState', {
+                value: 'visible',
+                configurable: true
+            });
+
+            initializeSession(TEST_SESSION_ID, true, 'test-token', 'http://backend:5000');
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            document.dispatchEvent(new Event('visibilitychange'));
+            await Promise.resolve();
+
+            expect(mockConnection.start).toHaveBeenCalled();
         });
     });
 

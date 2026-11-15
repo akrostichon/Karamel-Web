@@ -8,21 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The custom IP masking initializer uses the classic ITelemetryInitializer API removed in 3.x. -->
-    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.14" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.14" />
-    <!-- Explicit overrides to address known CVE warnings from transitive packages. Versions chosen to match transitive requirements. -->
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <!-- Explicit override to address a known CVE warning from a transitive package. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
-    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
-    <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" />
   </ItemGroup>
 
 </Project>

@@ -187,10 +187,9 @@ if (!hasUpNext && firstQueued != null)
    - Consider adding frontend console logging for debugging
    - Benefit: Easier troubleshooting of state sync issues
 
-4. **Application Insights Telemetry**:
-   - Track status transitions as custom events
-   - Monitor auto-promotion frequency
-   - Benefit: Production monitoring and performance insights
+4. **Application Insights Telemetry (historical)**:
+   - This earlier recommendation was retired during the hosting migration; browser telemetry is no longer used.
+   - Use backend structured logs and browser console logging for troubleshooting.
 Key Architectural Details
 
 ### Auto-Promotion Logic
