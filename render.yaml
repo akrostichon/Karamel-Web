@@ -21,7 +21,7 @@ services:
       - key: Karamel__TokenSecret
         sync: false
       - key: Cors__AllowedOrigins__0
-        value: https://REPLACE-WITH-CLOUDFLARE-URL
+        value: https://karamel.dominikdamerow.workers.dev
       - key: Cors__AllowedOrigins__1
         value: http://localhost:5245
       - key: Cors__AllowedOrigins__2
