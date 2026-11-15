@@ -76,6 +76,17 @@ The backend reads configuration from environment variables using double undersco
 
 ---
 
+## Deployment
+
+- **Frontend:** Cloudflare Workers Static Assets, configured by `wrangler.jsonc`. GitHub Actions runs tests and deploys after they pass on pushes to `main`. The hosting migration feature branch also deploys after passing tests while the migration is being verified.
+- **Backend:** A single-instance Docker web service on Render Free in Frankfurt, defined by `render.yaml`. Do not scale it to multiple instances; session coordination and SignalR groups are held in memory.
+- **GitHub Actions secrets:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- **Required Render environment variables:** `Karamel__TokenSecret` (a private value of at least 32 characters) and `Cors__AllowedOrigins__0` (the exact frontend origin, without a trailing slash).
+- **Cold starts:** Render Free may spin the backend down after about 15 minutes of inactivity. Waking it can take around a minute; the app displays a startup banner while the backend responds.
+- **Persistence:** The backend uses SQLite in `/tmp` and recreates its schema on startup. Database data is not persisted across restarts by design; karaoke sessions are temporary and expire after inactivity.
+
+---
+
 ## Attributions
 
 This project uses the following third-party libraries. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for details and license information.
