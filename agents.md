@@ -38,9 +38,9 @@ This document provides a registry of all available custom agents for GitHub Copi
 - Must be on a feature branch (not main/develop/master)
 - Git repository with clean history (commits and uncommitted changes supported)
 
-## code-review
+## karamel-code-review
 
-**File**: [`.github/skills/code-review/SKILL.md`](.github/skills/code-review/SKILL.md)
+**File**: [`.github/skills/karamel-code-review/SKILL.md`](.github/skills/code-review/SKILL.md)
 
 **Purpose**: Provides the review methodology used by the Code Review Agent: priorities, quality standards, security checklist, testing standards, comment format, and the full review checklist.
 
@@ -92,34 +92,6 @@ See `.github/instructions/agent-skills.instructions.md` for authoring guidelines
 1. Implements each refactoring step
 2. Applies Karamel-Web-specific refactoring rules (test migration when splitting files, combining blocked steps)
 3. Validates using existing tests — no new tests required unless behavior is added
-
-## brainstorming
-
-**File**: [`.github/skills/brainstorming/SKILL.md`](.github/skills/brainstorming/SKILL.md)
-
-**Purpose**: Explores user intent, requirements and design before any creative work (features, components, functionality, or behavior changes).
-
-**Activated by**: Before starting feature development, component creation, or behavior modifications.
-
-**How it works**:
-1. Explores and clarifies user intent and requirements
-2. Validates assumptions and edge cases
-3. Designs solution before implementation begins
-4. Documents decisions and alternatives
-
-## systematic-debugging
-
-**File**: [`.github/skills/systematic-debugging/SKILL.md`](.github/skills/systematic-debugging/SKILL.md)
-
-**Purpose**: Systematically identifies root causes of bugs, test failures, and unexpected behavior before attempting fixes.
-
-**Activated by**: When encountering any technical issue (test failures, bugs, unexpected behavior, build failures).
-
-**How it works**:
-1. Investigates root cause first (never proposes fixes without root cause analysis)
-2. Documents symptoms and their causes
-3. Verifies the fix actually resolves the root cause
-4. Validates there are no side effects
 
 ## git-workflow
 
@@ -176,3 +148,17 @@ To add a new custom agent to the repository:
 - [Requirement 1]
 - [Requirement 2]
 ```
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in this repo's GitHub Issues; use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the canonical labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context domain docs layout. See `docs/agents/domain.md`.

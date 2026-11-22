@@ -5,7 +5,7 @@ description: "Karamel-Web-specific review checks for session isolation, file-pat
 
 # Karamel-Web Review Supplement
 
-Use these checks as the project-specific standards lens for a Karamel-Web diff. A review workflow such as Matt Pocock's `code-review` skill handles scope, spec compliance, and report structure; this skill supplies Karamel-Web invariants. Keep Standards and Spec findings separate, and treat the repository instructions linked below as authoritative.
+Use these checks as the project-specific standards lens for a Karamel-Web diff. The active review workflow defines diff scope, spec checks, severity, and report structure; this skill supplies Karamel-Web invariants. Treat the repository instructions linked below as authoritative.
 
 Review only changed lines for findings. Read surrounding code and the relevant project instructions for context. Apply only checks relevant to the change, and cite the source rule and changed hunk for each finding.
 

@@ -141,7 +141,7 @@ For each changed file identified in diffs:
 
 ### Step 5: Execute Code Review
 
-Apply comprehensive code review following [.github/skills/code-review/SKILL.md](.github/skills/code-review/SKILL.md).
+Apply the Karamel-Web-specific checks in [.github/skills/karamel-code-review/SKILL.md](.github/skills/karamel-code-review/SKILL.md). Use the repository instructions linked there as the authority for project invariants.
 
 **CRITICAL SCOPE**: Review **ONLY** the lines that were added, modified, or deleted in the diff (from Step 3). Full file contents from Step 4 are for understanding context (e.g., how a changed function is called, what class it belongs to), but do NOT flag issues in unchanged code.
 
