@@ -10,49 +10,66 @@ This document provides a registry of all available custom agents for GitHub Copi
 
 **Key Features**:
 - Automatic parent branch detection using commit distance algorithm
-- Safe handling of uncommitted changes (stash and restore)
 - Prioritized findings (CRITICAL → IMPORTANT → SUGGESTION)
-- Project-specific checks (security, testing, architecture)
+- Karamel-Web-specific checks through the project review supplement
 - Actionable feedback with code examples
-- Integration with code review standards
 
 **When to use**:
 - Before submitting pull requests for merge to main/develop
-- To validate code quality and security compliance
-- To ensure test coverage requirements are met
-- To check architectural patterns and consistency
+- To review committed branch changes against the detected base branch
 
 **How to invoke**:
 - Open the repository in VS Code
-- Switch to your feature branch
 - Use the Code Review Agent from the Copilot custom agents list
-- Agent will auto-detect your base branch and analyze all changes
+- The agent detects the base branch and reviews the branch diff
 
 **Expected output**:
 - Structured review report with categorized findings
 - File-by-file analysis with specific line references
 - Suggestions for fixes with code examples
-- Options to save report, fix issues, or view findings
+- Option to save the report
 
 **Prerequisites**:
 - Must be on a feature branch (not main/develop/master)
-- Git repository with clean history (commits and uncommitted changes supported)
+- All changes must be committed and pushed to the branch's upstream
 
-## karamel-code-review
+## Architecture Review for Plan
 
-**File**: [`.github/skills/karamel-code-review/SKILL.md`](.github/skills/code-review/SKILL.md)
+**File**: [`.github/agents/architecture-review-for-plan.agent.md`](.github/agents/architecture-review-for-plan.agent.md)
 
-**Purpose**: Provides the review methodology used by the Code Review Agent: priorities, quality standards, security checklist, testing standards, comment format, and the full review checklist.
+**Purpose**: Reviews an implementation plan's architecture, risks, and alternatives.
 
-**Activated by**: `code-review.agent.md` (loaded as part of Step 5 — Execute Code Review).
+**When to use**: Before implementing a plan that makes significant architectural decisions.
+
+**How to invoke**: Select Architecture Review for Plan from the Copilot custom agents list.
+
+## Karamel code-review supplement
+
+**File**: [`.github/skills/karamel-code-review/SKILL.md`](.github/skills/karamel-code-review/SKILL.md)
+
+**Purpose**: Supplies Karamel-Web-specific review invariants for session isolation, file-path privacy, serialization, playlist state, and hosting.
+
+**Used by**: The repository Code Review Agent, which references this supplement in Step 5.
 
 ---
 
-# Workflow Skills
+# Skills
 
-Skills are pluggable implementation strategies loaded by prompts on demand. They live in `.github/skills/<skill-name>/SKILL.md` and are activated automatically based on the user's request or `--workflow` parameter.
+Project skills live in `.github/skills/`. Their descriptions and the plan prompts define when each applies; implementation strategies can also be selected with `implement-plan --workflow=...`.
 
 See `.github/instructions/agent-skills.instructions.md` for authoring guidelines.
+
+## implement-plan
+
+**File**: [`.github/skills/implement-plan/SKILL.md`](.github/skills/implement-plan/SKILL.md)
+
+**Purpose**: Implements a plan using the default with-tests workflow or `--workflow=tdd`.
+
+## refactoring-plan
+
+**File**: [`.github/skills/refactoring-plan/SKILL.md`](.github/skills/refactoring-plan/SKILL.md)
+
+**Purpose**: Executes a refactoring plan using the refactoring workflow.
 
 ## tdd-workflow
 
@@ -60,7 +77,7 @@ See `.github/instructions/agent-skills.instructions.md` for authoring guidelines
 
 **Purpose**: Implements plan steps using Red → Green → Refactor TDD cycle.
 
-**Activated by**: `implement-plan` prompt (default workflow), or when user requests TDD or test-first development.
+**Activated by**: `implement-plan --workflow=tdd`, or when the user requests TDD or test-first development.
 
 **How it works**:
 1. Writes a lightweight Test Intent substep into the plan markdown
@@ -108,57 +125,24 @@ See `.github/instructions/agent-skills.instructions.md` for authoring guidelines
 4. Commits with a user-facing outcome-oriented message
 5. Holds push until explicitly requested by the user
 
+## logging-observability
+
+**File**: [`.github/skills/logging-observability/SKILL.md`](.github/skills/logging-observability/SKILL.md)
+
+**Purpose**: Applies backend logging conventions and guidance for inspecting Render logs.
+
 ---
 
-## Adding New Agents
-
-To add a new custom agent to the repository:
-
-1. Create a new `.agent.md` file in `.github/agents/` directory
-2. Follow guidelines in [`.github/instructions/agents.instructions.md`](.github/instructions/agents.instructions.md)
-3. Include proper YAML frontmatter with description, model, tools, and target
-4. Document the agent's purpose, capabilities, and usage in this file
-5. Add entry to the registry below with consistent formatting
-
-## Agent Registry Template
-
-```markdown
-### [Agent Name]
-
-**File**: `[path to agent file]`
-
-**Purpose**: [Single-sentence description of what the agent does]
-
-**Key Features**:
-- [Feature 1]
-- [Feature 2]
-- [Feature 3]
-
-**When to use**:
-- [Scenario 1]
-- [Scenario 2]
-
-**How to invoke**:
-[Instructions for using the agent]
-
-**Expected output**:
-[Description of typical agent output/recommendations]
-
-**Prerequisites**:
-- [Requirement 1]
-- [Requirement 2]
-```
-
-## Agent skills
+## Agent reference docs
 
 ### Issue tracker
 
-Issues are tracked in this repo's GitHub Issues; use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in this repo's GitHub Issues; use the `gh` CLI. See [issue-tracker.md](docs/agents/issue-tracker.md).
 
 ### Triage labels
 
-Use the canonical labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+Use the canonical labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See [triage-labels.md](docs/agents/triage-labels.md).
 
 ### Domain docs
 
-Use the single-context domain docs layout. See `docs/agents/domain.md`.
+Use the single-context domain docs layout. See [domain.md](docs/agents/domain.md).

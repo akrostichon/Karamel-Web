@@ -3,7 +3,7 @@ description: 'Reviews all committed and pushed branch changes against base (mast
 name: 'Code Review Agent'
 tools: ['read', 'search', 'execute']
 target: 'vscode'
-user-invokable: true
+user-invocable: true
 ---
 
 # Code Review Agent

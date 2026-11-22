@@ -1,11 +1,11 @@
 ---
 name: git-workflow
-description: Git workflow rules for Karamel-Web. Use when committing code, creating branches, preparing a commit message, checking whether to push, or when asked about branch strategy, git conventions, plan file handling, or how to start/finish a piece of work in git.
+description: Git workflow guidance for Karamel-Web. Use when committing code, creating branches, preparing for Matt Pocock's code-review, implement, or implement-spec workflows, checking whether to push, or when asked about branch strategy, plan-file handling, or Git conventions.
 ---
 
 # Git Workflow
 
-Enforces the Karamel-Web git workflow: branch protection, user-facing commit messages, local-first commits, and plan file exclusion.
+Guides the Karamel-Web Git workflow: work branches, user-facing commit messages, local-first commits, and plan-file exclusion. These instructions guide agent behavior; use VS Code prompts for convenience and GitHub rulesets for server-side enforcement.
 
 **Core principle:** Never commit to protected branches. Describe outcomes in commits, not internal tasks.
 
@@ -18,11 +18,13 @@ git branch
 - If on `main`, `develop`, or `master` → go to **Step 2**
 - If already on a `feature/…` branch → skip to **Step 3**
 
-## Step 2 — Create a Feature Branch
+## Step 2 — Create a Work Branch
 
 ```powershell
 git checkout -b feature/descriptive-name-of-goal
 ```
+
+For ordinary work, create a `feature/…` branch. When an explicitly invoked workflow requires another branch type, use its branch name instead; for example, Matt Pocock's `implement-spec` requires an integration branch.
 
 **Naming pattern:** `feature/<what-this-achieves>` — user-facing, goal-oriented.
 
@@ -32,7 +34,7 @@ git checkout -b feature/descriptive-name-of-goal
 | `feature/sanitize-library-upload` | `feature/task-2.1` |
 | `feature/fix-ttl-expiry-on-heartbeat` | `feature/implement-plan` |
 
-Do **not** create a new branch if already on a feature branch — stay on it.
+For ordinary work, keep using the current feature branch. If a higher-level workflow explicitly requires a dedicated branch, follow that requirement instead. In particular, Matt Pocock's `implement-spec` requires an integration branch; create or switch to that branch even when starting from another feature branch. Never use `main`, `develop`, or `master` as the work branch.
 
 ## Step 3 — Stage and Review Files
 
@@ -68,13 +70,14 @@ git commit -m "Describe the outcome, not the task"
 - Be specific enough that the message is meaningful in `git log`
 - No issue numbers required, but acceptable when directly relevant
 
-## Step 5 — Push Only When Requested
+## Step 5 — Review and Publish
 
-- **Do NOT push by default** — commit locally
-- Push only when the user explicitly asks, or when a CI/CD context requires it
+- Matt Pocock's `code-review` compares commits from a fixed point to `HEAD`; it does not include uncommitted changes. Commit the work locally before invoking that review. If the `implement` workflow calls for review before its final commit, commit the implementation first, review it, then commit any fixes separately.
+- Keep commits local by default. Push only when the user asks or an explicitly invoked workflow requires a remote action. For example, `implement-spec` calls for a draft PR when the issue-tracker workflow closes work through PRs; when that condition applies, push the integration branch as needed to create or update the PR.
+- A review agent that requires a pushed branch does not itself authorize a push. Ask the user unless a workflow or request already authorizes publishing.
 
 ```powershell
-# Only when explicitly requested:
+# Only when requested or required by the active workflow:
 git push -u origin feature/your-branch-name
 ```
 
@@ -82,20 +85,20 @@ git push -u origin feature/your-branch-name
 
 | Situation | Action |
 |---|---|
-| On `main`/`develop`/`master` | Create `feature/…` branch first |
-| Already on feature branch | Stay on it — no new branch |
+| On `main`/`develop`/`master` | Create the work branch required by the active workflow; use `feature/…` for ordinary work |
+| Already on a feature branch | Keep it for ordinary work; follow an explicitly required workflow branch (such as `implement-spec`'s integration branch) |
 | plan*.md accidentally staged | `git restore --staged plan*.md` |
-| Ready to commit | Commit locally — do NOT auto-push |
-| User asks to push | Push the current feature branch |
+| Ready to review with Matt's `code-review` | Commit locally first so the diff includes the work |
+| Ready to publish | Push only when requested or required by the active workflow |
 
 ## Red Flags
 
 **Never:**
 - Commit directly to `main`, `develop`, or `master`
 - Include `plan*.md` or `plan-*.md` in any commit
-- Auto-push without explicit user request
+- Push without an explicit user request or a remote action required by the active workflow
 - Use internal task names (`Phase 3`, `task 2.1`) in commit messages
-- Create a second feature branch when already on one
+- Replace a workflow-required integration branch with the current feature branch
 
 **Always:**
 - Check `git branch` before starting any commit work
@@ -116,9 +119,13 @@ git push -u origin feature/your-branch-name
 - **Problem:** `git log` becomes useless, unreadable to other contributors
 - **Fix:** Describe what the user gets, not what code was touched
 
-**Pushing without being asked**
-- **Problem:** Premature pushes in PR-based workflows disrupt review process
-- **Fix:** Always commit locally by default; only push when explicitly requested
+**Reviewing before committing**
+- **Problem:** Matt's `code-review` only sees commits up to `HEAD`, so uncommitted changes are absent from its diff.
+- **Fix:** Commit locally before review, then commit any review fixes separately.
+
+**Pushing without authorization**
+- **Problem:** Publishing a branch or PR can trigger external automation and expose work remotely.
+- **Fix:** Push only after an explicit user request or when the active workflow's stated condition requires publishing, such as `implement-spec` opening a required draft PR.
 
 ## Integration
 
@@ -128,3 +135,5 @@ git push -u origin feature/your-branch-name
 - `code-review` skill — for review before merging
 - `refactoring-workflow` skill — always operates on a feature branch
 - `tdd-workflow` / `with-tests-workflow` — commit after tests pass
+- Matt Pocock's `implement-spec` — its integration branch and conditional PR requirements take precedence over the ordinary feature-branch and no-push defaults
+- Matt Pocock's `implement` — commit locally before its `code-review` call so the review can see the implementation
