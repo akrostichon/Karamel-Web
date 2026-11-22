@@ -44,7 +44,7 @@ Execute in order:
 
 ## Acceptance Criteria
 
-- [ ] All planned tests exist and pass (or are explicitly justified as skipped)
+- [ ] All planned tests exist and pass with no skipped tests
 - [ ] Target step(s) marked completed in the markdown
 - [ ] Local commit uses a descriptive, user-facing message
 

@@ -26,18 +26,14 @@ dotnet build
 **C# Frontend Tests** (xUnit + bUnit):
 ```powershell
 dotnet test Karamel.Web.Tests
-# Runs >=260 tests in Karamel.Web.Tests (9 skipped by design)
+# Runs the complete Karamel.Web.Tests suite
 # Test time: ~8-10 seconds
-# Known skipped tests:
-#   - 5 in PlaylistPageTests (async JSInterop mocking limitations)
-#   - 3 in NextSongViewIntegrationTests (async JSInterop mocking limitations)
-#   - 1 in PlayerViewTests (session validation changes)
 ```
 
 **C# Backend Tests** (xUnit + Integration Tests):
 ```powershell
 dotnet test Karamel.Backend.Tests -v minimal
-# Full suite: ~95-100 seconds (117 tests; 112 passed, 5 skipped in the latest run)
+# Full suite: ~95-100 seconds
 # Command: dotnet test .\Karamel.Backend.Tests\ -v minimal
 ```
 
@@ -51,7 +47,7 @@ npm run test:run    # Single run (NOT: npm test:run)
 Afterwards navigate back to solution root with `cd ..\..`
 ```
 
-**CRITICAL**: Always run both test suites before committing. C# tests must pass with maximum 3 allowed skips; JavaScript tests should have zero failures.
+**CRITICAL**: Always run both test suites before committing. C# and JavaScript tests must pass with no skipped tests.
 **CRITICAL**: While you are trying to fix tests and you modify a single test file, only run this test to verify the changes. Only if this passes run the whole test suite. Executing all tests can take a very long time.
 
 ### Run Application
@@ -97,7 +93,7 @@ git push origin feature/your-feature-name
 
 ### After Making Changes
 1. Run `dotnet build` and resolve any errors
-2. Run `dotnet test Karamel.Web.Tests` and ensure at least 251 tests pass (9 skipped is expected)
+2. Run `dotnet test Karamel.Web.Tests` and ensure the full suite passes with no skipped tests
 3. For JavaScript changes: `cd Karamel.Web\wwwroot; npm run test:run`
 4. **For backend changes**: Run the relevant backend tests, using `--filter "FullyQualifiedName~<TestClassOrMethod>"` to target a class or test. The full suite takes about 95-100 seconds.
 5. Test the running application manually if UI changes were made
@@ -492,9 +488,6 @@ describe('moduleName', () => {
 
 ## Known Issues & Workarounds
 
-### Test Failures
-- **C# tests**: 9 skipped tests (PlaylistPageTests x5, NextSongViewIntegrationTests x3, PlayerViewTests x1) due to bUnit async JSInterop limitations - this is intentional
-
 ### Browser Compatibility
 - **File System Access API** requires Chrome/Edge (not supported in Firefox/Safari)
 - Localhost detection: `host == "localhost" || host == "127.0.0.1" || host == "::1"`
@@ -565,7 +558,7 @@ describe('moduleName', () => {
 
 ## Final Reminders
 1. **NEVER commit to `main`** - always use feature branches
-2. **Run tests before committing** - `dotnet test` must show 251+ passing (9 skipped is expected)
+2. **Run tests before committing** - all C# and JavaScript tests must pass with no skipped tests
 3. **Session parameter is mandatory** on all pages except Home.razor
 4. **Multi-session support**: Each session is isolated by GUID in URLs, channels, and storage
 5. **Song field additions require 5 layers**: `SongDto` record, `ConvertDtoToSong`, `ConvertSongToDto`, `ConvertJsonToSong` (root fallback), `signalRBridge.js` mappings, and both `PlaylistItemDto` constructors in `PlaylistEffects.cs`

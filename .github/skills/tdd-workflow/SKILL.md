@@ -57,7 +57,7 @@ Run only the tests relevant to the changes made. Do not run the full suite unles
 | JavaScript | `cd Karamel.Web/wwwroot && npm run test:run` (then `cd ../..`) |
 | C# backend | Run relevant tests with `dotnet test Karamel.Backend.Tests -v minimal --filter "FullyQualifiedName~<TestClassOrMethod>"`; the full suite takes about 95-100 seconds |
 
-Fix all failures before proceeding. A skipped test is acceptable only when explicitly justified.
+Fix all failures and remove any skip marker before proceeding.
 
 ## Testing Conventions
 

@@ -118,7 +118,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Assert.Contains("qrcode-large", qrContainer.ClassName);
     }
 
-    [Fact(Skip = "Complex SignalR broadcast simulation: MockSessionService doesn't trigger UpdatePlaylistFromBroadcastAction after NextSongAction. Core functionality tested in unit tests and TwoTabBroadcastSimulationTests.")]
+    [Fact]
     public async Task Component_UpdatesDisplay_WhenPlaylistStateChanges()
     {
         // Arrange - initialize session with test session ID
@@ -204,7 +204,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Assert.Equal(song2.Id.ToString(), queueList[0].SongId);
     }
 
-    [Fact(Skip = "Complex SignalR broadcast simulation: MockSessionService doesn't trigger UpdatePlaylistFromBroadcastAction after NextSongAction. Core functionality tested in unit tests and TwoTabBroadcastSimulationTests.")]
+    [Fact]
     public async Task Component_UpdatesDisplay_WhenQueueBecomesEmpty()
     {
         // Arrange - initialize session with test session ID and add song
@@ -265,7 +265,7 @@ public class NextSongViewIntegrationTests : IntegrationTestBase
         Assert.Contains("Sing a song", cut.Markup);
     }
 
-    [Fact(Skip = "Complex SignalR broadcast simulation: MockSessionService doesn't trigger UpdatePlaylistFromBroadcastAction after NextSongAction. Core functionality tested in unit tests and TwoTabBroadcastSimulationTests.")]
+    [Fact]
     public async Task Component_ReactsTo_MultipleQueueChanges()
     {
         // Arrange - initialize session with test session ID

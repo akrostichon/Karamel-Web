@@ -8,11 +8,11 @@
     "test:run": "vitest run"
   },
   "devDependencies": {
-    "@vitest/ui": "^5.0.5",
+    "@vitest/ui": "^5.1.1",
     "happy-dom": "^21.0.4",
     "jsmediatags": "^3.9.7",
     "jszip": "^3.10.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.1"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.11",

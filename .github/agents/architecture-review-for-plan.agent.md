@@ -2,9 +2,8 @@
 description: 'Performs an architecture review of a software implementation plan, identifying strengths, risks, and alternative approaches.'
 name: 'Architecture Review for Plan'
 tools: ['read', 'search', 'execute']
-model: 'Claude Sonnet 4.5'
 target: 'vscode'
-user-invokable: true
+user-invocable: true
 ---
 
 # Plan Architecture Review Agent

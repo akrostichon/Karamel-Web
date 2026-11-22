@@ -475,32 +475,24 @@ public class PlayerViewTests : SessionTestBase
         Assert.NotNull(playPauseButton);
     }
 
-    [Fact(Skip = "Control buttons not rendering properly with session validation changes")]
+    [Fact]
     public async Task Component_NextButton_NavigatesToNextSongView()
     // Was: Component_StopButton_NavigatesToNextSongView
     {
         // Arrange
         var sessionState = new SessionState { CurrentSession = _testSession, IsInitialized = true };
         var playlistState = new PlaylistState { CurrentSong = TestDataFactory.CreatePlaylistItem(_testSong) };
-        SetupTestWithSession(sessionState, playlistState, view: "player");
+        var (_, _, fakeNavManager) = SetupTestWithSession(sessionState, playlistState, view: "player");
         
         var mockPlayer = new Mock<IJSObjectReference>();
         SetupJSRuntimeWithPlayerModule(mockPlayer.Object);
-        
-        var fakeNavManager = new FakeNavigationManager();
-        Services.AddSingleton<NavigationManager>(fakeNavManager);
 
         // Act
         var cut = Render<PlayerView>();
         
         // Show controls first
-        await cut.InvokeAsync(() =>
-        {
-            cut.Instance.GetType().GetMethod("ShowControls", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                ?.Invoke(cut.Instance, null);
-        });
-        cut.Render();
+        var controlsOverlay = cut.Find(".controls-overlay");
+        await controlsOverlay.TriggerEventAsync("onmouseenter", new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
 
         var nextButton = cut.FindAll(".controls .btn-control")[2]; // Third button is Next
         await nextButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
@@ -510,7 +502,7 @@ public class PlayerViewTests : SessionTestBase
         Assert.Contains(_testSession.SessionId.ToString(), fakeNavManager.Uri);
     }
 
-    [Fact(Skip = "JSInterop mocking limitations")]
+    [Fact]
     public async Task Component_PreviousButton_RestartsCurrentSong()
     {
         // Arrange
