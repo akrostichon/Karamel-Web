@@ -57,8 +57,6 @@ This document provides a registry of all available custom agents for GitHub Copi
 
 Project skills live in `.github/skills/`. Their descriptions and the plan prompts define when each applies; implementation strategies can also be selected with `implement-plan --workflow=...`.
 
-See `.github/instructions/agent-skills.instructions.md` for authoring guidelines.
-
 ## implement-plan
 
 **File**: [`.github/skills/implement-plan/SKILL.md`](.github/skills/implement-plan/SKILL.md)

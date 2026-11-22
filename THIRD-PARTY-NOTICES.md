@@ -77,7 +77,7 @@ This file lists third-party libraries used by Karamel-Web, their licenses, and r
   - Version: adapted from github/awesome-copilot repository
   - License: MIT
   - Source: https://github.com/github/awesome-copilot
-  - Notes: Several instruction files in `.github/instructions/` directory were adapted from the Awesome GitHub Copilot community collection (code-review-generic.instructions.md, agents.instructions.md, agent-skills.instructions.md, instructions.instructions.md). These are development-time configuration files for GitHub Copilot customization.
+  - Notes: Several instruction files in `.github/instructions/` directory were adapted from the Awesome GitHub Copilot community collection (code-review-generic.instructions.md and instructions.instructions.md). These are development-time configuration files for GitHub Copilot customization.
 
 - Superpowers Skills Framework
   - Version: brainstorming and systematic-debugging skills (with local modifications)
