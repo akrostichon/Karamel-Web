@@ -200,7 +200,7 @@ namespace Karamel.Backend.Hubs
         /// </summary>
         public async Task RemoveItemAsync(Guid sessionId, Guid itemId)
         {
-            ValidateToken(sessionId); // any role OK
+            await RequireReorderPermissionAsync(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -267,7 +267,7 @@ namespace Karamel.Backend.Hubs
         /// </summary>
         public async Task ReorderAsync(Guid sessionId, int from, int to)
         {
-            ValidateToken(sessionId);
+            await RequireReorderPermissionAsync(sessionId);
             var sem = GetSessionLock(sessionId);
             await sem.WaitAsync();
             try
@@ -982,6 +982,26 @@ namespace Karamel.Backend.Hubs
             var role = ValidateToken(sessionId);
             if (role != "admin")
                 throw new HubException("This operation requires admin permissions");
+        }
+
+        private async Task RequireReorderPermissionAsync(Guid sessionId)
+        {
+            var role = ValidateToken(sessionId);
+            if (role == "admin")
+            {
+                return;
+            }
+
+            var session = await _sessionRepo.GetByIdAsync(sessionId);
+            if (session is null)
+            {
+                throw new HubException("Session not found");
+            }
+
+            if (!session.Config.AllowSingersToReorder)
+            {
+                throw new HubException("This operation requires admin permissions or AllowSingersToReorder");
+            }
         }
 
         /// <summary>

@@ -6,6 +6,8 @@ using Karamel.Web.Pages;
 using Karamel.Web.Store.Playlist;
 using Karamel.Web.Store.Session;
 using Moq;
+using Microsoft.JSInterop;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Karamel.Web.Tests;
 
@@ -195,7 +197,7 @@ public class PlaylistPageTests : SessionTestBase
             a => a.SongId == firstItemId)), Times.Once);
     }
 
-    [Fact(Skip = "bUnit limitation: async @onclick handlers with JSRuntime.InvokeAsync (confirm dialog) don't complete in tests. The ClearPlaylistAction → PlaylistEffects.HandleClearPlaylistAction → SessionService.ClearQueueAsync flow is verified via backend integration tests.")]
+    [Fact]
     public async Task ClearPlaylistButton_WhenClickedAndConfirmed_DispatchesClearPlaylistAction()
     {
         // Arrange
@@ -208,10 +210,13 @@ public class PlaylistPageTests : SessionTestBase
         };
         var (_, mockDispatcher, _) = SetupTestWithSession(sessionState, playlistState, view: "playlist");
 
-        // Mock window.confirm to return true
-        JSInterop.Mode = JSRuntimeMode.Loose;
-        var confirmHandler = JSInterop.Setup<bool>("confirm", "Are you sure you want to clear all queued songs? The currently playing song will not be affected.");
-        confirmHandler.SetResult(true);
+        var mockJSRuntime = Mock.Get(Services.GetRequiredService<IJSRuntime>());
+        mockJSRuntime
+            .Setup(js => js.InvokeAsync<bool>(
+                "confirm",
+                It.Is<object[]>(args => args.Length == 1 &&
+                    args[0] is string)))
+            .ReturnsAsync(true);
 
         var cut = Render<Playlist>();
 
@@ -231,7 +236,7 @@ public class PlaylistPageTests : SessionTestBase
         mockDispatcher.Verify(d => d.Dispatch(It.IsAny<ClearPlaylistAction>()), Times.Once);
     }
 
-    [Fact(Skip = "bUnit limitation: async @onclick handlers with JSRuntime.InvokeAsync (confirm dialog) don't complete in tests. The ClearPlaylistAction → PlaylistEffects.HandleClearPlaylistAction → SessionService.ClearQueueAsync flow is verified via backend integration tests.")]
+    [Fact]
     public async Task ClearPlaylistButton_WhenClickedAndCancelled_DoesNotDispatchAction()
     {
         // Arrange
@@ -321,7 +326,7 @@ public class PlaylistPageTests : SessionTestBase
     }
 
     // NEW: Role-based drag & drop tests
-    [Fact(Skip = "bUnit limitation: SupplyParameterFromQuery parameters don't auto-populate from NavigationManager URL. SessionParam is empty, causing sessionStorage key mismatch. These scenarios are covered by manual testing and backend integration tests (PlaylistHubTests verify role-based permission enforcement).")]
+    [Fact]
     public void Playlist_WithAdminToken_EnablesDragDrop()
     {
         // Arrange: Mock admin role in sessionStorage
@@ -333,12 +338,7 @@ public class PlaylistPageTests : SessionTestBase
             CurrentSession = session,
             IsInitialized = true 
         };
-        SetupTestWithSession(sessionState, playlistState, view: "playlist");
-        
-        // Mock sessionStorage to return "admin" role
-        JSInterop.Mode = JSRuntimeMode.Loose;
-        var roleHandler = JSInterop.Setup<string?>("sessionStorage.getItem", $"karamel-session-{session.SessionId}-role");
-        roleHandler.SetResult("admin");
+        SetupTestWithSession(sessionState, playlistState, view: "playlist", adminRole: "admin");
 
         // Act
         var cut = Render<Playlist>();
@@ -353,7 +353,7 @@ public class PlaylistPageTests : SessionTestBase
         }
     }
 
-    [Fact(Skip = "bUnit limitation: SupplyParameterFromQuery parameters don't auto-populate from NavigationManager URL. Backend permission enforcement tested in PlaylistHubTests.")]
+    [Fact]
     public void Playlist_WithSingerToken_AndAllowSingersToReorderFalse_DisablesDragDrop()
     {
         // Arrange: Mock singer role and AllowSingersToReorder=false
@@ -385,7 +385,7 @@ public class PlaylistPageTests : SessionTestBase
         }
     }
 
-    [Fact(Skip = "bUnit limitation: SupplyParameterFromQuery parameters don't auto-populate from NavigationManager URL. Backend permission enforcement tested in PlaylistHubTests.")]
+    [Fact]
     public void Playlist_WithSingerToken_AndAllowSingersToReorderTrue_EnablesDragDrop()
     {
         // Arrange: Mock singer role and AllowSingersToReorder=true
